@@ -13,7 +13,8 @@ regression test that turns green when fixed.
 - **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 32 found, 22 fixed & verified, 10 open.** The executor is robust
+**Status (at handoff time): 32 found, 22 fixed & verified, 10 open** — *all 10
+now resolved; see the banner above.* The executor is robust
 (60k-query fuzzer + feature sweeps clean); **every open bug is in the
 parser/lexer.** Two (F29, F30) are *silent data corruption* — fix those first.
 

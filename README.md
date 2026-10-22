@@ -59,12 +59,12 @@ without it they skip (authored suites still run).
 
 ## Findings
 
-**18 confirmed engine bugs (F1–F18)** surfaced so far — including a critical
-durability bug (F15: committed data lost on crash) and a critical correctness
-bug (F7: broken three-valued logic). Full detail, severities, and repros in
-[`findings/FINDINGS.md`](findings/FINDINGS.md); run `dart run bin/scorecard.dart`
-for the live pass/skip/fail tally by dimension. Each confirmed bug is a test
-marked `skip:` with a `KNOWN ENGINE BUG` reason, so the suite stays green and
-actionable — un-skip to verify a fix.
+**32 engine bugs found — all 32 fixed & verified (0 open).** Highlights included a
+critical durability bug (F15: committed data lost on crash), a critical
+three-valued-logic bug (F7), and a cluster of parser/lexer gaps incl. silent
+literal corruption (F29 `1e3`→`1`, F30 `0x1F`→`0`). The full suite now runs live
+with **nothing skipped** (433 pass / 0 fail). Full detail, severities, and repros
+in [`findings/FINDINGS.md`](findings/FINDINGS.md); run `dart run bin/scorecard.dart`
+for the live tally. Each bug has a regression test that fails if it regresses.
 
 > This project never modifies the engine. It only observes and reports.
