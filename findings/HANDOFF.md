@@ -1,34 +1,49 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **4 open bugs (F40–F43)**,
-found by a math-coercion / CAST / PRAGMA sweep. Each has a minimal repro and a
-skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **6 open bugs (F40–F45)**,
+found by a math-coercion / CAST / PRAGMA / aggregate / ATTACH sweep. Each has a
+minimal repro and a skipped regression test that turns green when fixed.
 
 - **Verify one:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`.
 - **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 43 found, 39 fixed & verified, 4 open.** The executor stays robust;
-the open bugs are in *coercion / CAST / introspection*.
+**Status: 45 found, 39 fixed & verified, 6 open.** The executor stays robust
+(deep nesting / large inputs / 10k-deep recursion all clean); the open bugs are
+in *coercion / CAST / introspection / aggregates / multi-database*.
 
-## Current open batch (F40–F43)
+## Current open batch (F40–F45)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
 | **F40** | unary minus on text crashes | 🟠 internal exception | `SELECT -'5'` → `"String is not a subtype of num"` (should be `-5`) |
 | **F41** | `CAST(blob AS TEXT)` → bytes | 🟠 wrong value | `CAST(x'4869' AS TEXT)` → `[72,105]` (should be `'Hi'`) |
 | **F43** | PRAGMA introspection | 🟠 ORM-compat | `table_info` `notnull=1` for PK (should be 0); unquoted defaults; `index_list` wrong shape |
+| **F44** | `SUM(<bool>)` throws | 🟠 common idiom | `SUM(v > 100)` → `"SUM requires numeric, got bool"` (should coerce bool→1/0) |
 | **F42** | `CAST(num AS BLOB)` throws | 🟡 one-sided error | `CAST(3.14 AS BLOB)` → `Cannot coerce` (should yield a blob) |
+| **F45** | ATTACH non-functional | 🟡 feature unusable | `ATTACH … AS aux` OK but `aux.t` fails to parse/resolve → attached dbs unusable |
 
 > **Fix order:** F40 first (internal crash — the coercion path that binary ops
 > and `abs()` already have is missing for **unary minus**; grep for the operator
-> eval and route text through the same coercion). Then F41/F43 (wrong values /
-> ORM-visible introspection), then F42.
+> eval and route text through the same coercion). Then F44 (same coercion gap in
+> the `SUM` accumulator — accept bool as 1/0). Then F41/F43 (wrong values /
+> ORM-visible introspection), then F42, then F45 (parser + resolver work).
 
 **F43 detail** — match SQLite's `PRAGMA` output: `table_info(t)` should report
 `notnull=0` for an `INTEGER PRIMARY KEY` (rowid alias), quote default-value
 literals (`'x'` not `x`), and `index_list(t)` should use SQLite's 5-column shape
 (`seq,name,unique,origin,partial`) and omit the implicit PK index.
+
+**F44 detail** — `SUM`/`AVG`/`TOTAL` over a boolean expression should coerce the
+bool to `1`/`0` (SQLite & MySQL both do; `SUM(cond)` is the standard
+count-matching idiom), rather than rejecting the type.
+
+**F45 detail** — `ATTACH DATABASE ':memory:' AS aux` and `DETACH` are accepted,
+but schema-qualified names break everywhere: `CREATE TABLE aux.t (…)` →
+`Expected ( but got "."`, `INSERT INTO aux.t …` → parse error, and
+`SELECT … FROM aux.t` → `No such table or view: aux.t`. Either parse+resolve
+`db.table` so attached databases work, or reject `ATTACH` outright so it doesn't
+silently appear supported.
 
 ---
 
