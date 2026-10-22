@@ -168,5 +168,28 @@ void main() {
             '(~8KB) is not split across TNS packets; the client decode overruns '
             'its buffer and throws RangeError (8000 chars OK, ~8100+ fail), and '
             'the connection is left desynced. See findings/FINDINGS.md F53.');
+
+    // ---- KNOWN ENGINE BUG F54 -------------------------------------------
+    // A non-ASCII (multi-byte UTF-8) character anywhere in the inbound SQL text
+    // corrupts the statement over the Oracle wire: the server miscounts the SQL
+    // length (byte vs char), so it parses a truncated/shifted statement and
+    // returns empty rows (or ORA-00900 on the garbage). Confirmed server-side:
+    // real `oci8` gets the same wrong answer, while the direct engine is
+    // correct and stored unicode *data* round-trips fine — only unicode in the
+    // SQL *text* breaks.
+    test('F54 · non-ASCII characters in inbound SQL are mishandled on the wire',
+        () async {
+      // The engine core returns 'héllo'; over the Oracle wire it comes back
+      // empty because the SQL bytes are mis-length-counted.
+      final r = await client.query("SELECT 'héllo' AS v FROM dual");
+      expect(r.rows, [
+        ['héllo']
+      ]);
+    },
+        skip: 'KNOWN ENGINE BUG: a non-ASCII (multi-byte UTF-8) character in an '
+            'inbound SQL statement is mis-length-counted by the Oracle wire '
+            'server, corrupting the statement (empty result or ORA-00900 on a '
+            'mangled parse). ASCII SQL and stored unicode data are fine. '
+            'See findings/FINDINGS.md F54.');
   });
 }

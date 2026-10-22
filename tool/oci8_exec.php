@@ -22,6 +22,11 @@
  */
 declare(strict_types=1);
 
+// Keep stdout pure JSON: never let a PHP warning/notice (e.g. from a desynced
+// session) corrupt the response the Dart bridge parses.
+error_reporting(0);
+ini_set('display_errors', '0');
+
 if (!extension_loaded('oci8')) {
     echo json_encode(['ok' => false, 'error' => 'oci8 not loaded']) . "\n";
     exit(2);

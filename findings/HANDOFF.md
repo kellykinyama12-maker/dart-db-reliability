@@ -1,14 +1,34 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F53)**, found
-by an aggressive Oracle native-client sweep. It has a minimal repro and a
-skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **2 open bugs (F53–F54)**,
+both server-side in the Oracle wire layer, found by an aggressive Oracle sweep
+and a triple-threat hunt (emulator vs pure-Dart thick vs real `oci8`). Each has
+a minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (F53 in
+- **Verify:** `dart test --run-skipped --timeout 25s` (both in
   `test/wire/oracle_wire_roundtrip_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 53 found, 52 fixed & verified, 1 open.**
+**Status: 54 found, 52 fixed & verified, 2 open.**
+
+## Current open bugs (F53–F54) — both Oracle server-side
+
+| # | Bug | Severity | One-line repro → wrong result |
+| --- | --- | --- | --- |
+| **F53** | large value crashes wire codec | 🔴 crash + desync | `SELECT` a ~9000-char VARCHAR2 → `RangeError ...167..8182` (8000 OK); value > one SDU not chunked across TNS packets |
+| **F54** | non-ASCII inbound SQL corrupted | 🔴 wrong results | `SELECT 'héllo' FROM dual` → empty; `... WHERE 'ü'='ü'` → `ORA-00900` on a mangled parse |
+
+> **F54 detail** — a non-ASCII (multi-byte UTF-8) character anywhere in the
+> inbound SQL text is mis-length-counted by the Oracle wire server (char vs byte
+> count), so the statement is parsed shifted/truncated → empty rows or
+> `ORA-00900`. ASCII SQL and stored unicode *data* round-trip fine; only unicode
+> in the SQL *text* breaks. **Confirmed server-side** — real `oci8` gets the same
+> wrong answer. Fix: read the inbound SQL by its byte length and UTF-8-decode it
+> once.
+
+> **Triple-threat result:** the pure-Dart thick client (Gun 2) matched real
+> `oci8` (Gun 3) on every case — **0 pure-Dart client bugs**. F53 and F54 are
+> both in the engine's Oracle wire server, not the clients.
 
 ---
 

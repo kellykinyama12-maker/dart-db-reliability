@@ -9,9 +9,11 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**53 bugs found; F1–F52 fixed & verified; F53 open.** An aggressive Oracle
+**54 bugs found; F1–F52 fixed & verified; F53–F54 open.** An aggressive Oracle
 native-client sweep (`OracleThickClient` vs the engine API as ground truth,
-~70 cases) surfaced one wire bug and otherwise found the Oracle path solid:
+~70 cases) plus a **triple-threat hunt** (emulator vs pure-Dart thick vs real
+`oci8`, ~60 cases) surfaced two wire bugs and otherwise found the Oracle path
+solid:
 - **F52** *(now fixed & verified)* — a positive integer literal larger than
   int64 max crashed the parser; it now promotes to a double like SQLite.
 - **F53** — an Oracle column value larger than one SDU (~8KB) is not chunked
@@ -19,6 +21,15 @@ native-client sweep (`OracleThickClient` vs the engine API as ground truth,
   `RangeError` (8000 chars OK, ~8100+ fail). The failure also leaves the
   connection desynced (later queries return shifted data) — what first looked
   like a large-NUMBER `0x78` bug was just this cascade.
+- **F54** — a non-ASCII (multi-byte UTF-8) character in an inbound SQL statement
+  is mis-length-counted by the Oracle wire server, corrupting the statement
+  (empty result or `ORA-00900` on a mangled parse). Confirmed server-side: real
+  `oci8` gets the same wrong answer, while the direct engine is correct and
+  stored unicode *data* round-trips fine — only unicode in the SQL *text* breaks.
+
+> **Triple-threat attribution:** the pure-Dart thick client (Gun 2) matched real
+> `oci8` (Gun 3) on **every** case — 0 pure-Dart client bugs; F53/F54 are both
+> server-side (the engine's Oracle wire layer).
 
 > **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
 > digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
@@ -558,6 +569,20 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   packets (and have the client reassemble), as real Oracle does for long
   VARCHAR2 / CLOB.
 - **Test:** F53 (Oracle round-trip suite, skipped; uses a fresh client).
+
+### F54 · non-ASCII inbound SQL is corrupted over the Oracle wire *(OPEN)*
+- **Severity:** High (any SQL with non-ASCII text returns wrong results/errors).
+- **Repro:** over the Oracle wire, `SELECT 'héllo' FROM dual` → empty; `SELECT
+  LENGTH('héllo') FROM dual` → empty (direct engine → 5); `... WHERE 'ü' = 'ü'`
+  → `ORA-00900` on a mangled parse. ASCII SQL and stored unicode *data* are
+  fine. **Confirmed server-side:** real `oci8` (Gun 3) gets the same wrong
+  answer, so it is not a client decode issue.
+- **Root cause:** the Oracle wire server counts the inbound SQL length in
+  characters vs bytes (or truncates at a multi-byte boundary), so a statement
+  containing any multi-byte UTF-8 char is parsed shifted/truncated.
+- **Fix:** read the inbound SQL by its byte length and decode UTF-8 once, so the
+  statement text is intact regardless of multi-byte characters.
+- **Test:** F54 (Oracle round-trip suite, skipped).
 
 
 ---

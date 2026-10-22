@@ -52,12 +52,15 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 53 found, 52 fixed & verified, 1 open.**
+- **Bug status (2026-10-22): 54 found, 52 fixed & verified, 2 open.**
   F1–F52 are closed. **Open:** F53 (an Oracle column value larger than one SDU
   ~8KB is not chunked across TNS packets, crashing the wire codec and desyncing
-  the connection). The rest of the Oracle path (NUMBER/VARCHAR2 fidelity, binds,
-  transactions, isolation, FETCH, DATE/BLOB, ~70 cases) is clean, as are MySQL
-  wire fidelity and robustness.
+  the connection) and F54 (non-ASCII inbound SQL is mis-length-counted by the
+  Oracle wire server, corrupting the statement). Both are server-side; the
+  pure-Dart thick client matched real `oci8` on every triple-threat case. The
+  rest of the Oracle path (NUMBER/VARCHAR2 fidelity, binds, transactions,
+  isolation, FETCH, DATE/BLOB, ~70 cases) is clean, as are MySQL wire fidelity
+  and robustness.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the
