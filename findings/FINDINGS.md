@@ -9,27 +9,25 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**62 bugs found; F1–F59 fixed & verified; F60–F62 open.** A joins / collation /
-datetime differential vs SQLite surfaced a self-join correctness bug and two
-collation gaps:
-- **F60** — in a self `LEFT JOIN` the left table's own column returns `NULL` for
-  rows that don't match the right side (`SELECT e.id FROM e LEFT JOIN e m ON
-  e.mgr = m.id` → `NULL` for the unmatched row instead of its id). Two-table
-  LEFT JOIN is correct; the engine confuses the two aliased instances when
-  NULL-padding. Employee/manager hierarchies are the textbook case.
-- **F61** — a `COLLATE` clause in a `CREATE TABLE` column definition (e.g.
-  `s TEXT COLLATE NOCASE`) is a parse error.
-- **F62** — a `COLLATE` override is not applied in `DISTINCT` / `GROUP BY`
-  de-duplication (`COUNT(DISTINCT s COLLATE NOCASE)` → 3 instead of 2); `COLLATE
-  RTRIM` is also unimplemented. (COLLATE works in `WHERE`/`ORDER BY`, per F23.)
+**65 bugs found; F1–F59 fixed & verified; F60–F65 open.** Loading the real
+**Oracle HR sample schema** (`hr_create.sql`) revealed that only **3 of 85**
+statements parse — three Oracle-dialect DDL gaps block it, now filed as
+F63–F65 (alongside the F60–F62 join/collation bugs):
+- **F63** — a named *inline column* constraint (`col TYPE CONSTRAINT name NOT
+  NULL`) is a parse error. Table-level named constraints work.
+- **F64** — `ALTER TABLE t ADD (CONSTRAINT ... PRIMARY KEY/FOREIGN KEY (cols))`
+  (the Oracle parenthesized form) is a parse error.
+- **F65** — `COMMENT ON TABLE/COLUMN ... IS '...'` is “Unsupported statement”.
+- **F60** — self `LEFT JOIN` nulls the left row's own column for unmatched rows
+  (cascades into COUNT/GROUP BY/COALESCE).
+- **F61** — `COLLATE` in a column definition is a parse error.
+- **F62** — `COLLATE` not applied in `DISTINCT`/`GROUP BY`; `COLLATE RTRIM`
+  unimplemented.
 
-> **Round-10 otherwise clean:** LEFT (two-table) / RIGHT / FULL OUTER / CROSS /
-> NATURAL / USING joins, self LEFT JOIN with a matched right side, LEFT JOIN +
-> aggregate, `COLLATE NOCASE` in WHERE/ORDER BY, date/time modifiers
-> (`start of month`, `+N month`, `weekday`, chained), `strftime`, `julianday`,
-> `iif`, bitwise ops, and `HAVING` without GROUP BY all match SQLite.
-> `TRUE`/`FALSE` evaluate to a Dart bool (normalized to 1/0, as SQLite/MySQL) —
-> representation only, not a bug.
+> **HR parity test:** `test/parity/oracle_hr_parity_test.dart` loads the real
+> `hr_create.sql` and asserts the 7 core HR tables create; it is `skip`ped as
+> BLOCKED by F63–F65 and auto-skips when the dataset is absent. Un-skip when the
+> three DDL gaps land.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

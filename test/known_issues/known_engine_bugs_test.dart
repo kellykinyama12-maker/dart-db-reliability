@@ -488,4 +488,42 @@ void main() {
             'unimplemented in comparisons. COLLATE works in WHERE/ORDER BY. See '
             'findings/FINDINGS.md F62.');
   });
+
+  // Gaps that block the real Oracle HR sample schema (hr_create.sql): only
+  // 3 of 85 statements load without these.
+  group('open bugs (round 11 — Oracle HR DDL parity)', () {
+    test('F63 · inline named column constraint is not parsed', () async {
+      final db = await openEngine();
+      // Oracle/standard: col TYPE CONSTRAINT <name> NOT NULL (inline, named).
+      await expectOk(db,
+          'CREATE TABLE t (id NUMBER CONSTRAINT id_nn NOT NULL, nm VARCHAR2(25))');
+    },
+        skip: 'KNOWN ENGINE BUG: a named inline column constraint '
+            '(col TYPE CONSTRAINT name NOT NULL) is a parse error ("Expected ) '
+            'but got CONSTRAINT"). Table-level named constraints work. Blocks '
+            'the Oracle HR schema. See findings/FINDINGS.md F63.');
+
+    test('F64 · ALTER TABLE ADD (parenthesized constraint) is not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, nm VARCHAR2(10))');
+      // Oracle: ALTER TABLE t ADD ( CONSTRAINT pk PRIMARY KEY (id) ).
+      await expectOk(db, 'ALTER TABLE t ADD (CONSTRAINT t_pk PRIMARY KEY (id))');
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE t ADD (CONSTRAINT ... PRIMARY KEY/'
+            'FOREIGN KEY (cols)) is a parse error ("Expected name but got (");'
+            ' the non-parenthesized form also fails to consume the column list. '
+            'Blocks the Oracle HR schema. See findings/FINDINGS.md F64.');
+
+    test('F65 · COMMENT ON TABLE/COLUMN is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER)');
+      // Oracle metadata: COMMENT ON TABLE/COLUMN ... IS '...'.
+      await expectOk(db, "COMMENT ON TABLE t IS 'a table'");
+    },
+        skip: 'KNOWN ENGINE BUG: COMMENT ON TABLE/COLUMN ... IS \'...\' is '
+            '"Unsupported statement starting with COMMENT". Should be accepted '
+            '(stored or ignored). Blocks the Oracle HR schema. See '
+            'findings/FINDINGS.md F65.');
+  });
 }

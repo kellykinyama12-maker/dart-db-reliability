@@ -52,14 +52,16 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 62 found, 59 fixed & verified, 3 open.**
-  F1–F59 are closed. **Open:** F60 (a self `LEFT JOIN` nulls the left row's own
-  column for unmatched rows), F61 (`COLLATE` in a column definition is a parse
-  error), and F62 (`COLLATE` not applied in `DISTINCT`/`GROUP BY`; `COLLATE
-  RTRIM` unimplemented). All are differential-vs-SQLite findings. The Oracle
-  path (fidelity, binds, transactions, isolation, FETCH, 15 Oracle-specific
-  features, concurrency, error recovery) is clean three-way vs real `oci8`;
-  triggers/views/aggregates and MySQL wire fidelity and robustness are clean.
+- **Bug status (2026-10-22): 65 found, 59 fixed & verified, 6 open.**
+  F1–F59 are closed. **Open:** F60 (self `LEFT JOIN` nulls the left column),
+  F61/F62 (collation gaps), and **F63–F65 (Oracle HR DDL parity)** — named inline
+  column constraints, `ALTER TABLE ADD (constraint)`, and `COMMENT ON` — which
+  block the real HR schema (only 3/85 `hr_create.sql` statements load). The
+  Oracle wire path (fidelity, binds, transactions, isolation, FETCH, 15
+  Oracle-specific features, concurrency) is clean three-way vs real `oci8`;
+  triggers/views/aggregates/window-functions and MySQL wire are clean.
+- **Oracle HR parity test:** `test/parity/oracle_hr_parity_test.dart` loads the
+  real `hr_create.sql`; skipped as BLOCKED by F63–F65, auto-skips if absent.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the
