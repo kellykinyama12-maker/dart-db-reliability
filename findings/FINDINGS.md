@@ -9,14 +9,11 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**34 bugs found; F1–F32 fixed & verified; F33–F34 open (newly found).**
-All of F1–F32 are closed (every repro runs live and passes; the 60k-query fuzzer
-finds 0 divergences; sakila + employees real-data differentials match SQLite).
-Continued hunting surfaced two more:
-- **F33** — a bare non-zero number is treated as FALSE in a boolean context
-  (`CASE WHEN 1` → `'n'`, `iif(5,…)` → `'n'`); only an explicit comparison works.
-- **F34** — the 2-argument form of `trim`/`ltrim`/`rtrim` (custom trim
-  characters) is ignored — the string is returned unchanged.
+**All 34 bugs (F1–F34) are FIXED and verified.** Every repro runs live (nothing
+skipped) and passes; the full suite is **435 pass / 0 skip / 0 fail**. F33–F34
+(non-zero truthiness in `CASE`/`iif`; 2-arg `trim` ignoring its character set)
+were the final two, closed after the F1–F32 waves. The 60k-query fuzzer finds 0
+divergences; sakila + employees real-data differentials match SQLite.
 
 _Historical detail of each bug is preserved below for the record._
 

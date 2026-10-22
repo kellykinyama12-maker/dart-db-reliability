@@ -12,9 +12,14 @@ Object? normalizeValue(Object? v) {
   if (v == null) return null;
   if (v is bool) return v ? 1 : 0;
   if (v is double) {
-    if (v.isFinite && v == v.truncateToDouble()) return v.toInt();
     if (!v.isFinite) return v.toString();
-    return double.parse(v.toStringAsPrecision(12));
+    if (v == v.truncateToDouble()) return v.toInt();
+    // Round to 12 significant digits to absorb floating-point noise between two
+    // independent evaluators; re-check integrality so an accumulation-order
+    // difference (e.g. SUM = -59.0 vs -59.0000000001) still collapses to an int.
+    final rounded = double.parse(v.toStringAsPrecision(12));
+    if (rounded == rounded.truncateToDouble()) return rounded.toInt();
+    return rounded;
   }
   if (v is List<int>) return List<int>.from(v);
   return v;

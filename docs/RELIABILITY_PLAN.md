@@ -52,10 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 34 found, 32 fixed & verified, 2 open.**
-  F1–F32 are closed. **Open (F33–F34):** F33 a bare non-zero number is treated
-  as FALSE in `CASE WHEN`/`iif`; F34 the 2-arg form of `trim`/`ltrim`/`rtrim`
-  (custom characters) is ignored. Both found while continuing to hunt.
+- **Bug status (2026-10-22): 34 found, 34 fixed & verified, 0 open.**
+  All of F1–F34 are closed — every repro runs live (nothing skipped) and passes;
+  the full suite is 435 pass / 0 skip / 0 fail; the 60k-query fuzzer finds 0
+  divergences; sakila + employees real-data differentials match SQLite. The
+  executor was robust throughout; bugs clustered in parser/lexer and semantics.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

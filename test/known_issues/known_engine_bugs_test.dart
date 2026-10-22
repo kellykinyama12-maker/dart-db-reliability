@@ -274,16 +274,13 @@ void main() {
     });
   });
 
-  group('open bugs (found 2026-10-22, round 2)', () {
+  group('formerly-open bugs F33–F34 (fixed & verified)', () {
     test('F33 · non-zero number not truthy in CASE / iif', () async {
       final db = await openEngine();
       // Any non-zero number is TRUE as a boolean condition (SQLite/MySQL).
       await expectScalar(db, "SELECT CASE WHEN 1 THEN 'y' ELSE 'n' END", 'y');
       await expectScalar(db, "SELECT iif(5, 'y', 'n')", 'y');
-    },
-        skip: 'KNOWN ENGINE BUG: a bare non-zero number used as a boolean '
-            "condition is treated as FALSE (`CASE WHEN 1` -> 'n', `iif(5,…)` -> "
-            "'n'). Only an explicit comparison works. See findings/FINDINGS.md F33.");
+    });
 
     test('F34 · 2-arg trim / ltrim / rtrim ignores the trim characters',
         () async {
@@ -291,9 +288,6 @@ void main() {
       // trim(x, chars) removes `chars` (SQLite/MySQL/Oracle).
       await expectScalar(db, "SELECT trim('xxhixx', 'x')", 'hi');
       await expectScalar(db, "SELECT ltrim('xxhi', 'x')", 'hi');
-    },
-        skip: 'KNOWN ENGINE BUG: the 2-argument form of trim/ltrim/rtrim '
-            '(custom trim characters) is ignored — the string is returned '
-            'unchanged. See findings/FINDINGS.md F34.');
+    });
   });
 }
