@@ -512,71 +512,67 @@ void main() {
     });
   });
 
-  // Gaps blocking the Oracle SH (96/100) and OE sample schemas.
-  group('open bugs (round 13 — Oracle OE/SH DDL parity)', () {
-    test('F68 · PARTITION BY clause on CREATE TABLE not parsed', () async {
+  // Oracle OE/SH schema DDL: after these, SH loads fully and OE parses.
+  group('formerly-open bugs F68–F73 (fixed & verified; Oracle OE/SH DDL)', () {
+    test('F68 · PARTITION BY clause on CREATE TABLE is accepted', () async {
       final db = await openEngine();
-      // Storage/partitioning clause; can be accepted and ignored. Blocks
-      // SH.sales and SH.costs.
       await expectOk(
           db, 'CREATE TABLE t (id NUMBER, d DATE) PARTITION BY HASH (id) PARTITIONS 4');
-    },
-        skip: 'KNOWN ENGINE BUG: a PARTITION BY clause on CREATE TABLE is a '
-            'parse error ("Unexpected token after statement: PARTITION"). Should '
-            'be accepted/ignored. Blocks Oracle SH. See findings/FINDINGS.md F68.');
+    });
 
-    test('F69 · CREATE MATERIALIZED VIEW not supported', () async {
+    test('F69 · CREATE MATERIALIZED VIEW is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE s (m VARCHAR2(10), amt NUMBER)');
       await expectOk(db,
           'CREATE MATERIALIZED VIEW mv AS SELECT m, SUM(amt) FROM s GROUP BY m');
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE MATERIALIZED VIEW is "Expected TABLE, '
-            'INDEX, VIEW or TRIGGER after CREATE". Should parse (treat as a view '
-            'or accept). Blocks Oracle SH. See findings/FINDINGS.md F69.');
+    });
 
-    test('F70 · CREATE TYPE (object type / VARRAY / nested table) not supported',
+    test('F70 · CREATE TYPE (object type / VARRAY / nested table) is accepted',
         () async {
       final db = await openEngine();
       await expectOk(db,
           'CREATE TYPE addr_typ AS OBJECT (street VARCHAR2(40), city VARCHAR2(30))');
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE TYPE ... AS OBJECT/VARRAY/TABLE OF is '
-            'not supported ("Expected TABLE, INDEX, VIEW or TRIGGER"). Oracle '
-            'object-relational feature; blocks OE/OC. See findings/FINDINGS.md F70.');
+    });
 
-    test('F71 · CREATE SYNONYM not supported', () async {
+    test('F71 · CREATE SYNONYM is accepted', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER)');
       await expectOk(db, 'CREATE SYNONYM syn FOR t');
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE SYNONYM is not supported ("Expected '
-            'TABLE, INDEX, VIEW or TRIGGER"). Should create an alias or be '
-            'accepted. Blocks Oracle OE. See findings/FINDINGS.md F71.');
+    });
 
-    test('F72 · PL/SQL trigger with a DECLARE / procedural body not supported',
+    test('F72 · PL/SQL trigger with a DECLARE / procedural body is parsed',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      // The trigger now CREATES (parse gap fixed). Executing the procedural
+      // body is tracked separately as F74.
       await expectOk(db,
           'CREATE OR REPLACE TRIGGER trg BEFORE INSERT ON t FOR EACH ROW DECLARE x NUMBER; BEGIN :new.v := 1; END;');
-    },
-        skip: 'KNOWN ENGINE BUG: a PL/SQL trigger body with a DECLARE section '
-            'and procedural assignments (:new.x := ...) is not supported '
-            '("Expected BEGIN but got DECLARE"). Blocks Oracle OE. See '
-            'findings/FINDINGS.md F72.');
+    });
 
-    test('F73 · constraint ENABLE clause in ALTER TABLE ADD not parsed',
+    test('F73 · constraint ENABLE clause in ALTER TABLE ADD is accepted',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER)');
-      // Oracle constraint-state clause; can be accepted and ignored.
       await expectOk(
           db, 'ALTER TABLE t ADD (CONSTRAINT pk PRIMARY KEY (id) ENABLE)');
+    });
+  });
+
+  // The F72 caveat: a PL/SQL trigger body parses/creates but does not execute.
+  group('open bugs (round 14 — found 2026-10-22)', () {
+    test('F74 · PL/SQL trigger procedural body does not execute', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await db.execute(
+          'CREATE OR REPLACE TRIGGER trg BEFORE INSERT ON t FOR EACH ROW DECLARE x NUMBER; BEGIN :new.v := 42; END;');
+      await db.execute('INSERT INTO t (id) VALUES (1)');
+      // The BEFORE-INSERT body should set v to 42; it stays NULL (no-op body).
+      await expectScalar(db, 'SELECT v FROM t WHERE id = 1', 42);
     },
-        skip: 'KNOWN ENGINE BUG: a trailing ENABLE/DISABLE constraint-state '
-            'clause in ALTER TABLE ADD (CONSTRAINT ... ENABLE) is a parse error '
-            '("Expected ) but got ENABLE"). Should be accepted/ignored. Blocks '
-            'Oracle OE. See findings/FINDINGS.md F73.');
+        skip: 'KNOWN ENGINE BUG (F72 caveat): a PL/SQL trigger body now parses '
+            'and the trigger CREATEs, but the procedural assignment '
+            '(:new.v := 42) does not execute \u2014 v stays NULL after INSERT. '
+            'See findings/FINDINGS.md F74.');
   });
 }

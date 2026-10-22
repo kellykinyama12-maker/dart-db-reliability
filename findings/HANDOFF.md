@@ -1,36 +1,36 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F68–F73)** —
-Oracle OE/SH sample-schema DDL gaps. Each has a minimal repro and a skipped
-regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **1 open bug (F74)** — the
+caveat from F72: a PL/SQL trigger body now parses/creates but does not execute.
+It has a minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+- **Verify:** `dart test --run-skipped --timeout 25s` (F74 in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 73 found, 67 fixed & verified, 6 open.**
+**Status: 74 found, 73 fixed & verified, 1 open.** Both the Oracle HR and SH
+sample schemas now load fully (live parity gates green).
 
-## Highest value — finish Oracle SH (96/100 loads; F68+F69 unblock it)
+## Current open bug (F74) — F72 caveat
 
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F68** | PARTITION BY clause | `CREATE TABLE t (…) PARTITION BY HASH (id) PARTITIONS 4` → `Unexpected token after statement: PARTITION` | accept/ignore the partition clause (like `ORGANIZATION INDEX`) |
-| **F69** | CREATE MATERIALIZED VIEW | `CREATE MATERIALIZED VIEW mv AS SELECT …` → `Expected TABLE, INDEX, VIEW or TRIGGER` | parse as a view (or accept) |
-
-## Oracle OE (object-relational / PL/SQL)
-
-| # | Bug | Repro → error |
+| # | Bug | Repro → wrong result |
 | --- | --- | --- |
-| **F71** | CREATE SYNONYM | `CREATE SYNONYM syn FOR t` → `Expected TABLE, INDEX, VIEW or TRIGGER` (create an alias / accept) |
-| **F73** | constraint ENABLE clause | `ALTER TABLE t ADD (CONSTRAINT pk PRIMARY KEY (id) ENABLE)` → `Expected ) but got "ENABLE"` (accept/ignore) |
-| **F70** | CREATE TYPE (object types) | `CREATE TYPE addr AS OBJECT (…)` → unsupported (large OR feature) |
-| **F72** | PL/SQL trigger body | `CREATE TRIGGER … DECLARE … BEGIN :new.x := … END` → `Expected BEGIN but got DECLARE` (large PL/SQL feature) |
+| **F74** | PL/SQL trigger body doesn't execute | `BEFORE INSERT … BEGIN :new.v := 42; END` then `INSERT INTO t(id) VALUES(1)` → `v` is `NULL` (should be `42`) |
 
-> **Quick wins:** F68, F69, F71, F73 are accept/parse-and-ignore clauses (same
-> shape as the already-fixed `ORGANIZATION INDEX`). F70 (object types) and F72
-> (PL/SQL trigger bodies) are larger features. **Not yet filed:** schema-
-> qualified FK references (`REFERENCES schema.table`) parse-error, and `COMMIT`
-> with no active transaction erroring instead of being a no-op.
+> The trigger now CREATEs (F72 parse gap fixed), but the procedural assignment
+> is a no-op. Execute the PL/SQL body: evaluate `:new.<col> := <expr>`
+> assignments (and the DECLARE locals) for row triggers.
+> **Not yet filed:** schema-qualified FK references (`REFERENCES schema.table`)
+> parse-error; `COMMIT` with no active transaction erroring instead of no-op.
+
+---
+
+## Resolved batch (F68–F73) — ✅ fixed 2026-10-22 (Oracle OE/SH DDL)
+
+> **✅ RESOLVED.** `PARTITION BY` (F68), `CREATE MATERIALIZED VIEW` (F69),
+> `CREATE TYPE` (F70), `CREATE SYNONYM` (F71), PL/SQL trigger *parsing* (F72),
+> and the constraint `ENABLE` clause (F73). The real SH schema now loads fully.
+> (F72's body-execution caveat is tracked as F74 above.)
 
 ---
 

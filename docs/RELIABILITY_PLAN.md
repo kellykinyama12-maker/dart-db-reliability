@@ -52,15 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 73 found, 67 fixed & verified, 6 open.**
-  F1–F67 are closed. **Open (F68–F73):** Oracle OE/SH DDL — `PARTITION BY`,
-  `CREATE MATERIALIZED VIEW`, `CREATE TYPE`, `CREATE SYNONYM`, PL/SQL trigger
-  bodies, and constraint `ENABLE` clause. SH loads 96/100 (blocked by F68/F69);
-  HR loads fully. The Oracle wire path is clean three-way vs real `oci8`;
-  triggers/views/aggregates/window-functions and MySQL wire are clean.
-- **Oracle parity gates:** HR (`oracle_hr_parity_test.dart`) runs live/green;
-  SH (`oracle_sh_parity_test.dart`) skipped, BLOCKED by F68/F69. Both auto-skip
-  if the dataset is absent.
+- **Bug status (2026-10-22): 74 found, 73 fixed & verified, 1 open.**
+  F1–F73 are closed. **Open:** F74 — a PL/SQL trigger body parses/creates (F72
+  fixed) but its procedural assignment (`:new.x := …`) does not execute. Both
+  the Oracle HR and SH sample schemas now load fully. The Oracle wire path is
+  clean three-way vs real `oci8`; MySQL wire and robustness are clean.
+- **Oracle parity gates:** HR and SH (`oracle_hr_parity_test.dart`,
+  `oracle_sh_parity_test.dart`) both run live/green; auto-skip if absent.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the

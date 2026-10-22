@@ -9,27 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**73 bugs found; F1–F67 fixed & verified; F68–F73 open.** Pushing the parity
-gate onto the Oracle **SH** (sales history) and **OE** (order entry) sample
-schemas surfaced six more DDL gaps. SH loads **96/100** statements — two small
-clauses block it — while OE needs object-relational / PL/SQL features:
-- **F68** — `PARTITION BY` clause on `CREATE TABLE` is a parse error (blocks
-  SH.sales / SH.costs). Should be accepted/ignored, like `ORGANIZATION INDEX`.
-- **F69** — `CREATE MATERIALIZED VIEW` is unsupported (blocks SH MVs). Treat as
-  a view or accept.
-- **F70** — `CREATE TYPE ... AS OBJECT/VARRAY/TABLE OF` (Oracle object types) is
-  unsupported; blocks OE/OC (large OR feature).
-- **F71** — `CREATE SYNONYM` is unsupported; blocks OE. Create an alias / accept.
-- **F72** — a PL/SQL trigger body with a `DECLARE` section and procedural
-  assignments (`:new.x := ...`) is unsupported (large PL/SQL feature); OE.
-- **F73** — a trailing `ENABLE`/`DISABLE` constraint-state clause in
-  `ALTER TABLE ADD (CONSTRAINT ... ENABLE)` is a parse error; OE.
+**74 bugs found; F1–F73 fixed & verified; F74 open.** The Oracle **SH** and **OE**
+sample-schema DDL gaps (F68–F73) were fixed and verified: the real `sh_create.sql`
+now loads fully (all 8 core SH tables) and OE DDL parses. One caveat remains:
+- **F68–F73** *(fixed & verified)* — `PARTITION BY`, `CREATE MATERIALIZED VIEW`,
+  `CREATE TYPE` (object types), `CREATE SYNONYM`, PL/SQL trigger *parsing*, and
+  the constraint `ENABLE` clause.
+- **F74** *(F72 caveat)* — a PL/SQL trigger body now parses and the trigger
+  CREATEs, but the **procedural assignment does not execute**: after
+  `BEFORE INSERT … :new.v := 42`, `v` stays `NULL`. The parse gap (F72) is
+  closed; executing the procedural body is the remaining work.
 
-> **SH parity test:** `test/parity/oracle_sh_parity_test.dart` (skipped, BLOCKED
-> by F68/F69; auto-skips if absent). **HR parity gate is GREEN.**
-> Secondary observations (not yet filed): schema-qualified FK references
-> (`REFERENCES schema.table`) are a parse error, and `COMMIT` with no active
-> transaction errors instead of being a no-op.
+> **HR and SH parity gates are both GREEN:** `oracle_hr_parity_test.dart` and
+> `oracle_sh_parity_test.dart` load the real schemas live; both auto-skip only
+> when the dataset is absent.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

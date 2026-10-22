@@ -84,8 +84,5 @@ void main() {
       await db.execute('SELECT COUNT(*) FROM $t'); // throws if missing
     }
     expect(ok, greaterThanOrEqualTo(statements.length - 2));
-  },
-      skip: 'BLOCKED by F68 (PARTITION BY) and F69 (CREATE MATERIALIZED VIEW): '
-          '96/100 sh_create.sql statements load; SH.sales/SH.costs + the MVs '
-          'still fail. Un-skip when F68/F69 land.');
+  });
 }
