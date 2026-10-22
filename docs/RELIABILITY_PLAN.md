@@ -52,11 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 54 found, 54 fixed & verified, 0 open.**
-  F1–F54 are all closed; the suite runs live with nothing skipped, including the
-  Oracle round-trip and triple-threat suites (adjudicated against real `oci8`).
-  The pure-Dart thick client matched real `oci8` on every triple-threat case.
-  MySQL wire fidelity and robustness are clean.
+- **Bug status (2026-10-22): 55 found, 54 fixed & verified, 1 open.**
+  F1–F54 are closed. **Open:** F55 (a non-integer value inserted into an
+  `INTEGER PRIMARY KEY` column is accepted; SQLite rejects it with a datatype
+  mismatch). The Oracle path — value fidelity, binds, transactions, isolation,
+  FETCH, 15 Oracle-specific features, concurrency, error recovery — is clean
+  three-way vs real `oci8`; MySQL wire fidelity and robustness are clean.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the

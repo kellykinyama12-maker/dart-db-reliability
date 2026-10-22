@@ -1,14 +1,29 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the last
-batch (F53–F54, both Oracle wire-server bugs) has been fixed and verified,
-including three-way against real `oci8` / Instant Client. The full suite runs
-live with nothing skipped.
+For the engine author working in `dart-db-server`. **1 open bug (F55)**, a core
+type-integrity gap found during a deeper Oracle hunt and confirmed against
+SQLite. It has a minimal repro and a skipped regression test that turns green
+when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (F55 in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 54 found, 54 fixed & verified, 0 open.**
+**Status: 55 found, 54 fixed & verified, 1 open.**
+
+## Current open bug (F55)
+
+| # | Bug | Severity | Repro → wrong result |
+| --- | --- | --- | --- |
+| **F55** | INTEGER PRIMARY KEY accepts non-integer | 🟠 data integrity | `INSERT INTO t(id INTEGER PRIMARY KEY) VALUES ('x', …)` accepted (stores `'x'`); `1.5` stored as double. SQLite → `datatype mismatch` |
+
+> **F55 detail** — an `INTEGER PRIMARY KEY` is a rowid alias that must hold an
+> integer; SQLite rejects a text/float value with `datatype mismatch`, but the
+> engine stores it unchanged. Regular (non-PK) INTEGER columns correctly use
+> loose affinity, so only the rowid-alias path needs the integer check on
+> insert/update. Not wire-specific (reproduced on the direct engine).
+
+---
 
 ## Resolved batch (F53–F54) — ✅ fixed 2026-10-22 (Oracle wire server)
 

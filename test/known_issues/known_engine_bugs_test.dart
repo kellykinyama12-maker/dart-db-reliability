@@ -391,4 +391,19 @@ void main() {
       await expectScalar(db, 'SELECT 99999999999999999999', 1e20);
     });
   });
+
+  group('open bugs (round 7 — found 2026-10-22)', () {
+    test('F55 · INTEGER PRIMARY KEY accepts non-integer values', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
+      // An INTEGER PRIMARY KEY is a rowid alias; SQLite rejects a non-integer
+      // value with "datatype mismatch". The engine stores it unchanged.
+      await expectThrows(db, "INSERT INTO t VALUES ('x', 1)");
+    },
+        skip: 'KNOWN ENGINE BUG: a non-integer value (text or float) inserted '
+            'into an INTEGER PRIMARY KEY column is accepted; SQLite rejects it '
+            'with a datatype mismatch (the rowid alias must be an integer). '
+            'Regular INTEGER columns correctly use loose affinity. See '
+            'findings/FINDINGS.md F55.');
+  });
 }

@@ -9,20 +9,22 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**54 bugs found; F1–F54 fixed & verified; 0 open.** The full suite runs live
-with **nothing skipped**, including the Oracle round-trip and triple-threat
-suites (adjudicated against real `oci8` / Instant Client). The final two bugs
-are now closed:
-- **F53** *(fixed & verified)* — an Oracle column value larger than one SDU
-  (~8KB) is now chunked across TNS packets; a 9000-char value round-trips
-  through both the pure-Dart thick client and real `oci8`.
-- **F54** *(fixed & verified)* — non-ASCII (multi-byte UTF-8) inbound SQL is now
-  length-counted correctly; `SELECT 'héllo' FROM dual` and `WHERE 'ü'='ü'`
-  return correct results on all three guns.
+**55 bugs found; F1–F54 fixed & verified; F55 open (newly found).** A deeper
+Oracle hunt (session-survival-after-errors, Oracle-specific features, and
+concurrency, all three-way vs real `oci8`) surfaced one core type-integrity bug
+and otherwise found the engine solid:
+- **F55** — a non-integer value (text or float) inserted into an `INTEGER
+  PRIMARY KEY` column is accepted; SQLite rejects it with a *datatype mismatch*
+  (the rowid alias must be an integer). Regular INTEGER columns correctly use
+  loose affinity, so only the PK/rowid path is affected. Found via the Oracle
+  error-recovery sweep; confirmed with a direct SQLite differential (not
+  wire-specific).
 
-> **Triple-threat attribution:** the pure-Dart thick client (Gun 2) matched real
-> `oci8` (Gun 3) on **every** case throughout — 0 pure-Dart client bugs; F53/F54
-> were both server-side (the engine's Oracle wire layer) and are now fixed.
+> **Deep Oracle hunt otherwise clean:** 15 Oracle-specific features (ROWNUM,
+> `ROW_NUMBER`/`RANK`/running `SUM` window functions, GROUP BY/HAVING, DECODE,
+> NVL/COALESCE, GREATEST/LEAST, scalar subquery, EXISTS, DISTINCT, UNION,
+> self-join) agree three-way with real `oci8`; sessions survive every error type
+> without desyncing; and 4 concurrent thick clients run correctly.
 
 > **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
 > digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
@@ -576,6 +578,19 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
 - **Fix:** read the inbound SQL by its byte length and decode UTF-8 once, so the
   statement text is intact regardless of multi-byte characters.
 - **Test:** F54 (Oracle round-trip suite, skipped).
+
+### F55 · INTEGER PRIMARY KEY accepts non-integer values *(OPEN)*
+- **Severity:** Medium (data integrity — a PK/rowid column holds a wrong type).
+- **Repro:** `CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER);
+  INSERT INTO t VALUES ('x', 1)` is accepted and stores `'x'` (text) in `id`;
+  `INSERT INTO t VALUES (1.5, 1)` stores `1.5` (double). SQLite rejects both with
+  `datatype mismatch` because an `INTEGER PRIMARY KEY` is a rowid alias that must
+  be an integer. Regular (non-PK) INTEGER columns correctly mirror SQLite's loose
+  affinity, so only the rowid-alias path is affected. Not wire-specific
+  (reproduced on the direct engine vs SQLite).
+- **Fix:** enforce integer type on insert/update into an `INTEGER PRIMARY KEY`
+  (rowid alias) column, rejecting non-integer values as SQLite does.
+- **Test:** F55 (`known_issues/known_engine_bugs_test.dart`, skipped).
 
 
 ---
