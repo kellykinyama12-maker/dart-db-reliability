@@ -52,11 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 52 found, 51 fixed & verified, 1 open.**
-  F1–F51 are closed. **Open:** F52 (a positive integer literal above int64 max
-  crashes the parser instead of promoting to a double). Oracle TTC/TNS wire
-  value-fidelity (20 round-trip cases) is clean and the Oracle path isolates
-  transactions safely; MySQL wire fidelity and robustness are clean.
+- **Bug status (2026-10-22): 53 found, 52 fixed & verified, 1 open.**
+  F1–F52 are closed. **Open:** F53 (an Oracle column value larger than one SDU
+  ~8KB is not chunked across TNS packets, crashing the wire codec and desyncing
+  the connection). The rest of the Oracle path (NUMBER/VARCHAR2 fidelity, binds,
+  transactions, isolation, FETCH, DATE/BLOB, ~70 cases) is clean, as are MySQL
+  wire fidelity and robustness.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

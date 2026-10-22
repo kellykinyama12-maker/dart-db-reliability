@@ -144,5 +144,29 @@ void main() {
         throwsA(isA<OracleThickException>()),
       );
     });
+
+    // ---- KNOWN ENGINE BUG F53 -------------------------------------------
+    // A column value larger than one SDU (~8KB) is not chunked across TNS
+    // packets, so the client decode overruns its packet buffer and throws
+    // `RangeError (end): ...range 167..8182`. 8000 chars work; ~8100+ fail.
+    // Worse, the failure leaves the connection desynced (later queries return
+    // shifted data), so it uses a fresh client to isolate the crash.
+    test('F53 · a VARCHAR2 value larger than one SDU crashes the wire codec',
+        () async {
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)');
+      await db.execute("INSERT INTO t VALUES (1, '${'x' * 9000}')");
+      final probe = await OracleThickClient.connect(server.boundPort);
+      await probe.login(username: 'app', password: 'Secret123');
+      try {
+        final r = await probe.query('SELECT v FROM t WHERE id = 1');
+        expect((r.rows.first.first as String).length, 9000);
+      } finally {
+        await probe.close();
+      }
+    },
+        skip: 'KNOWN ENGINE BUG: an Oracle column value larger than one SDU '
+            '(~8KB) is not split across TNS packets; the client decode overruns '
+            'its buffer and throws RangeError (8000 chars OK, ~8100+ fail), and '
+            'the connection is left desynced. See findings/FINDINGS.md F53.');
   });
 }

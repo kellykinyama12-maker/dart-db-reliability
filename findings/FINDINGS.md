@@ -9,24 +9,27 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**52 bugs found; F1–F51 fixed & verified; F52 open (newly found).** An **Oracle
-TTC/TNS wire-protocol** sweep (the engine’s `OracleServer` driven by the
-vendored thin-client codecs) surfaced one more parser bug and otherwise found
-the Oracle wire path clean:
-- **F52** — a positive integer literal larger than int64 max (e.g.
-  `99999999999999999999`, or `9223372036854775808` = int64 max + 1) throws
-  `Positive input exceeds the limit of integer`. SQLite promotes it to a double;
-  the engine already handles `1e20`. This is the positive-side analog of F47.
+**53 bugs found; F1–F52 fixed & verified; F53 open.** An aggressive Oracle
+native-client sweep (`OracleThickClient` vs the engine API as ground truth,
+~70 cases) surfaced one wire bug and otherwise found the Oracle path solid:
+- **F52** *(now fixed & verified)* — a positive integer literal larger than
+  int64 max crashed the parser; it now promotes to a double like SQLite.
+- **F53** — an Oracle column value larger than one SDU (~8KB) is not chunked
+  across TNS packets, so the client decode overruns its buffer and throws
+  `RangeError` (8000 chars OK, ~8100+ fail). The failure also leaves the
+  connection desynced (later queries return shifted data) — what first looked
+  like a large-NUMBER `0x78` bug was just this cascade.
 
-> **Oracle wire clean:** 20 round-trip cases pass — the TTC column encoder
-> (incl. Oracle’s base-100 NUMBER for `0.1`, `3.141592653589793`, fractions,
-> large/negative values), bound-parameter decoding, column order, and row order
-> all round-trip correctly.
-> **Oracle isolation safe:** unlike the former MySQL cluster (F48–F51), the
-> Oracle server holds its session gate for the whole transaction, so a second
-> connection’s read **blocks** on an uncommitted writer rather than seeing a
-> dirty read (conservative, but correct). (It differs from real Oracle’s
-> non-blocking MVCC read-consistency — recorded as a behavioral note, not a bug.)
+> **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
+> digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
+> params (incl. reused/null binds), wire COMMIT/ROLLBACK, DML affected-row
+> counts, FETCH pagination at the 99/100/101/200 boundaries, and DATE /
+> TIMESTAMP / BLOB decode all round-trip correctly. Cross-connection isolation
+> is safe: a second client blocks on an uncommitted writer (no dirty read) and
+> resumes correctly after the writer rolls back.
+> **Dialect (not a bug):** an empty string `''` reads back as `NULL` over the
+> Oracle wire — correct Oracle `'' = NULL` semantics — while the engine’s
+> SQLite-style core keeps it as `''` (see D7).
 - **F40** — unary minus on text (`-'5'`) threw an internal cast error (binary
   arithmetic coerced fine; unary minus was missing the coercion path).
 - **F41** — `CAST(<blob> AS TEXT)` returned the raw byte list instead of the
@@ -387,6 +390,7 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 | --- | --- | --- | --- |
 | D5 | `UPPER('café')` / `LOWER` | ASCII-only (`é` unchanged) | Unicode-aware (`É`) |
 | D6 | `'Apple' LIKE 'apple'` | TRUE (case-insensitive ASCII) | FALSE (case-sensitive, like Oracle) |
+| D7 | empty string `''` over the Oracle wire | distinct empty string | reads back as `NULL` (correct Oracle `'' = NULL` semantics) |
 
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes
@@ -531,7 +535,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   per-connection session, and hold isolation for the duration of each
   transaction rather than per statement.
 
-### F52 · positive integer literal above int64 crashes the parser *(OPEN)*
+### F52 · positive integer literal above int64 crashes the parser *(FIXED & VERIFIED)*
 - **Severity:** Medium (valid literal rejected with an internal exception).
 - **Repro:** `SELECT 99999999999999999999` (or `9223372036854775808`, int64
   max + 1) → `FormatException: Positive input exceeds the limit of integer`.
@@ -540,6 +544,20 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   affected. Positive-side analog of the (fixed) F47; on overflow, fall back to
   `double.parse`.
 - **Test:** F52.
+
+### F53 · large Oracle column value crashes the wire codec *(OPEN)*
+- **Severity:** High (crash + connection desync on any large value).
+- **Repro:** store a VARCHAR2 of ~9000 chars, then `SELECT` it over the Oracle
+  wire (`OracleThickClient`) → `RangeError (end): ...range 167..8182`. A value of
+  8000 chars works; ~8100+ fails, i.e. the limit is one SDU (~8182 bytes). The
+  server does not split a column value larger than the SDU across TNS packets,
+  so the client decode overruns its single-packet buffer. The failure also
+  leaves the connection **desynced** — subsequent queries on it return shifted
+  data or an `unexpected native response message` error, with no recovery.
+- **Fix:** chunk column payloads larger than the SDU across multiple TNS DATA
+  packets (and have the client reassemble), as real Oracle does for long
+  VARCHAR2 / CLOB.
+- **Test:** F53 (Oracle round-trip suite, skipped; uses a fresh client).
 
 
 ---

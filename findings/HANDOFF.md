@@ -1,32 +1,42 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F52)**, found
-by an Oracle TTC/TNS wire-protocol sweep. It has a minimal repro and a skipped
-regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **1 open bug (F53)**, found
+by an aggressive Oracle native-client sweep. It has a minimal repro and a
+skipped regression test that turns green when fixed.
 
-- **Verify:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`
-  (or `dart test --run-skipped --timeout 20s`).
+- **Verify:** `dart test --run-skipped --timeout 25s` (F53 in
+  `test/wire/oracle_wire_roundtrip_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 52 found, 51 fixed & verified, 1 open.**
+**Status: 53 found, 52 fixed & verified, 1 open.**
 
-## Current open bug (F52)
+## Current open bug (F53)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
-| **F52** | int literal above int64 crashes parser | 🟠 internal exception | `SELECT 99999999999999999999` → `"Positive input exceeds the limit of integer"` (SQLite → `1e20`) |
+| **F53** | large Oracle value crashes wire codec | 🔴 crash + desync | `SELECT` a ~9000-char VARCHAR2 over `OracleThickClient` → `RangeError ...167..8182` (8000 OK) |
 
-> **F52 detail** — the lexer/parser `int.parse`s an integer literal whose
-> magnitude exceeds int64 (`99999999999999999999`, or `9223372036854775808` =
-> int64 max + 1) and throws. SQLite promotes an out-of-range integer literal to
-> a double; the engine already does this for `1e20`. Same root area as the
-> (fixed) F47 int64-min case — on overflow, fall back to `double.parse` instead
-> of throwing.
+> **F53 detail** — a column value larger than one SDU (~8182 bytes) is not split
+> across TNS DATA packets, so the client decode overruns its single-packet
+> buffer and throws `RangeError`. 8000 chars work, ~8100+ fail. The crash also
+> leaves the connection desynced (later queries return shifted data / an
+> `unexpected native response message` with no recovery). Fix: chunk oversized
+> column payloads across multiple TNS packets and reassemble on the client, as
+> real Oracle does for long VARCHAR2 / CLOB.
 
-> **Oracle wire sweep was otherwise clean:** 20 TTC round-trip cases pass
-> (NUMBER/base-100, binds, column + row order), and the Oracle path isolates
-> transactions safely (a second connection blocks on an uncommitted writer
-> rather than dirty-reading).
+> **Oracle sweep was otherwise clean (~70 cases):** NUMBER fidelity (to 1e30 /
+> 38 digits), binds (incl. null/reused), wire COMMIT/ROLLBACK, DML counts, FETCH
+> boundaries, DATE/TIMESTAMP/BLOB decode, consistent ORA error codes, and safe
+> cross-connection isolation (reader blocks on an uncommitted writer, resumes
+> after rollback).
+
+---
+
+## Resolved — ✅ F52 fixed 2026-10-22 (parser)
+
+> **✅ RESOLVED.** `SELECT 99999999999999999999` (a positive integer literal
+> above int64 max) now promotes to a double like SQLite instead of throwing
+> `Positive input exceeds the limit of integer`. Fixed and verified live.
 
 ---
 

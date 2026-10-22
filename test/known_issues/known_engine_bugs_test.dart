@@ -382,7 +382,7 @@ void main() {
     });
   });
 
-  group('open bugs (round 6 — found 2026-10-22)', () {
+  group('formerly-open bug F52 (fixed & verified)', () {
     test('F52 · positive integer literal above int64 crashes the parser',
         () async {
       final db = await openEngine();
