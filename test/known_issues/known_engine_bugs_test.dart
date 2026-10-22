@@ -325,4 +325,49 @@ void main() {
       await expectScalar(db, "SELECT printf('%e', 1234.5)", '1.234500e+03');
     });
   });
+
+  group('open bugs (round 4 — found 2026-10-22)', () {
+    test('F40 · unary minus on a text value throws an internal cast error',
+        () async {
+      final db = await openEngine();
+      // Binary `5 + '3'` coerces fine; unary `-'5'` must too (SQLite: -5).
+      await expectScalar(db, "SELECT -'5'", -5);
+    },
+        skip: 'KNOWN ENGINE BUG: unary minus on text throws "String is not a '
+            'subtype of num" (the coercion path that binary ops have is missing '
+            'for unary minus). See findings/FINDINGS.md F40.');
+
+    test('F41 · CAST(blob AS TEXT) returns raw bytes instead of text',
+        () async {
+      final db = await openEngine();
+      // x'4869' is the bytes for "Hi"; CAST ... AS TEXT must decode it.
+      await expectScalar(db, "SELECT CAST(x'4869' AS TEXT)", 'Hi');
+    },
+        skip: 'KNOWN ENGINE BUG: CAST(<blob> AS TEXT) returns the raw byte list '
+            '([72,105]) instead of the decoded string ("Hi"). '
+            'See findings/FINDINGS.md F41.');
+
+    test('F42 · CAST(number AS BLOB) throws', () async {
+      final db = await openEngine();
+      // SQLite produces the blob of the value's text form; must not throw.
+      await expectOk(db, 'SELECT CAST(3.14 AS BLOB)');
+    },
+        skip: 'KNOWN ENGINE BUG: CAST(<number> AS BLOB) throws '
+            '"Cannot coerce 3.14 to BLOB"; SQLite yields a blob. '
+            'See findings/FINDINGS.md F42.');
+
+    test('F43 · PRAGMA table_info reports notnull=1 for INTEGER PRIMARY KEY',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)');
+      final r = await db.execute('PRAGMA table_info(t)');
+      final idRow = r.rows.firstWhere((row) => '${row[1]}' == 'id');
+      // SQLite reports notnull=0 for an INTEGER PRIMARY KEY (rowid alias).
+      expect(idRow[3], 0);
+    },
+        skip: 'KNOWN ENGINE BUG: PRAGMA introspection diverges from SQLite \u2014 '
+            'table_info notnull=1 for INTEGER PRIMARY KEY (should be 0), default '
+            'values unquoted, and index_list has a different shape + lists the '
+            'auto PK index. Breaks ORM introspection. See findings/FINDINGS.md F43.');
+  });
 }

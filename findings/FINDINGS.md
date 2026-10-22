@@ -9,12 +9,16 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**All 39 bugs (F1–F39) are FIXED and verified.** Every repro runs live (nothing
-skipped) and passes; the full suite is **440 pass / 0 skip / 0 fail**. F35–F39
-(the function-edge sweep: `abs(text)` crash, `substr(x,0)`, `replace` empty
-pattern, `CAST` trailing-garbage, `printf` `%e`/`%g`) were the latest wave,
-closed after F1–F34. The 60k-query fuzzer finds 0 divergences; sakila +
-employees real-data differentials match SQLite.
+**43 bugs found; F1–F39 fixed & verified; F40–F43 open (newly found).**
+All of F1–F39 are closed. A math-coercion / CAST / PRAGMA sweep surfaced four
+more:
+- **F40** — unary minus on text (`-'5'`) throws an internal cast error (binary
+  arithmetic coerces fine; unary minus is missing the coercion path).
+- **F41** — `CAST(<blob> AS TEXT)` returns the raw byte list instead of the
+  decoded string.
+- **F42** — `CAST(<number> AS BLOB)` throws instead of producing a blob.
+- **F43** — `PRAGMA` introspection diverges from SQLite (table_info `notnull=1`
+  for an INTEGER PRIMARY KEY, unquoted defaults, different index_list shape).
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -419,6 +423,35 @@ non-ASCII case comparisons.
 - **Repro:** `printf('%e', 1234.5)` → `1.234500e+3` (should be `e+03`);
   `printf('%g', 0.0001)` → `0.000100000` (should trim to `0.0001`).
 - **Test:** F39.
+
+## Open bugs (round 4 — found 2026-10-22, math-coercion / CAST / PRAGMA sweep)
+
+### F40 · Unary minus on text throws an internal cast error *(OPEN)*
+- **Severity:** Medium-High (internal exception leak; F35/F6/F12 family).
+- **Repro:** `SELECT -'5'` → `type 'String' is not a subtype of type 'num'`.
+  Binary arithmetic (`5 + '3'`) coerces correctly; unary minus does not. SQLite
+  returns `-5`.
+- **Test:** F40.
+
+### F41 · CAST(blob AS TEXT) returns raw bytes *(OPEN)*
+- **Severity:** Medium.
+- **Repro:** `CAST(x'4869' AS TEXT)` → `[72, 105]` (byte list); SQLite decodes
+  to `'Hi'`.
+- **Test:** F41.
+
+### F42 · CAST(number AS BLOB) throws *(OPEN)*
+- **Severity:** Low-Medium (one-sided error).
+- **Repro:** `CAST(3.14 AS BLOB)` → `FormatException: Cannot coerce 3.14 to
+  BLOB`; SQLite yields the blob of the value's text form.
+- **Test:** F42.
+
+### F43 · PRAGMA introspection diverges from SQLite *(OPEN)*
+- **Severity:** Medium (breaks ORM / tooling schema introspection).
+- **Repro:** `PRAGMA table_info(t)` reports `notnull=1` for an
+  `INTEGER PRIMARY KEY` (SQLite: `0`) and returns default values unquoted
+  (`x` vs `'x'`); `PRAGMA index_list(t)` has a different column shape and lists
+  the auto PK index that SQLite omits.
+- **Test:** F43.
 
 
 ---
