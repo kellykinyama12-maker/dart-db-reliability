@@ -369,5 +369,14 @@ void main() {
             'table_info notnull=1 for INTEGER PRIMARY KEY (should be 0), default '
             'values unquoted, and index_list has a different shape + lists the '
             'auto PK index. Breaks ORM introspection. See findings/FINDINGS.md F43.');
-  });
+    test('F44 · SUM of a boolean expression throws', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
+      await db.execute('INSERT INTO t VALUES (1,50),(2,150),(3,200)');
+      // SUM(<condition>) counts matching rows (bool -> 1/0) in SQLite/MySQL.
+      await expectScalar(db, 'SELECT SUM(v > 100) FROM t', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: SUM of a boolean expression throws '
+            '"SUM requires numeric, got bool"; should coerce bool to 1/0 (the '
+            'common count-matching idiom). See findings/FINDINGS.md F44.');  });
 }

@@ -19,6 +19,8 @@ more:
 - **F42** — `CAST(<number> AS BLOB)` throws instead of producing a blob.
 - **F43** — `PRAGMA` introspection diverges from SQLite (table_info `notnull=1`
   for an INTEGER PRIMARY KEY, unquoted defaults, different index_list shape).
+- **F44** — `SUM(<boolean>)` throws instead of coercing the bool to 1/0 (the
+  common `SUM(cond)` count-matching idiom).
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -452,6 +454,17 @@ non-ASCII case comparisons.
   (`x` vs `'x'`); `PRAGMA index_list(t)` has a different column shape and lists
   the auto PK index that SQLite omits.
 - **Test:** F43.
+
+### F44 · SUM of a boolean expression throws *(OPEN)*
+- **Severity:** Medium (common `SUM(cond)` count idiom).
+- **Repro:** `SELECT SUM(v > 100) FROM t` → `Bad state: SUM requires numeric,
+  got bool`. SQLite/MySQL coerce the boolean to 1/0, so `SUM(cond)` counts the
+  matching rows.
+- **Test:** F44.
+
+> **Note (not counted):** `SUM` of values that exceed int64 returns `NULL` in the
+> engine, where SQLite raises an "integer overflow" error and MySQL promotes to
+> DECIMAL. Behavior is implementation-defined; recorded as an observation.
 
 
 ---
