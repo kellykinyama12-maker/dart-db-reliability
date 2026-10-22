@@ -52,11 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 47 found, 45 fixed & verified, 2 open.**
-  F1–F45 are closed. **Open (F46–F47):** a parameterless prepared statement
-  hangs the MySQL wire connection; the most-negative int64 literal crashes the
-  parser. MySQL wire value-fidelity (23 round-trip cases) is otherwise clean;
-  robustness (deep nesting / large inputs / recursion) is clean.
+- **Bug status (2026-10-22): 51 found, 45 fixed & verified, 6 open.**
+  F1–F45 are closed. **Open:** F46 (parameterless prepared statement hangs the
+  wire connection), F47 (int64-min literal crashes the parser), and the
+  **F48–F51 cross-connection isolation cluster** (global transaction state:
+  dirty reads, a rollback discarding another connection’s committed write,
+  cross-connection commit, and no concurrent transactions). MySQL wire
+  value-fidelity (23 round-trip cases) and robustness are otherwise clean.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

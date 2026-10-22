@@ -9,9 +9,25 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**47 bugs found; F1–F45 fixed & verified; F46–F47 open (newly found).** A
-MySQL wire-protocol round-trip sweep (real `mysql_client` driver, text
-COM_QUERY + binary COM_STMT_EXECUTE) surfaced two more:
+**51 bugs found; F1–F45 fixed & verified; F46–F51 open (newly found).**
+
+A **cross-connection isolation** sweep (two independent `mysql_client`
+connections to one shared engine Database) exposed a cluster of four serious
+isolation violations, **F48–F51**, all from a single root cause: transaction
+state (`_snapshot` / `inTransaction`) is kept **globally on the shared
+Database**, not per connection/session, and the statement lock is released after
+each statement instead of being held for the whole transaction. One fix
+(per-connection transaction context) resolves all four, but each is an
+independently client-visible failure:
+- **F48** (dirty read) — connection B sees connection A’s *uncommitted* INSERT.
+- **F49** (lost committed write — **data loss**) — A’s `ROLLBACK` discards rows
+  that B committed (autocommit) during A’s transaction.
+- **F50** (cross-connection commit) — B’s `COMMIT` commits A’s open transaction;
+  A’s later `ROLLBACK` becomes a no-op.
+- **F51** (no concurrent transactions) — while A has a transaction open, B’s
+  `BEGIN` throws “Already in a transaction”.
+
+An earlier MySQL wire round-trip sweep found **F46–F47** (both open):
 - **F46** — a prepared statement with **zero parameter markers** hangs the
   connection: `COM_STMT_PREPARE` never sends its response so `conn.prepare`
   never completes (a parameterised prepare works). Parameterless prepared
@@ -510,6 +526,24 @@ arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
   `9223372036854775808` (which overflows int64) before applying unary minus.
   SQLite returns `-9223372036854775808`.
 - **Test:** F47.
+
+### F48–F51 · cross-connection transaction isolation *(OPEN, one root cause)*
+Transaction state is global on the shared Database, so BEGIN/COMMIT/ROLLBACK on
+one connection affects all others. Verified with two live `mysql_client`
+connections; each symptom has its own repro in `test/wire/mysql_isolation_test.dart`.
+- **F48 · dirty read** *(High)* — A: `BEGIN; INSERT`; B then sees the uncommitted
+  row (`COUNT` = 2 instead of 1).
+- **F49 · lost committed write** *(Critical — data loss)* — A: `BEGIN`; B
+  (autocommit) `INSERT`; A: `ROLLBACK` → B’s committed row is gone, because A’s
+  rollback restores the global snapshot captured at A’s BEGIN.
+- **F50 · cross-connection commit** *(Critical)* — A: `BEGIN; INSERT`; B:
+  `COMMIT` commits A’s row; A’s subsequent `ROLLBACK` is a no-op.
+- **F51 · no concurrent transactions** *(High)* — while A has a transaction open,
+  B’s `BEGIN` throws “Already in a transaction”; two connections can never
+  transact independently.
+- **Fix:** move transaction state (snapshot, inTransaction, savepoints) onto the
+  per-connection session, and hold isolation for the duration of each
+  transaction rather than per statement.
 
 
 ---

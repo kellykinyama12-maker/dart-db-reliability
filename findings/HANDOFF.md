@@ -1,17 +1,36 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs (F46–F47)**,
-found by a MySQL wire-protocol round-trip sweep. Each has a minimal repro and a
-skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **6 open bugs (F46–F51)**,
+found by MySQL wire-protocol round-trip and cross-connection isolation sweeps.
+Each has a minimal repro and a skipped regression test that turns green when
+fixed.
 
 - **Verify one:** un-skip its test (F46 in `test/wire/mysql_wire_roundtrip_test.dart`,
-  F47 in `test/known_issues/known_engine_bugs_test.dart`).
+  F47 in `test/known_issues/known_engine_bugs_test.dart`, F48–F51 in
+  `test/wire/mysql_isolation_test.dart`).
 - **Verify all at once:** `dart test --run-skipped --timeout 20s`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 47 found, 45 fixed & verified, 2 open.**
+**Status: 51 found, 45 fixed & verified, 6 open.**
 
-## Current open batch (F46–F47)
+## Highest priority — F48–F51 cross-connection isolation (one root cause)
+
+Transaction state (`_snapshot` / `inTransaction` / savepoints) lives **globally**
+on the single shared `Database`, and the read/write lock is released after each
+statement instead of being held for the whole transaction. So any connection’s
+BEGIN/COMMIT/ROLLBACK affects every other connection. **One fix** — move
+transaction state onto the per-connection session and hold isolation for the
+transaction’s lifetime — resolves all four. Verified with two live `mysql_client`
+connections to the same server.
+
+| # | Symptom | Severity | Deterministic repro |
+| --- | --- | --- | --- |
+| **F49** | lost committed write | 🔴 data loss | A `BEGIN`; B (autocommit) `INSERT r`; A `ROLLBACK` → **B’s row r is gone** |
+| **F50** | cross-connection commit | 🔴 corruption | A `BEGIN; INSERT r`; B `COMMIT` commits A’s r; A’s later `ROLLBACK` is a no-op |
+| **F48** | dirty read | 🟠 isolation | A `BEGIN; INSERT r` (uncommitted); B `SELECT COUNT(*)` already sees r |
+| **F51** | no concurrent transactions | 🟠 concurrency | while A has a tx open, B `BEGIN` → “Already in a transaction” |
+
+## MySQL wire round-trip (F46–F47)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
