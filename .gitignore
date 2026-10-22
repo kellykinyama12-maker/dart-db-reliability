@@ -1,0 +1,10 @@
+# Dart / Pub
+.dart_tool/
+.packages
+pubspec.lock
+build/
+
+# Test scratch
+*.json
+*.db
+*.db-*
