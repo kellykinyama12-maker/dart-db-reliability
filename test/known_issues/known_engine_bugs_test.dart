@@ -442,4 +442,50 @@ void main() {
       await expectThrows(db, 'SELECT min(3, 1, 2) FROM t');
     });
   });
+
+  group('open bugs (round 10 — found 2026-10-22)', () {
+    test('F60 · self LEFT JOIN nulls the left row own column when unmatched',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE e (id INTEGER PRIMARY KEY, mgr INTEGER)');
+      await db.execute('INSERT INTO e VALUES (1,NULL),(2,1),(3,1),(4,2)');
+      // The unmatched row (id=1, mgr NULL) must keep e.id=1; the engine returns
+      // NULL for the left column on a self-join. Two-table LEFT JOIN is fine.
+      await expectRows(
+          db, 'SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id ORDER BY e.id', [
+        [1],
+        [2],
+        [3],
+        [4]
+      ]);
+    },
+        skip: 'KNOWN ENGINE BUG: in a self LEFT JOIN the left table own column '
+            'returns NULL for rows that do not match the right side (the engine '
+            'confuses the two aliased instances when NULL-padding). Two-table '
+            'LEFT JOIN is correct. See findings/FINDINGS.md F60.');
+
+    test('F61 · COLLATE in a column definition is a parse error', () async {
+      final db = await openEngine();
+      // SQLite accepts a column-level COLLATE; the engine rejects it.
+      await expectOk(
+          db, 'CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT COLLATE NOCASE)');
+    },
+        skip: 'KNOWN ENGINE BUG: a COLLATE clause in a CREATE TABLE column '
+            'definition (e.g. s TEXT COLLATE NOCASE) is a parse error. COLLATE '
+            'works in WHERE/ORDER BY but not in column definitions. See '
+            'findings/FINDINGS.md F61.');
+
+    test('F62 · COLLATE is not applied in DISTINCT / GROUP BY dedup', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT)');
+      await db.execute("INSERT INTO t VALUES (1,'A'),(2,'a'),(3,'b')");
+      // NOCASE makes 'A' and 'a' equal -> 2 distinct values; the engine
+      // ignores the collation in DISTINCT/GROUP BY and returns 3.
+      await expectScalar(db, 'SELECT COUNT(DISTINCT s COLLATE NOCASE) FROM t', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: a COLLATE override is not applied in DISTINCT '
+            'or GROUP BY de-duplication (NOCASE ignored). COLLATE RTRIM is also '
+            'unimplemented in comparisons. COLLATE works in WHERE/ORDER BY. See '
+            'findings/FINDINGS.md F62.');
+  });
 }

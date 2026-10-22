@@ -1,13 +1,31 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the last
-batch (F57–F59, SQLite-semantics gaps) has been fixed and verified. The full
-suite runs live with nothing skipped.
+For the engine author working in `dart-db-server`. **3 open bugs (F60–F62)**,
+found by a joins / collation differential vs SQLite. Each has a minimal repro
+and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 59 found, 59 fixed & verified, 0 open.**
+**Status: 62 found, 59 fixed & verified, 3 open.**
+
+## Current open bugs (F60–F62)
+
+| # | Bug | Severity | Repro → wrong result |
+| --- | --- | --- | --- |
+| **F60** | self LEFT JOIN nulls the left column | 🔴 silent wrong result | `SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id` → `NULL` for the unmatched row (should be its id); two-table LEFT JOIN is fine |
+| **F61** | COLLATE in column definition | 🟠 parse error | `CREATE TABLE t (… s TEXT COLLATE NOCASE)` → `Expected ) but got "COLLATE"` |
+| **F62** | COLLATE ignored in DISTINCT/GROUP BY | 🟠 wrong dedup | `COUNT(DISTINCT s COLLATE NOCASE)` → 3 (should be 2); `COLLATE RTRIM` unimplemented |
+
+> **F60** — in a self LEFT JOIN the engine resolves the left alias's column to
+> the NULL-padded right instance for unmatched rows; keep the left row's own
+> columns. **F61** — accept `COLLATE <name>` in a column definition and apply it
+> as the column's default collation. **F62** — apply a `COLLATE` override (and
+> column default collation) in DISTINCT/GROUP BY dedup and comparisons, and
+> implement `RTRIM`. COLLATE already works in WHERE/ORDER BY (F23).
+
+---
 
 ## Resolved batch (F57–F59) — ✅ fixed 2026-10-22 (SQLite-semantics gaps)
 

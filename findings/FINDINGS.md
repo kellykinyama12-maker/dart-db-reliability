@@ -9,17 +9,27 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**59 bugs found; F1–F59 fixed & verified; 0 open.** The full suite runs live
-with **nothing skipped**. The last batch (SQLite-semantics gaps) is closed:
-- **F55/F56** *(fixed & verified)* — `INTEGER PRIMARY KEY` rowid-alias contract
-  (rejects non-integers; auto-assigns the rowid when omitted/NULL).
-- **F57** *(fixed & verified)* — the `rowid` pseudo-column (and `_rowid_`, `oid`)
-  is now queryable, including in a `WHERE` clause.
-- **F58** *(fixed & verified)* — a negative `LIMIT` (e.g. `LIMIT -1`) is now
-  treated as "no limit" like SQLite.
-- **F59** *(fixed & verified)* — a multi-arg `min()`/`max()` now errors (the
-  Oracle/MySQL behaviour — use `LEAST`/`GREATEST`) instead of silently returning
-  the first argument.
+**62 bugs found; F1–F59 fixed & verified; F60–F62 open.** A joins / collation /
+datetime differential vs SQLite surfaced a self-join correctness bug and two
+collation gaps:
+- **F60** — in a self `LEFT JOIN` the left table's own column returns `NULL` for
+  rows that don't match the right side (`SELECT e.id FROM e LEFT JOIN e m ON
+  e.mgr = m.id` → `NULL` for the unmatched row instead of its id). Two-table
+  LEFT JOIN is correct; the engine confuses the two aliased instances when
+  NULL-padding. Employee/manager hierarchies are the textbook case.
+- **F61** — a `COLLATE` clause in a `CREATE TABLE` column definition (e.g.
+  `s TEXT COLLATE NOCASE`) is a parse error.
+- **F62** — a `COLLATE` override is not applied in `DISTINCT` / `GROUP BY`
+  de-duplication (`COUNT(DISTINCT s COLLATE NOCASE)` → 3 instead of 2); `COLLATE
+  RTRIM` is also unimplemented. (COLLATE works in `WHERE`/`ORDER BY`, per F23.)
+
+> **Round-10 otherwise clean:** LEFT (two-table) / RIGHT / FULL OUTER / CROSS /
+> NATURAL / USING joins, self LEFT JOIN with a matched right side, LEFT JOIN +
+> aggregate, `COLLATE NOCASE` in WHERE/ORDER BY, date/time modifiers
+> (`start of month`, `+N month`, `weekday`, chained), `strftime`, `julianday`,
+> `iif`, bitwise ops, and `HAVING` without GROUP BY all match SQLite.
+> `TRUE`/`FALSE` evaluate to a Dart bool (normalized to 1/0, as SQLite/MySQL) —
+> representation only, not a bug.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
@@ -642,6 +652,36 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   scalar extreme (SQLite). Either is fine; silently returning the first arg is
   not.
 - **Test:** F59 (skipped).
+
+### F60 · self LEFT JOIN nulls the left row's own column *(OPEN)*
+- **Severity:** High (silent wrong result in a common query shape).
+- **Repro:** `CREATE TABLE e (id INTEGER PRIMARY KEY, mgr INTEGER);
+  INSERT INTO e VALUES (1,NULL),(2,1),(3,1),(4,2);
+  SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id ORDER BY e.id` → the
+  unmatched row (id 1, mgr NULL) comes back as `NULL` instead of `1`. A
+  two-table LEFT JOIN with the same shape is correct.
+- **Root cause:** on a self-join the engine resolves the left alias's column to
+  the NULL-padded right instance for unmatched rows.
+- **Fix:** keep the left row's own columns intact; only NULL-pad the right side.
+- **Test:** F60 (skipped).
+
+### F61 · COLLATE in a column definition is a parse error *(OPEN)*
+- **Severity:** Medium (schema-level collation unusable).
+- **Repro:** `CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT COLLATE NOCASE)` →
+  `Expected ) but got "COLLATE"`. SQLite accepts a column-level COLLATE.
+- **Fix:** parse `COLLATE <name>` in a column definition and use it as the
+  column's default collation.
+- **Test:** F61 (skipped).
+
+### F62 · COLLATE not applied in DISTINCT / GROUP BY *(OPEN)*
+- **Severity:** Medium (wrong de-duplication under a collation).
+- **Repro:** `COUNT(DISTINCT s COLLATE NOCASE)` over `'A','a','b'` → `3` (SQLite
+  `2`); `GROUP BY s COLLATE NOCASE` likewise doesn't fold `'A'`/`'a'`. `COLLATE
+  RTRIM` in a comparison is also unimplemented. COLLATE does work in
+  `WHERE`/`ORDER BY` (F23).
+- **Fix:** honor a `COLLATE` override (and column default collation) in
+  DISTINCT/GROUP BY keying and comparisons; implement `RTRIM`.
+- **Test:** F62 (skipped).
 
 
 ---

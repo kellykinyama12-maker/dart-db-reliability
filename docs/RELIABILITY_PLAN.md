@@ -52,8 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 59 found, 59 fixed & verified, 0 open.**
-  F1–F59 are all closed; the suite runs live with nothing skipped. The Oracle
+- **Bug status (2026-10-22): 62 found, 59 fixed & verified, 3 open.**
+  F1–F59 are closed. **Open:** F60 (a self `LEFT JOIN` nulls the left row's own
+  column for unmatched rows), F61 (`COLLATE` in a column definition is a parse
+  error), and F62 (`COLLATE` not applied in `DISTINCT`/`GROUP BY`; `COLLATE
+  RTRIM` unimplemented). All are differential-vs-SQLite findings. The Oracle
   path (fidelity, binds, transactions, isolation, FETCH, 15 Oracle-specific
   features, concurrency, error recovery) is clean three-way vs real `oci8`;
   triggers/views/aggregates and MySQL wire fidelity and robustness are clean.
