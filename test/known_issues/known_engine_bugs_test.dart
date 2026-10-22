@@ -389,11 +389,6 @@ void main() {
       // SQLite promotes an out-of-range integer literal to a double (1e20); the
       // engine int.parse()s it and throws. It already handles 1e20 correctly.
       await expectScalar(db, 'SELECT 99999999999999999999', 1e20);
-    },
-        skip: 'KNOWN ENGINE BUG: an integer literal larger than int64 max '
-            '(e.g. 99999999999999999999 or 9223372036854775808) throws '
-            '"Positive input exceeds the limit of integer"; SQLite promotes it '
-            'to a double. Positive-side analog of F47. See findings/FINDINGS.md '
-            'F52.');
+    });
   });
 }
