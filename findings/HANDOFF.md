@@ -1,13 +1,38 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the last
-batch (F66–F67, Oracle HR DDL) is fixed and verified. The full suite runs live
-with nothing skipped, and the real Oracle HR schema now loads end to end.
+For the engine author working in `dart-db-server`. **6 open bugs (F68–F73)** —
+Oracle OE/SH sample-schema DDL gaps. Each has a minimal repro and a skipped
+regression test that turns green when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 67 found, 67 fixed & verified, 0 open.**
+**Status: 73 found, 67 fixed & verified, 6 open.**
+
+## Highest value — finish Oracle SH (96/100 loads; F68+F69 unblock it)
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F68** | PARTITION BY clause | `CREATE TABLE t (…) PARTITION BY HASH (id) PARTITIONS 4` → `Unexpected token after statement: PARTITION` | accept/ignore the partition clause (like `ORGANIZATION INDEX`) |
+| **F69** | CREATE MATERIALIZED VIEW | `CREATE MATERIALIZED VIEW mv AS SELECT …` → `Expected TABLE, INDEX, VIEW or TRIGGER` | parse as a view (or accept) |
+
+## Oracle OE (object-relational / PL/SQL)
+
+| # | Bug | Repro → error |
+| --- | --- | --- |
+| **F71** | CREATE SYNONYM | `CREATE SYNONYM syn FOR t` → `Expected TABLE, INDEX, VIEW or TRIGGER` (create an alias / accept) |
+| **F73** | constraint ENABLE clause | `ALTER TABLE t ADD (CONSTRAINT pk PRIMARY KEY (id) ENABLE)` → `Expected ) but got "ENABLE"` (accept/ignore) |
+| **F70** | CREATE TYPE (object types) | `CREATE TYPE addr AS OBJECT (…)` → unsupported (large OR feature) |
+| **F72** | PL/SQL trigger body | `CREATE TRIGGER … DECLARE … BEGIN :new.x := … END` → `Expected BEGIN but got DECLARE` (large PL/SQL feature) |
+
+> **Quick wins:** F68, F69, F71, F73 are accept/parse-and-ignore clauses (same
+> shape as the already-fixed `ORGANIZATION INDEX`). F70 (object types) and F72
+> (PL/SQL trigger bodies) are larger features. **Not yet filed:** schema-
+> qualified FK references (`REFERENCES schema.table`) parse-error, and `COMMIT`
+> with no active transaction erroring instead of being a no-op.
+
+---
 
 ## Resolved batch (F66–F67) — ✅ fixed 2026-10-22 (finish Oracle HR schema)
 

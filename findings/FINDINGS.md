@@ -9,18 +9,27 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**67 bugs found; F1–F67 fixed & verified; 0 open.** Loading the real **Oracle HR
-sample schema** drove the last wave of fixes: the full `hr_create.sql` now
-loads (all 7 core tables + the view create), up from 3/85 at the start. The
-last two Oracle-DDL gaps are closed:
-- **F66** *(fixed & verified)* — a trailing `ORGANIZATION INDEX` (index-organized
-  table) clause on `CREATE TABLE` is accepted/ignored.
-- **F67** *(fixed & verified)* — `CREATE VIEW name (col-list) AS ...` (explicit
-  view column list) parses.
+**73 bugs found; F1–F67 fixed & verified; F68–F73 open.** Pushing the parity
+gate onto the Oracle **SH** (sales history) and **OE** (order entry) sample
+schemas surfaced six more DDL gaps. SH loads **96/100** statements — two small
+clauses block it — while OE needs object-relational / PL/SQL features:
+- **F68** — `PARTITION BY` clause on `CREATE TABLE` is a parse error (blocks
+  SH.sales / SH.costs). Should be accepted/ignored, like `ORGANIZATION INDEX`.
+- **F69** — `CREATE MATERIALIZED VIEW` is unsupported (blocks SH MVs). Treat as
+  a view or accept.
+- **F70** — `CREATE TYPE ... AS OBJECT/VARRAY/TABLE OF` (Oracle object types) is
+  unsupported; blocks OE/OC (large OR feature).
+- **F71** — `CREATE SYNONYM` is unsupported; blocks OE. Create an alias / accept.
+- **F72** — a PL/SQL trigger body with a `DECLARE` section and procedural
+  assignments (`:new.x := ...`) is unsupported (large PL/SQL feature); OE.
+- **F73** — a trailing `ENABLE`/`DISABLE` constraint-state clause in
+  `ALTER TABLE ADD (CONSTRAINT ... ENABLE)` is a parse error; OE.
 
-> **HR parity gate is GREEN:** `test/parity/oracle_hr_parity_test.dart` loads
-> the real `hr_create.sql` live and asserts all 7 core HR tables create. It
-> auto-skips only when the dataset is absent.
+> **SH parity test:** `test/parity/oracle_sh_parity_test.dart` (skipped, BLOCKED
+> by F68/F69; auto-skips if absent). **HR parity gate is GREEN.**
+> Secondary observations (not yet filed): schema-qualified FK references
+> (`REFERENCES schema.table`) are a parse error, and `COMMIT` with no active
+> transaction errors instead of being a no-op.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

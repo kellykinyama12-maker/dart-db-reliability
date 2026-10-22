@@ -511,4 +511,72 @@ void main() {
       await expectOk(db, 'CREATE VIEW v (a, b) AS SELECT 1, 2');
     });
   });
+
+  // Gaps blocking the Oracle SH (96/100) and OE sample schemas.
+  group('open bugs (round 13 — Oracle OE/SH DDL parity)', () {
+    test('F68 · PARTITION BY clause on CREATE TABLE not parsed', () async {
+      final db = await openEngine();
+      // Storage/partitioning clause; can be accepted and ignored. Blocks
+      // SH.sales and SH.costs.
+      await expectOk(
+          db, 'CREATE TABLE t (id NUMBER, d DATE) PARTITION BY HASH (id) PARTITIONS 4');
+    },
+        skip: 'KNOWN ENGINE BUG: a PARTITION BY clause on CREATE TABLE is a '
+            'parse error ("Unexpected token after statement: PARTITION"). Should '
+            'be accepted/ignored. Blocks Oracle SH. See findings/FINDINGS.md F68.');
+
+    test('F69 · CREATE MATERIALIZED VIEW not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE s (m VARCHAR2(10), amt NUMBER)');
+      await expectOk(db,
+          'CREATE MATERIALIZED VIEW mv AS SELECT m, SUM(amt) FROM s GROUP BY m');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE MATERIALIZED VIEW is "Expected TABLE, '
+            'INDEX, VIEW or TRIGGER after CREATE". Should parse (treat as a view '
+            'or accept). Blocks Oracle SH. See findings/FINDINGS.md F69.');
+
+    test('F70 · CREATE TYPE (object type / VARRAY / nested table) not supported',
+        () async {
+      final db = await openEngine();
+      await expectOk(db,
+          'CREATE TYPE addr_typ AS OBJECT (street VARCHAR2(40), city VARCHAR2(30))');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE TYPE ... AS OBJECT/VARRAY/TABLE OF is '
+            'not supported ("Expected TABLE, INDEX, VIEW or TRIGGER"). Oracle '
+            'object-relational feature; blocks OE/OC. See findings/FINDINGS.md F70.');
+
+    test('F71 · CREATE SYNONYM not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER)');
+      await expectOk(db, 'CREATE SYNONYM syn FOR t');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE SYNONYM is not supported ("Expected '
+            'TABLE, INDEX, VIEW or TRIGGER"). Should create an alias or be '
+            'accepted. Blocks Oracle OE. See findings/FINDINGS.md F71.');
+
+    test('F72 · PL/SQL trigger with a DECLARE / procedural body not supported',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await expectOk(db,
+          'CREATE OR REPLACE TRIGGER trg BEFORE INSERT ON t FOR EACH ROW DECLARE x NUMBER; BEGIN :new.v := 1; END;');
+    },
+        skip: 'KNOWN ENGINE BUG: a PL/SQL trigger body with a DECLARE section '
+            'and procedural assignments (:new.x := ...) is not supported '
+            '("Expected BEGIN but got DECLARE"). Blocks Oracle OE. See '
+            'findings/FINDINGS.md F72.');
+
+    test('F73 · constraint ENABLE clause in ALTER TABLE ADD not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER)');
+      // Oracle constraint-state clause; can be accepted and ignored.
+      await expectOk(
+          db, 'ALTER TABLE t ADD (CONSTRAINT pk PRIMARY KEY (id) ENABLE)');
+    },
+        skip: 'KNOWN ENGINE BUG: a trailing ENABLE/DISABLE constraint-state '
+            'clause in ALTER TABLE ADD (CONSTRAINT ... ENABLE) is a parse error '
+            '("Expected ) but got ENABLE"). Should be accepted/ignored. Blocks '
+            'Oracle OE. See findings/FINDINGS.md F73.');
+  });
 }
