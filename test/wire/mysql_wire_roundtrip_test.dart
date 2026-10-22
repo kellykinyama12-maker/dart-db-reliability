@@ -181,10 +181,6 @@ void main() {
           .timeout(const Duration(seconds: 5));
       await stmt.execute([]);
       await stmt.deallocate();
-    },
-        skip: 'KNOWN ENGINE BUG: COM_STMT_PREPARE on a statement with zero '
-            'parameter markers never sends its response, so conn.prepare hangs '
-            'forever (a parameterised prepare works). Parameterless prepared '
-            'statements are common in ORMs. See findings/FINDINGS.md F46.');
+    });
   });
 }

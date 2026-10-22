@@ -1,27 +1,19 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F46–F51)**,
-found by MySQL wire-protocol round-trip and cross-connection isolation sweeps.
-Each has a minimal repro and a skipped regression test that turns green when
-fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the last
+batch (F46–F51) has been fixed and verified. Every repro now runs live with
+nothing skipped (475 pass / 0 fail).
 
-- **Verify one:** un-skip its test (F46 in `test/wire/mysql_wire_roundtrip_test.dart`,
-  F47 in `test/known_issues/known_engine_bugs_test.dart`, F48–F51 in
-  `test/wire/mysql_isolation_test.dart`).
-- **Verify all at once:** `dart test --run-skipped --timeout 20s`.
+- **Verify all at once:** `dart test --timeout 25s`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 51 found, 45 fixed & verified, 6 open.**
+**Status: 51 found, 51 fixed & verified, 0 open.**
 
-## Highest priority — F48–F51 cross-connection isolation (one root cause)
+## Resolved batch (F48–F51) — ✅ fixed 2026-10-22 (cross-connection isolation)
 
-Transaction state (`_snapshot` / `inTransaction` / savepoints) lives **globally**
-on the single shared `Database`, and the read/write lock is released after each
-statement instead of being held for the whole transaction. So any connection’s
-BEGIN/COMMIT/ROLLBACK affects every other connection. **One fix** — move
-transaction state onto the per-connection session and hold isolation for the
-transaction’s lifetime — resolves all four. Verified with two live `mysql_client`
-connections to the same server.
+> **✅ RESOLVED.** Transaction state is now per-connection; the four isolation
+> symptoms below are fixed and verified with two live `mysql_client`
+> connections. Kept as a record.
 
 | # | Symptom | Severity | Deterministic repro |
 | --- | --- | --- | --- |
@@ -30,23 +22,14 @@ connections to the same server.
 | **F48** | dirty read | 🟠 isolation | A `BEGIN; INSERT r` (uncommitted); B `SELECT COUNT(*)` already sees r |
 | **F51** | no concurrent transactions | 🟠 concurrency | while A has a tx open, B `BEGIN` → “Already in a transaction” |
 
-## MySQL wire round-trip (F46–F47)
+## Resolved batch (F46–F47) — ✅ fixed 2026-10-22 (MySQL wire / parser)
+
+> **✅ RESOLVED.** Fixed and verified.
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
-| **F46** | parameterless prepared stmt hangs | 🔴 client freeze | `conn.prepare('SELECT v FROM t WHERE id = 1')` (no `?`) never returns; `… WHERE id = ?` works |
+| **F46** | parameterless prepared stmt hangs | 🔴 client freeze | `conn.prepare('SELECT v FROM t WHERE id = 1')` (no `?`) never returned; `… WHERE id = ?` worked |
 | **F47** | int64-min literal crashes parser | 🟠 internal exception | `SELECT -9223372036854775808` → `"Positive input exceeds the limit of integer"` |
-
-> **F46 detail** — `COM_STMT_PREPARE` for a statement with **0 parameter
-> markers** never writes its prepare-OK response, so the driver waits forever.
-> The parameterised path (`WHERE id = ?`) is fine, so the bug is specific to the
-> `num_params == 0` branch of the prepare handler. Parameterless prepared
-> statements are extremely common (ORMs, cached plans), so this freezes clients.
-
-> **F47 detail** — the parser reads the digits of `9223372036854775808` with
-> `int.parse` (overflows int64) *before* the unary minus is applied, so the
-> valid literal `-9223372036854775808` is rejected. Parse the sign together with
-> the magnitude, or special-case the int64-min boundary.
 
 ---
 

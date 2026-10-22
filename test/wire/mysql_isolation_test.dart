@@ -69,10 +69,7 @@ void main() {
       // B is a separate connection; it must NOT see A's uncommitted row.
       expect(await countOn(b), 1);
       await a.execute('ROLLBACK');
-    },
-        skip: 'KNOWN ENGINE BUG: transaction state is global, so connection B '
-            'sees connection A\'s uncommitted INSERT (dirty read). See '
-            'findings/FINDINGS.md F48.');
+    });
 
     test('F49 · one connection ROLLBACK discards another connection\'s '
         'committed write', () async {
@@ -83,11 +80,7 @@ void main() {
       // A's rollback must not touch B's committed data.
       final r = await b.execute('SELECT v FROM t WHERE id = 3');
       expect(r.rows, isNotEmpty, reason: 'B committed row was lost');
-    },
-        skip: 'KNOWN ENGINE BUG (data loss): connection A\'s ROLLBACK restores '
-            'the global snapshot taken at A\'s BEGIN, silently discarding rows '
-            'that connection B committed in the meantime. See '
-            'findings/FINDINGS.md F49.');
+    });
 
     test('F50 · one connection can COMMIT another connection\'s transaction',
         () async {
@@ -100,10 +93,7 @@ void main() {
       final r = await a.execute('SELECT v FROM t WHERE id = 4');
       expect(r.rows, isEmpty,
           reason: 'B\'s COMMIT durably committed A\'s uncommitted row');
-    },
-        skip: 'KNOWN ENGINE BUG: because the transaction is global, connection '
-            'B\'s COMMIT clears A\'s snapshot, committing A\'s uncommitted rows; '
-            'A\'s later ROLLBACK is then a no-op. See findings/FINDINGS.md F50.');
+    });
 
     test('F51 · a second connection cannot open its own transaction', () async {
       await a.execute('BEGIN');
@@ -111,9 +101,6 @@ void main() {
       await b.execute('BEGIN');
       await b.execute('ROLLBACK');
       await a.execute('ROLLBACK');
-    },
-        skip: 'KNOWN ENGINE BUG: only one global transaction exists, so while '
-            'connection A has a transaction open, connection B\'s BEGIN throws '
-            '"Already in a transaction". See findings/FINDINGS.md F51.');
+    });
   });
 }

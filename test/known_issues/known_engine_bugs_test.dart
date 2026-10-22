@@ -373,16 +373,12 @@ void main() {
     });
   });
 
-  group('open bugs (round 5 — found 2026-10-22)', () {
+  group('formerly-open bugs F46–F51 (fixed & verified)', () {
     test('F47 · most-negative int64 literal crashes the parser', () async {
       final db = await openEngine();
       // -9223372036854775808 is a valid int64; the parser int.parse()s the
       // magnitude (9223372036854775808) before applying unary minus and throws.
       await expectScalar(db, 'SELECT -9223372036854775808', -9223372036854775808);
-    },
-        skip: 'KNOWN ENGINE BUG: the literal -9223372036854775808 (int64 min) '
-            'throws "Positive input exceeds the limit of integer" because the '
-            'parser parses the unsigned magnitude as a positive int before '
-            'applying unary minus. See findings/FINDINGS.md F47.');
+    });
   });
 }

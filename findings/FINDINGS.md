@@ -9,38 +9,18 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**51 bugs found; F1–F45 fixed & verified; F46–F51 open (newly found).**
+**51 bugs found; F1–F51 fixed & verified; 0 open.** The full suite runs live
+with **nothing skipped** (475 pass / 0 fail), including the MySQL wire
+round-trip and cross-connection isolation suites.
 
-A **cross-connection isolation** sweep (two independent `mysql_client`
-connections to one shared engine Database) exposed a cluster of four serious
-isolation violations, **F48–F51**, all from a single root cause: transaction
-state (`_snapshot` / `inTransaction`) is kept **globally on the shared
-Database**, not per connection/session, and the statement lock is released after
-each statement instead of being held for the whole transaction. One fix
-(per-connection transaction context) resolves all four, but each is an
-independently client-visible failure:
-- **F48** (dirty read) — connection B sees connection A’s *uncommitted* INSERT.
-- **F49** (lost committed write — **data loss**) — A’s `ROLLBACK` discards rows
-  that B committed (autocommit) during A’s transaction.
-- **F50** (cross-connection commit) — B’s `COMMIT` commits A’s open transaction;
-  A’s later `ROLLBACK` becomes a no-op.
-- **F51** (no concurrent transactions) — while A has a transaction open, B’s
-  `BEGIN` throws “Already in a transaction”.
-
-An earlier MySQL wire round-trip sweep found **F46–F47** (both open):
-- **F46** — a prepared statement with **zero parameter markers** hangs the
-  connection: `COM_STMT_PREPARE` never sends its response so `conn.prepare`
-  never completes (a parameterised prepare works). Parameterless prepared
-  statements are common in ORMs.
-- **F47** — the most-negative int64 literal `-9223372036854775808` crashes the
-  parser (`Positive input exceeds the limit of integer`); the magnitude is
-  `int.parse`d as a positive int before unary minus is applied.
-
-> **Wire fidelity otherwise clean:** 23 round-trip cases (ints incl. int64 max,
-> doubles, unicode/quote/newline/empty text, NULL, bound binary params, column
-> order, row order) all survive both the text and binary encoders intact.
-
-_Earlier batch (F40–F45) and historical detail are preserved below._
+The final two batches are now closed:
+- **F48–F51 (cross-connection isolation)** — transaction state is now
+  per-connection, so dirty reads (F48), a rollback discarding another
+  connection’s committed write (F49), cross-connection commit (F50), and the
+  no-concurrent-transactions limit (F51) are all resolved.
+- **F46–F47 (MySQL wire / parser)** — a parameterless prepared statement no
+  longer hangs (F46); the most-negative int64 literal `-9223372036854775808`
+  now parses (F47).
 - **F40** — unary minus on text (`-'5'`) threw an internal cast error (binary
   arithmetic coerced fine; unary minus was missing the coercion path).
 - **F41** — `CAST(<blob> AS TEXT)` returned the raw byte list instead of the
