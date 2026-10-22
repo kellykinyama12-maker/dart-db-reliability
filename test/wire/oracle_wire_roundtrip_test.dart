@@ -145,14 +145,11 @@ void main() {
       );
     });
 
-    // ---- KNOWN ENGINE BUG F53 -------------------------------------------
-    // A column value larger than one SDU (~8KB) is not chunked across TNS
-    // packets, so the client decode overruns its packet buffer and throws
-    // `RangeError (end): ...range 167..8182`. 8000 chars work; ~8100+ fail.
-    // Worse, the failure leaves the connection desynced (later queries return
-    // shifted data), so it uses a fresh client to isolate the crash.
-    test('F53 · a VARCHAR2 value larger than one SDU crashes the wire codec',
-        () async {
+    // ---- FORMERLY-OPEN BUG F53 (fixed & verified) -----------------------
+    // A column value larger than one SDU (~8KB) used not to be chunked across
+    // TNS packets; now it round-trips. Uses a fresh client (the old failure
+    // desynced the connection).
+    test('F53 · a VARCHAR2 value larger than one SDU round-trips', () async {
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)');
       await db.execute("INSERT INTO t VALUES (1, '${'x' * 9000}')");
       final probe = await OracleThickClient.connect(server.boundPort);
@@ -163,33 +160,17 @@ void main() {
       } finally {
         await probe.close();
       }
-    },
-        skip: 'KNOWN ENGINE BUG: an Oracle column value larger than one SDU '
-            '(~8KB) is not split across TNS packets; the client decode overruns '
-            'its buffer and throws RangeError (8000 chars OK, ~8100+ fail), and '
-            'the connection is left desynced. See findings/FINDINGS.md F53.');
+    });
 
-    // ---- KNOWN ENGINE BUG F54 -------------------------------------------
-    // A non-ASCII (multi-byte UTF-8) character anywhere in the inbound SQL text
-    // corrupts the statement over the Oracle wire: the server miscounts the SQL
-    // length (byte vs char), so it parses a truncated/shifted statement and
-    // returns empty rows (or ORA-00900 on the garbage). Confirmed server-side:
-    // real `oci8` gets the same wrong answer, while the direct engine is
-    // correct and stored unicode *data* round-trips fine — only unicode in the
-    // SQL *text* breaks.
-    test('F54 · non-ASCII characters in inbound SQL are mishandled on the wire',
-        () async {
-      // The engine core returns 'héllo'; over the Oracle wire it comes back
-      // empty because the SQL bytes are mis-length-counted.
+    // ---- FORMERLY-OPEN BUG F54 (fixed & verified) -----------------------
+    // A non-ASCII (multi-byte UTF-8) character in inbound SQL text used to be
+    // mis-length-counted (char vs byte), corrupting the statement; now it is
+    // decoded correctly.
+    test('F54 · non-ASCII characters in inbound SQL round-trip', () async {
       final r = await client.query("SELECT 'héllo' AS v FROM dual");
       expect(r.rows, [
         ['héllo']
       ]);
-    },
-        skip: 'KNOWN ENGINE BUG: a non-ASCII (multi-byte UTF-8) character in an '
-            'inbound SQL statement is mis-length-counted by the Oracle wire '
-            'server, corrupting the statement (empty result or ORA-00900 on a '
-            'mangled parse). ASCII SQL and stored unicode data are fine. '
-            'See findings/FINDINGS.md F54.');
+    });
   });
 }

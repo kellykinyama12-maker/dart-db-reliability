@@ -1,34 +1,27 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs (F53–F54)**,
-both server-side in the Oracle wire layer, found by an aggressive Oracle sweep
-and a triple-threat hunt (emulator vs pure-Dart thick vs real `oci8`). Each has
-a minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the last
+batch (F53–F54, both Oracle wire-server bugs) has been fixed and verified,
+including three-way against real `oci8` / Instant Client. The full suite runs
+live with nothing skipped.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (both in
-  `test/wire/oracle_wire_roundtrip_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 54 found, 52 fixed & verified, 2 open.**
+**Status: 54 found, 54 fixed & verified, 0 open.**
 
-## Current open bugs (F53–F54) — both Oracle server-side
+## Resolved batch (F53–F54) — ✅ fixed 2026-10-22 (Oracle wire server)
 
-| # | Bug | Severity | One-line repro → wrong result |
+> **✅ RESOLVED.** Both verified three-ways (emulator, pure-Dart thick, real
+> `oci8`). Kept as a record.
+
+| # | Bug | Severity | Repro → now |
 | --- | --- | --- | --- |
-| **F53** | large value crashes wire codec | 🔴 crash + desync | `SELECT` a ~9000-char VARCHAR2 → `RangeError ...167..8182` (8000 OK); value > one SDU not chunked across TNS packets |
-| **F54** | non-ASCII inbound SQL corrupted | 🔴 wrong results | `SELECT 'héllo' FROM dual` → empty; `... WHERE 'ü'='ü'` → `ORA-00900` on a mangled parse |
-
-> **F54 detail** — a non-ASCII (multi-byte UTF-8) character anywhere in the
-> inbound SQL text is mis-length-counted by the Oracle wire server (char vs byte
-> count), so the statement is parsed shifted/truncated → empty rows or
-> `ORA-00900`. ASCII SQL and stored unicode *data* round-trip fine; only unicode
-> in the SQL *text* breaks. **Confirmed server-side** — real `oci8` gets the same
-> wrong answer. Fix: read the inbound SQL by its byte length and UTF-8-decode it
-> once.
+| **F53** | large value crashes wire codec | 🔴 crash + desync | `SELECT` a 9000-char VARCHAR2 → now round-trips (chunked across TNS packets) |
+| **F54** | non-ASCII inbound SQL corrupted | 🔴 wrong results | `SELECT 'héllo' FROM dual` → `héllo`; `WHERE 'ü'='ü'` → `1` (inbound SQL byte-length-decoded) |
 
 > **Triple-threat result:** the pure-Dart thick client (Gun 2) matched real
-> `oci8` (Gun 3) on every case — **0 pure-Dart client bugs**. F53 and F54 are
-> both in the engine's Oracle wire server, not the clients.
+> `oci8` (Gun 3) on every case — 0 pure-Dart client bugs throughout.
 
 ---
 

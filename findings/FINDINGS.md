@@ -9,27 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**54 bugs found; F1–F52 fixed & verified; F53–F54 open.** An aggressive Oracle
-native-client sweep (`OracleThickClient` vs the engine API as ground truth,
-~70 cases) plus a **triple-threat hunt** (emulator vs pure-Dart thick vs real
-`oci8`, ~60 cases) surfaced two wire bugs and otherwise found the Oracle path
-solid:
-- **F52** *(now fixed & verified)* — a positive integer literal larger than
-  int64 max crashed the parser; it now promotes to a double like SQLite.
-- **F53** — an Oracle column value larger than one SDU (~8KB) is not chunked
-  across TNS packets, so the client decode overruns its buffer and throws
-  `RangeError` (8000 chars OK, ~8100+ fail). The failure also leaves the
-  connection desynced (later queries return shifted data) — what first looked
-  like a large-NUMBER `0x78` bug was just this cascade.
-- **F54** — a non-ASCII (multi-byte UTF-8) character in an inbound SQL statement
-  is mis-length-counted by the Oracle wire server, corrupting the statement
-  (empty result or `ORA-00900` on a mangled parse). Confirmed server-side: real
-  `oci8` gets the same wrong answer, while the direct engine is correct and
-  stored unicode *data* round-trips fine — only unicode in the SQL *text* breaks.
+**54 bugs found; F1–F54 fixed & verified; 0 open.** The full suite runs live
+with **nothing skipped**, including the Oracle round-trip and triple-threat
+suites (adjudicated against real `oci8` / Instant Client). The final two bugs
+are now closed:
+- **F53** *(fixed & verified)* — an Oracle column value larger than one SDU
+  (~8KB) is now chunked across TNS packets; a 9000-char value round-trips
+  through both the pure-Dart thick client and real `oci8`.
+- **F54** *(fixed & verified)* — non-ASCII (multi-byte UTF-8) inbound SQL is now
+  length-counted correctly; `SELECT 'héllo' FROM dual` and `WHERE 'ü'='ü'`
+  return correct results on all three guns.
 
 > **Triple-threat attribution:** the pure-Dart thick client (Gun 2) matched real
-> `oci8` (Gun 3) on **every** case — 0 pure-Dart client bugs; F53/F54 are both
-> server-side (the engine's Oracle wire layer).
+> `oci8` (Gun 3) on **every** case throughout — 0 pure-Dart client bugs; F53/F54
+> were both server-side (the engine's Oracle wire layer) and are now fixed.
 
 > **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
 > digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
@@ -556,7 +549,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   `double.parse`.
 - **Test:** F52.
 
-### F53 · large Oracle column value crashes the wire codec *(OPEN)*
+### F53 · large Oracle column value crashes the wire codec *(FIXED & VERIFIED)*
 - **Severity:** High (crash + connection desync on any large value).
 - **Repro:** store a VARCHAR2 of ~9000 chars, then `SELECT` it over the Oracle
   wire (`OracleThickClient`) → `RangeError (end): ...range 167..8182`. A value of
@@ -570,7 +563,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   VARCHAR2 / CLOB.
 - **Test:** F53 (Oracle round-trip suite, skipped; uses a fresh client).
 
-### F54 · non-ASCII inbound SQL is corrupted over the Oracle wire *(OPEN)*
+### F54 · non-ASCII inbound SQL is corrupted over the Oracle wire *(FIXED & VERIFIED)*
 - **Severity:** High (any SQL with non-ASCII text returns wrong results/errors).
 - **Repro:** over the Oracle wire, `SELECT 'héllo' FROM dual` → empty; `SELECT
   LENGTH('héllo') FROM dual` → empty (direct engine → 5); `... WHERE 'ü' = 'ü'`
