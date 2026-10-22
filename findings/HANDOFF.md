@@ -14,7 +14,7 @@ and a skipped regression test that turns green when fixed.
 
 | # | Bug | Severity | Repro → wrong result |
 | --- | --- | --- | --- |
-| **F60** | self LEFT JOIN nulls the left column | 🔴 silent wrong result | `SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id` → `NULL` for the unmatched row (should be its id); two-table LEFT JOIN is fine |
+| **F60** | self LEFT JOIN nulls the left column | 🔴 silent wrong result | `SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id` → `NULL` for the unmatched row (should be its id); two-table LEFT JOIN is fine. Cascades into `COUNT`/`GROUP BY`/`COALESCE` |
 | **F61** | COLLATE in column definition | 🟠 parse error | `CREATE TABLE t (… s TEXT COLLATE NOCASE)` → `Expected ) but got "COLLATE"` |
 | **F62** | COLLATE ignored in DISTINCT/GROUP BY | 🟠 wrong dedup | `COUNT(DISTINCT s COLLATE NOCASE)` → 3 (should be 2); `COLLATE RTRIM` unimplemented |
 

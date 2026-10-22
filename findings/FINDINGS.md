@@ -413,6 +413,7 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 | D7 | empty string `''` over the Oracle wire | distinct empty string | reads back as `NULL` (correct Oracle `'' = NULL` semantics) |
 | D8 | `NULL` in a non-integer PRIMARY KEY | allowed (SQLite quirk) | rejected (standard SQL / Oracle / MySQL) |
 | D9 | typeless column in `CREATE TABLE` | allowed (BLOB affinity) | rejected — an explicit column type is required (like Oracle/MySQL) |
+| D10 | SELECT-list alias used in `WHERE` | allowed (SQLite extension) | rejected — alias not in scope in WHERE (standard SQL / Oracle / MySQL) |
 
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes
@@ -662,6 +663,9 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   two-table LEFT JOIN with the same shape is correct.
 - **Root cause:** on a self-join the engine resolves the left alias's column to
   the NULL-padded right instance for unmatched rows.
+- **Cascade:** the nulled left column corrupts downstream aggregation —
+  `COUNT(e.id)` undercounts, `GROUP BY m.id` reports `0` for the unmatched
+  group, and `COALESCE`/projections see NULL. Confirmed via a self-join sweep.
 - **Fix:** keep the left row's own columns intact; only NULL-pad the right side.
 - **Test:** F60 (skipped).
 
