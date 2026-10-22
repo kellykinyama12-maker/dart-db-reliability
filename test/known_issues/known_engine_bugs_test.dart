@@ -381,4 +381,19 @@ void main() {
       await expectScalar(db, 'SELECT -9223372036854775808', -9223372036854775808);
     });
   });
+
+  group('open bugs (round 6 — found 2026-10-22)', () {
+    test('F52 · positive integer literal above int64 crashes the parser',
+        () async {
+      final db = await openEngine();
+      // SQLite promotes an out-of-range integer literal to a double (1e20); the
+      // engine int.parse()s it and throws. It already handles 1e20 correctly.
+      await expectScalar(db, 'SELECT 99999999999999999999', 1e20);
+    },
+        skip: 'KNOWN ENGINE BUG: an integer literal larger than int64 max '
+            '(e.g. 99999999999999999999 or 9223372036854775808) throws '
+            '"Positive input exceeds the limit of integer"; SQLite promotes it '
+            'to a double. Positive-side analog of F47. See findings/FINDINGS.md '
+            'F52.');
+  });
 }

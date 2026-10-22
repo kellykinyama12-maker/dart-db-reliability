@@ -1,13 +1,34 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the last
-batch (F46–F51) has been fixed and verified. Every repro now runs live with
-nothing skipped (475 pass / 0 fail).
+For the engine author working in `dart-db-server`. **1 open bug (F52)**, found
+by an Oracle TTC/TNS wire-protocol sweep. It has a minimal repro and a skipped
+regression test that turns green when fixed.
 
-- **Verify all at once:** `dart test --timeout 25s`.
+- **Verify:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`
+  (or `dart test --run-skipped --timeout 20s`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 51 found, 51 fixed & verified, 0 open.**
+**Status: 52 found, 51 fixed & verified, 1 open.**
+
+## Current open bug (F52)
+
+| # | Bug | Severity | One-line repro → wrong result |
+| --- | --- | --- | --- |
+| **F52** | int literal above int64 crashes parser | 🟠 internal exception | `SELECT 99999999999999999999` → `"Positive input exceeds the limit of integer"` (SQLite → `1e20`) |
+
+> **F52 detail** — the lexer/parser `int.parse`s an integer literal whose
+> magnitude exceeds int64 (`99999999999999999999`, or `9223372036854775808` =
+> int64 max + 1) and throws. SQLite promotes an out-of-range integer literal to
+> a double; the engine already does this for `1e20`. Same root area as the
+> (fixed) F47 int64-min case — on overflow, fall back to `double.parse` instead
+> of throwing.
+
+> **Oracle wire sweep was otherwise clean:** 20 TTC round-trip cases pass
+> (NUMBER/base-100, binds, column + row order), and the Oracle path isolates
+> transactions safely (a second connection blocks on an uncommitted writer
+> rather than dirty-reading).
+
+---
 
 ## Resolved batch (F48–F51) — ✅ fixed 2026-10-22 (cross-connection isolation)
 

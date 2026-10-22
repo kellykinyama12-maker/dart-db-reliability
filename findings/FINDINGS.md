@@ -9,18 +9,24 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**51 bugs found; F1–F51 fixed & verified; 0 open.** The full suite runs live
-with **nothing skipped** (475 pass / 0 fail), including the MySQL wire
-round-trip and cross-connection isolation suites.
+**52 bugs found; F1–F51 fixed & verified; F52 open (newly found).** An **Oracle
+TTC/TNS wire-protocol** sweep (the engine’s `OracleServer` driven by the
+vendored thin-client codecs) surfaced one more parser bug and otherwise found
+the Oracle wire path clean:
+- **F52** — a positive integer literal larger than int64 max (e.g.
+  `99999999999999999999`, or `9223372036854775808` = int64 max + 1) throws
+  `Positive input exceeds the limit of integer`. SQLite promotes it to a double;
+  the engine already handles `1e20`. This is the positive-side analog of F47.
 
-The final two batches are now closed:
-- **F48–F51 (cross-connection isolation)** — transaction state is now
-  per-connection, so dirty reads (F48), a rollback discarding another
-  connection’s committed write (F49), cross-connection commit (F50), and the
-  no-concurrent-transactions limit (F51) are all resolved.
-- **F46–F47 (MySQL wire / parser)** — a parameterless prepared statement no
-  longer hangs (F46); the most-negative int64 literal `-9223372036854775808`
-  now parses (F47).
+> **Oracle wire clean:** 20 round-trip cases pass — the TTC column encoder
+> (incl. Oracle’s base-100 NUMBER for `0.1`, `3.141592653589793`, fractions,
+> large/negative values), bound-parameter decoding, column order, and row order
+> all round-trip correctly.
+> **Oracle isolation safe:** unlike the former MySQL cluster (F48–F51), the
+> Oracle server holds its session gate for the whole transaction, so a second
+> connection’s read **blocks** on an uncommitted writer rather than seeing a
+> dirty read (conservative, but correct). (It differs from real Oracle’s
+> non-blocking MVCC read-consistency — recorded as a behavioral note, not a bug.)
 - **F40** — unary minus on text (`-'5'`) threw an internal cast error (binary
   arithmetic coerced fine; unary minus was missing the coercion path).
 - **F41** — `CAST(<blob> AS TEXT)` returned the raw byte list instead of the
@@ -491,7 +497,7 @@ Deep nesting (100 parens, 50-level CASE), 1000-element `IN` lists, 200-term
 arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
 50-way `UNION` all match SQLite with no crashes or stack overflows.
 
-### F46 · prepared statement with no parameters hangs *(OPEN)*
+### F46 · prepared statement with no parameters hangs *(FIXED & VERIFIED)*
 - **Severity:** High (client freeze — no error, no timeout on the engine side).
 - **Repro:** over the MySQL wire, `conn.prepare('SELECT v FROM t WHERE id = 1')`
   (no `?`) never completes; the engine's `COM_STMT_PREPARE` response is never
@@ -499,7 +505,7 @@ arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
   drivers prepare parameterless statements, so this hangs real clients.
 - **Test:** F46 (wire suite, skipped; fails via a 5s timeout guard when forced).
 
-### F47 · most-negative int64 literal crashes the parser *(OPEN)*
+### F47 · most-negative int64 literal crashes the parser *(FIXED & VERIFIED)*
 - **Severity:** Medium (valid literal rejected with an internal exception).
 - **Repro:** `SELECT -9223372036854775808` → `FormatException: Positive input
   exceeds the limit of integer`. The parser `int.parse`s the magnitude
@@ -507,7 +513,7 @@ arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
   SQLite returns `-9223372036854775808`.
 - **Test:** F47.
 
-### F48–F51 · cross-connection transaction isolation *(OPEN, one root cause)*
+### F48–F51 · cross-connection transaction isolation *(FIXED & VERIFIED, one root cause)*
 Transaction state is global on the shared Database, so BEGIN/COMMIT/ROLLBACK on
 one connection affects all others. Verified with two live `mysql_client`
 connections; each symptom has its own repro in `test/wire/mysql_isolation_test.dart`.
@@ -525,6 +531,16 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   per-connection session, and hold isolation for the duration of each
   transaction rather than per statement.
 
+### F52 · positive integer literal above int64 crashes the parser *(OPEN)*
+- **Severity:** Medium (valid literal rejected with an internal exception).
+- **Repro:** `SELECT 99999999999999999999` (or `9223372036854775808`, int64
+  max + 1) → `FormatException: Positive input exceeds the limit of integer`.
+  SQLite promotes an out-of-range integer literal to a double (`1e20`); the
+  engine already handles `1e20` correctly, so only the integer-literal path is
+  affected. Positive-side analog of the (fixed) F47; on overflow, fall back to
+  `double.parse`.
+- **Test:** F52.
+
 
 ---
 
@@ -533,8 +549,6 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
 The harness is strong on correctness, constraints, transactions, durability, and
 single-engine concurrency. Not yet covered (would need more than a path dep):
 
-- **Cross-connection isolation levels** (dirty/non-repeatable/phantom reads) —
-  requires driving the Oracle/MySQL **wire servers** with concurrent clients.
 - **Crash/kill-mid-write recovery** — requires a subprocess harness that hard-
   kills the engine and reopens.
 - **Fault injection / Jepsen-style** partition and clock testing.
