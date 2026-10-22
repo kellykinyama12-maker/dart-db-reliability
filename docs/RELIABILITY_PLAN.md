@@ -52,12 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 29 found, 22 fixed & verified, 7 open.**
-  F1–F22 are closed. **Open (F23–F29):** COLLATE not parsed, window fns in
+- **Bug status (2026-10-22): 30 found, 22 fixed & verified, 8 open.**
+  F1–F22 are closed. **Open (F23–F30):** COLLATE not parsed, window fns in
   GROUP BY, row-value tuples, CREATE TABLE AS SELECT, JSON missing-path, int64
-  overflow wrap, scientific-notation literals mis-lexed. The 60k-query fuzzer
-  and feature suites (VALUES/FILTER/UPSERT/ALTER/generated columns) are clean;
-  the open bugs are parser gaps and numeric-literal edges.
+  overflow wrap, scientific-notation + hex literals mis-lexed. The 60k-query
+  fuzzer and feature suites (VALUES/FILTER/UPSERT/ALTER/generated columns) are
+  clean; the open bugs are parser/lexer gaps and numeric-literal edges.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

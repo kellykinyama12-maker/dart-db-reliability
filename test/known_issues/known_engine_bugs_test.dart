@@ -271,5 +271,15 @@ void main() {
         skip: 'KNOWN ENGINE BUG: scientific-notation numeric literals are '
             'mis-lexed — `1e3` yields 1 (exponent dropped) instead of 1000, with '
             'no error. See findings/FINDINGS.md F29.');
+
+    test('F30 · hex integer literals silently mis-parsed', () async {
+      final db = await openEngine();
+      // `0x1F` is 31; the engine returns 0 (the `x1F` is swallowed as an alias).
+      await expectScalar(db, 'SELECT 0x1F', 31);
+      await expectScalar(db, 'SELECT 0xFF', 255);
+    },
+        skip: 'KNOWN ENGINE BUG: hex integer literals (`0x1F`) are mis-lexed to '
+            '`0` (the `x..` becomes an alias), silently wrong with no error '
+            '(parse error inside an expression). See findings/FINDINGS.md F30.');
   });
 }

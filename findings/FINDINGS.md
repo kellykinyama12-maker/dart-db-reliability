@@ -33,7 +33,12 @@ Continued hunting surfaced two more:
 - **F29** — scientific-notation literals are mis-lexed: `1e3` → `1` (exponent
   dropped), silently wrong with no error.
 
-**Tally: 29 found, F1–F22 fixed, F23–F29 open.**
+**One more from the lexer (open):**
+- **F30** — hex integer literals `0x1F` → `0` (the `x1F` swallowed as an alias),
+  silently wrong; parse error inside an expression. Minor relatives: `5.`
+  (trailing-dot) and the SQLite `==` operator also unparsed.
+
+**Tally: 30 found, F1–F22 fixed, F23–F30 open.**
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -336,6 +341,14 @@ Dialect differences (not bugs) are catalogued at the end (D1–D5).
   of `1000`; `1.5e2` → `1.5`; `1.0e-3` → parse error. Any data carrying
   scientific-notation numbers (CSV/JSON imports) is silently corrupted.
 - **Test:** F29.
+
+### F30 · Hex integer literals silently mis-parsed *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (silent wrong value).
+- **Repro:** `SELECT 0x1F` → `0` (the `x1F` becomes a column alias) instead of
+  `31`; `0xFF + 1` → parse error. SQLite and MySQL support `0x..` hex literals.
+- **Minor relatives:** `SELECT 5.` (trailing-dot number) and `SELECT 1 == 1`
+  (SQLite `==` operator) also fail to parse.
+- **Test:** F30.
 
 ---
 
