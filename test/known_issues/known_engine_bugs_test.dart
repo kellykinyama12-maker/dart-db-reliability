@@ -184,4 +184,36 @@ void main() {
       await expectOk(db, 'INSERT INTO c VALUES (1, 99)');
     });
   });
+
+  group('open bugs (newly found 2026-10-22)', () {
+    test('F23 · COLLATE clause not supported in expressions / ORDER BY',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT)');
+      await db.execute("INSERT INTO t VALUES (1,'Apple'),(2,'apple')");
+      // `expr COLLATE NOCASE` is standard SQL (and SQLite).
+      await expectRows(
+          db, "SELECT id FROM t WHERE s = 'apple' COLLATE NOCASE ORDER BY id", [
+        [1],
+        [2],
+      ]);
+    },
+        skip: 'KNOWN ENGINE BUG: the `COLLATE` operator fails to parse '
+            '(`Unexpected token after statement: COLLATE`) in WHERE / ORDER BY / '
+            'DISTINCT. See findings/FINDINGS.md F23.');
+
+    test('F24 · window functions fail in any GROUP BY query', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, g TEXT, v INTEGER)');
+      await db.execute("INSERT INTO t VALUES (1,'a',10),(2,'a',20),(3,'b',5)");
+      // Rank groups by their aggregate — a common analytic pattern.
+      await expectOk(
+          db,
+          'SELECT g, SUM(v) s, RANK() OVER (ORDER BY SUM(v) DESC) '
+          'FROM t GROUP BY g');
+    },
+        skip: 'KNOWN ENGINE BUG: a window function (RANK/ROW_NUMBER/…) in a query '
+            'that also has GROUP BY throws `Unknown function: RANK` — the window '
+            'path is not reached for grouped queries. See findings/FINDINGS.md F24.');
+  });
 }

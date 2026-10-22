@@ -9,12 +9,14 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**All 22 bugs (F1–F22) are FIXED and verified.** Every repro runs live (not
-skipped) and passes; the full suite is **291 pass / 0 skip / 0 fail**. The
-32k-query fuzzer finds 0 divergences, crash recovery (F15) is 3/3 stable, and
-the sakila + employees real-data differentials match SQLite. F1–F18 were the
-first wave; F19–F22 (found post-fix by the fuzzer and the sakila dataset) were
-closed in the second wave.
+**24 bugs found; F1–F22 fixed & verified; F23–F24 open (newly found).**
+The first 22 are closed (every repro runs live and passes; fuzzer 0 divergences;
+crash recovery 3/3; sakila + employees real-data differentials match SQLite).
+Continued hunting surfaced two more:
+- **F23** — the `COLLATE` operator (`COLLATE NOCASE`/`BINARY`) fails to parse in
+  WHERE / ORDER BY / DISTINCT.
+- **F24** — window functions (`RANK`/`ROW_NUMBER`/…) throw `Unknown function`
+  in any query that also has `GROUP BY`.
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -289,6 +291,7 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 | ID | Behavior | SQLite | dart_db_server |
 | --- | --- | --- | --- |
 | D5 | `UPPER('café')` / `LOWER` | ASCII-only (`é` unchanged) | Unicode-aware (`É`) |
+| D6 | `'Apple' LIKE 'apple'` | TRUE (case-insensitive ASCII) | FALSE (case-sensitive, like Oracle) |
 
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes

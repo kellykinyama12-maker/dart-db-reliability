@@ -52,11 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 22 found, 22 fixed & verified, 0 open.**
-  F1–F18 were the first fix wave; F19–F22 (found post-fix by the fuzzer and the
-  real sakila dataset) were closed in the second. All repros run live (nothing
-  skipped) and pass; the 32k-query fuzzer finds 0 divergences; crash recovery
-  3/3; sakila + employees real-data differentials match SQLite.
+- **Bug status (2026-10-22): 24 found, 22 fixed & verified, 2 open.**
+  F1–F22 are closed (all repros run live and pass; the 32k-query fuzzer finds 0
+  divergences; crash recovery 3/3; sakila + employees real-data differentials
+  match SQLite). **Open:** F23 (`COLLATE` operator not parsed) and F24 (window
+  functions throw `Unknown function` in any `GROUP BY` query) — both newly found
+  while continuing to hunt.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 
