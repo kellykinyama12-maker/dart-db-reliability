@@ -237,5 +237,19 @@ void main() {
     },
         skip: 'KNOWN ENGINE BUG: `CREATE TABLE <t> AS SELECT …` fails to parse '
             '(`Expected ( but got "AS"`). See findings/FINDINGS.md F26.');
+
+    test('F27 · JSON path functions return wrong value for a missing path',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE j (id INTEGER PRIMARY KEY, doc TEXT)');
+      await db.execute('INSERT INTO j VALUES (1, \'{"name":"Grace"}\')');
+      // A path that does not exist must yield SQL NULL (SQLite).
+      await expectScalar(db, "SELECT json_type(doc, '\$.age') FROM j", null);
+      await expectScalar(
+          db, "SELECT json_array_length(doc, '\$.tags') FROM j", null);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON path functions on a missing path return '
+            "wrong values (json_type -> 'null' string, json_array_length -> 0) "
+            'instead of SQL NULL. See findings/FINDINGS.md F27.');
   });
 }

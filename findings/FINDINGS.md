@@ -23,7 +23,11 @@ Continued hunting surfaced two more:
   not parsed.
 - **F26** — `CREATE TABLE <t> AS SELECT …` (CTAS) is not supported.
 
-**Tally: 26 found, F1–F22 fixed, F23–F26 open.**
+**One more from JSON (open):**
+- **F27** — JSON path functions on a missing path return wrong values
+  (`json_type` → `'null'` string, `json_array_length` → `0`) instead of SQL NULL.
+
+**Tally: 27 found, F1–F22 fixed, F23–F27 open.**
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -303,6 +307,14 @@ Dialect differences (not bugs) are catalogued at the end (D1–D5).
   but got "AS"`. The CREATE TABLE parser requires a column-def `(` with no
   `AS SELECT` branch. Supported by SQLite, MySQL, Oracle, Postgres.
 - **Test:** F26.
+
+### F27 · JSON path functions return wrong value for a missing path *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (wrong JSON results when a key is absent — common).
+- **Repro:** on a doc without `age`/`tags`:
+  `json_type(doc, '\$.age')` → `'null'` (the string) and
+  `json_array_length(doc, '\$.tags')` → `0`; SQLite returns **SQL NULL** for a
+  path that does not exist.
+- **Test:** F27.
 
 ---
 
