@@ -52,11 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 74 found, 73 fixed & verified, 1 open.**
-  F1–F73 are closed. **Open:** F74 — a PL/SQL trigger body parses/creates (F72
-  fixed) but its procedural assignment (`:new.x := …`) does not execute. Both
-  the Oracle HR and SH sample schemas now load fully. The Oracle wire path is
-  clean three-way vs real `oci8`; MySQL wire and robustness are clean.
+- **Bug status (2026-10-22): 74 found, 74 fixed & verified, 0 open.**
+  F1–F74 are all closed; the suite runs live with nothing skipped. Both the
+  Oracle HR and SH sample schemas load fully, and a PL/SQL trigger body
+  executes. The Oracle wire path is clean three-way vs real `oci8`; MySQL wire
+  and robustness are clean.
 - **Oracle parity gates:** HR and SH (`oracle_hr_parity_test.dart`,
   `oracle_sh_parity_test.dart`) both run live/green; auto-skip if absent.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,

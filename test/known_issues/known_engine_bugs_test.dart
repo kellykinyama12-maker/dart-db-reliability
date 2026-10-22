@@ -559,20 +559,15 @@ void main() {
     });
   });
 
-  // The F72 caveat: a PL/SQL trigger body parses/creates but does not execute.
-  group('open bugs (round 14 — found 2026-10-22)', () {
-    test('F74 · PL/SQL trigger procedural body does not execute', () async {
+  group('formerly-open bug F74 (fixed & verified; PL/SQL trigger body)', () {
+    test('F74 · PL/SQL trigger procedural body executes', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
       await db.execute(
           'CREATE OR REPLACE TRIGGER trg BEFORE INSERT ON t FOR EACH ROW DECLARE x NUMBER; BEGIN :new.v := 42; END;');
       await db.execute('INSERT INTO t (id) VALUES (1)');
-      // The BEFORE-INSERT body should set v to 42; it stays NULL (no-op body).
+      // The BEFORE-INSERT body sets v to 42 via :new.v := 42.
       await expectScalar(db, 'SELECT v FROM t WHERE id = 1', 42);
-    },
-        skip: 'KNOWN ENGINE BUG (F72 caveat): a PL/SQL trigger body now parses '
-            'and the trigger CREATEs, but the procedural assignment '
-            '(:new.v := 42) does not execute \u2014 v stays NULL after INSERT. '
-            'See findings/FINDINGS.md F74.');
+    });
   });
 }

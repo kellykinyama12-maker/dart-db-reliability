@@ -1,27 +1,23 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F74)** — the
-caveat from F72: a PL/SQL trigger body now parses/creates but does not execute.
-It has a minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — F74 (the
+F72 PL/SQL trigger body-execution caveat) is fixed and verified. The full suite
+runs live with nothing skipped; the Oracle HR and SH sample schemas both load
+fully and a PL/SQL trigger body executes.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (F74 in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 74 found, 73 fixed & verified, 1 open.** Both the Oracle HR and SH
-sample schemas now load fully (live parity gates green).
+**Status: 74 found, 74 fixed & verified, 0 open.**
 
-## Current open bug (F74) — F72 caveat
+> **Not yet filed (observations for later):** schema-qualified FK references
+> (`REFERENCES schema.table`) parse-error; `COMMIT` with no active transaction
+> erroring instead of being a no-op.
 
-| # | Bug | Repro → wrong result |
-| --- | --- | --- |
-| **F74** | PL/SQL trigger body doesn't execute | `BEFORE INSERT … BEGIN :new.v := 42; END` then `INSERT INTO t(id) VALUES(1)` → `v` is `NULL` (should be `42`) |
+## Resolved batch (F74) — ✅ fixed 2026-10-22 (PL/SQL trigger body executes)
 
-> The trigger now CREATEs (F72 parse gap fixed), but the procedural assignment
-> is a no-op. Execute the PL/SQL body: evaluate `:new.<col> := <expr>`
-> assignments (and the DECLARE locals) for row triggers.
-> **Not yet filed:** schema-qualified FK references (`REFERENCES schema.table`)
-> parse-error; `COMMIT` with no active transaction erroring instead of no-op.
+> **✅ RESOLVED.** A PL/SQL `BEFORE INSERT` trigger body now executes its
+> procedural assignment (`:new.v := 42` sets `v`). Verified live.
 
 ---
 

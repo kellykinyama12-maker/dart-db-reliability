@@ -9,16 +9,15 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**74 bugs found; F1–F73 fixed & verified; F74 open.** The Oracle **SH** and **OE**
-sample-schema DDL gaps (F68–F73) were fixed and verified: the real `sh_create.sql`
-now loads fully (all 8 core SH tables) and OE DDL parses. One caveat remains:
+**74 bugs found; F1–F74 fixed & verified; 0 open.** The Oracle **SH** and **OE**
+sample-schema DDL gaps (F68–F73) plus the PL/SQL trigger body-execution caveat
+(F74) are fixed and verified. The real `hr_create.sql` and `sh_create.sql` load
+fully (all core tables), and a PL/SQL `BEFORE INSERT` trigger body now executes:
 - **F68–F73** *(fixed & verified)* — `PARTITION BY`, `CREATE MATERIALIZED VIEW`,
-  `CREATE TYPE` (object types), `CREATE SYNONYM`, PL/SQL trigger *parsing*, and
+  `CREATE TYPE` (object types), `CREATE SYNONYM`, PL/SQL trigger parsing, and
   the constraint `ENABLE` clause.
-- **F74** *(F72 caveat)* — a PL/SQL trigger body now parses and the trigger
-  CREATEs, but the **procedural assignment does not execute**: after
-  `BEFORE INSERT … :new.v := 42`, `v` stays `NULL`. The parse gap (F72) is
-  closed; executing the procedural body is the remaining work.
+- **F74** *(fixed & verified)* — a PL/SQL trigger procedural body now executes:
+  `BEFORE INSERT … :new.v := 42` sets `v` to 42.
 
 > **HR and SH parity gates are both GREEN:** `oracle_hr_parity_test.dart` and
 > `oracle_sh_parity_test.dart` load the real schemas live; both auto-skip only
