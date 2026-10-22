@@ -1,40 +1,52 @@
 # Handoff — open engine bugs to fix
 
-> **✅ RESOLVED (2026-10-22).** F33 and F34 have been fixed and verified — the
-> suite runs live with **nothing skipped** (435 pass / 0 fail). Combined with the
-> earlier waves, **all 34 bugs (F1–F34) are closed.** Kept as a record below.
-
-For the engine author working in `dart-db-server`. **2 open bugs (F33–F34)**,
-found by the reliability harness while continuing to hunt after the F23–F32 wave.
-Each has a minimal repro and a skipped regression test that turns green when
-fixed.
+For the engine author working in `dart-db-server`. **5 open bugs (F35–F39)**,
+found by a systematic function-edge sweep. Each has a minimal repro and a skipped
+regression test that turns green when fixed.
 
 - **Verify one:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`.
 - **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 34 found, 32 fixed & verified, 2 open.** The executor remains robust
-(60k-query fuzzer + feature sweeps clean); the two open bugs are a boolean-
-truthiness semantic and a string-function gap.
+**Status: 39 found, 34 fixed & verified, 5 open.** The executor stays robust
+(60k-query fuzzer + feature sweeps clean); all five open bugs are in scalar
+*functions / CAST*.
 
-## Current open batch (F33–F34)
+## Current open batch (F35–F39)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
-| **F33** | non-zero not truthy | 🟠 wrong branch | `CASE WHEN 1 THEN 'y' ELSE 'n' END` → `'n'`; `iif(5,'y','n')` → `'n'` |
-| **F34** | 2-arg trim ignored | 🟡 silent wrong string | `trim('xxhixx','x')` → `'xxhixx'` (should be `'hi'`) |
+| **F35** | `abs(text)` crashes | 🟠 internal exception | `abs('5')` → `"String is not a subtype of num"` (should coerce → 5.0) |
+| **F38** | CAST trailing garbage | 🟠 silent wrong value | `CAST('42abc' AS INTEGER)` → `0` (should be 42) |
+| **F37** | `replace` empty pattern | 🟠 silent wrong string | `replace('abc','','X')` → `'XaXbXcX'` (should be `'abc'`) |
+| **F36** | `substr(x, 0)` | 🟡 wrong window | `substr('hello', 0)` → `''` (should be `'hello'`) |
+| **F39** | `printf` `%e`/`%g` | 🟡 formatting | `printf('%e',1234.5)` → `1.234500e+3` (should be `e+03`); `%g` keeps trailing zeros |
 
-**F33 — non-zero number treated as FALSE in a boolean context.** A bare non-zero
-number used as a condition (in `CASE WHEN`, `iif`, and likely `WHERE`/`HAVING`)
-is evaluated as false; only an explicit comparison (`1=1`) works. SQLite and
-MySQL treat any non-zero value as true. This silently selects the wrong branch —
-broad impact, so fix first.
+> **Fix order:** F35 (internal crash — same cast-leak family as the already-fixed
+> F6/F12; `abs()` was simply uncovered), then the two silent-wrong-value bugs
+> (F38 CAST, F37 replace), then the formatting/window edges (F36, F39).
 
-**F34 — 2-argument `trim`/`ltrim`/`rtrim` ignores the trim-character argument**
-and returns the string unchanged (`trim(x, chars)` is a no-op on `chars`).
-SQLite, MySQL, and Oracle all support custom trim characters.
+Likely shared roots: **F35** is the text→num coercion path missing for `abs()`
+(and probably other math functions — sweep `round`/`ceil`/`floor`/`sign` the same
+way). **F38** is the CAST string-to-number parser not taking a leading numeric
+prefix.
 
 ---
+
+## Resolved batch (F33–F34) — ✅ fixed 2026-10-22
+
+> **✅ RESOLVED.** F33 (non-zero not truthy) and F34 (2-arg trim) have been fixed
+> and verified. Kept as a record below.
+
+### F33–F34 (resolved)
+
+| # | Bug | Repro → wrong result |
+| --- | --- | --- |
+| **F33** | non-zero not truthy | `CASE WHEN 1 THEN 'y' ELSE 'n' END` → `'n'` |
+| **F34** | 2-arg trim ignored | `trim('xxhixx','x')` → `'xxhixx'` |
+
+---
+
 
 ## Resolved batch (F23–F32) — ✅ fixed 2026-10-22
 
