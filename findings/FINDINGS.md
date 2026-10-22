@@ -9,23 +9,17 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**59 bugs found; F1–F56 fixed & verified; F57–F59 open.** A constraint /
-type-integrity and broad-semantics differential vs SQLite surfaced several
-bugs; the `INTEGER PRIMARY KEY` pair (F55–F56) was fixed by the author and
-verified, with three SQLite-semantics gaps still open:
-- **F55** *(fixed & verified)* — `INTEGER PRIMARY KEY` now rejects a non-integer
-  value (insert or update), like SQLite's datatype mismatch.
-- **F56** *(fixed & verified)* — a plain `INTEGER PRIMARY KEY` now auto-assigns
-  the rowid when the id is omitted or NULL.
-- **F57** — the `rowid` pseudo-column (and aliases `_rowid_`, `oid`) is not
-  queryable ("Unknown column: rowid"), including in a `WHERE` clause; SQLite
-  exposes it on every rowid table.
-- **F58** — a negative `LIMIT` (e.g. `LIMIT -1`, SQLite's "no limit" idiom used
-  with `OFFSET`) is a parse error; SQLite treats `LIMIT -1` as unlimited.
-- **F59** — multi-arg `min()`/`max()` silently returns the *first* argument
-  (`min(3,1,2)` → `3`) instead of computing the extreme (SQLite: `1`) or raising
-  a wrong-argument-count error (Oracle/MySQL, which the engine targets via
-  `LEAST`/`GREATEST`). Silent wrong result.
+**59 bugs found; F1–F59 fixed & verified; 0 open.** The full suite runs live
+with **nothing skipped**. The last batch (SQLite-semantics gaps) is closed:
+- **F55/F56** *(fixed & verified)* — `INTEGER PRIMARY KEY` rowid-alias contract
+  (rejects non-integers; auto-assigns the rowid when omitted/NULL).
+- **F57** *(fixed & verified)* — the `rowid` pseudo-column (and `_rowid_`, `oid`)
+  is now queryable, including in a `WHERE` clause.
+- **F58** *(fixed & verified)* — a negative `LIMIT` (e.g. `LIMIT -1`) is now
+  treated as "no limit" like SQLite.
+- **F59** *(fixed & verified)* — a multi-arg `min()`/`max()` now errors (the
+  Oracle/MySQL behaviour — use `LEAST`/`GREATEST`) instead of silently returning
+  the first argument.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
@@ -618,7 +612,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   next rowid when the id is omitted or NULL.
 - **Test:** F56 (`known_issues/known_engine_bugs_test.dart`, skipped).
 
-### F57 · rowid pseudo-column is not queryable *(OPEN)*
+### F57 · rowid pseudo-column is not queryable *(FIXED & VERIFIED)*
 - **Severity:** Medium (a core SQLite row-access feature is missing).
 - **Repro:** `SELECT rowid FROM t` (and aliases `_rowid_`, `oid`, and
   `WHERE rowid = 5`) → `Unknown column: rowid`. SQLite exposes `rowid` on every
@@ -627,7 +621,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   SELECT list and predicates.
 - **Test:** F57 (skipped).
 
-### F58 · negative LIMIT is a parse error *(OPEN)*
+### F58 · negative LIMIT is a parse error *(FIXED & VERIFIED)*
 - **Severity:** Medium (a common SQLite/ORM idiom fails to parse).
 - **Repro:** `SELECT id FROM t ORDER BY id LIMIT -1` → `FormatException: Expected
   number but got "-"`. SQLite treats `LIMIT -1` as *no limit* (used as
@@ -635,7 +629,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
 - **Fix:** accept a negative LIMIT and treat it as unlimited, as SQLite does.
 - **Test:** F58 (skipped).
 
-### F59 · multi-arg min()/max() silently returns the first argument *(OPEN)*
+### F59 · multi-arg min()/max() silently returns the first argument *(FIXED & VERIFIED)*
 - **Severity:** High (silent wrong result for a common function name).
 - **Repro:** `SELECT min(3, 1, 2)` → `3` (should be `1`); `SELECT max(1, 9, 5)`
   → `1` (should be `9`); `min('b','a','c')` → `'b'`. The engine returns the

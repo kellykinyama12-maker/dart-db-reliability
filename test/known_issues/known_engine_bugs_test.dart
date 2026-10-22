@@ -411,51 +411,35 @@ void main() {
     });
   });
 
-  group('open bugs (round 7 — found 2026-10-22)', () {
-    test('F57 · rowid / _rowid_ / oid pseudo-columns are not queryable',
-        () async {
+  group('formerly-open bugs F57–F59 (fixed & verified)', () {
+    test('F57 · rowid / _rowid_ / oid pseudo-columns are queryable', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
       await db.execute('INSERT INTO t VALUES (5, 50)');
       // SQLite exposes rowid (and aliases _rowid_/oid) on a rowid table.
       await expectScalar(db, 'SELECT rowid FROM t', 5);
-    },
-        skip: 'KNOWN ENGINE BUG: the rowid pseudo-column (and aliases _rowid_, '
-            'oid) is not queryable ("Unknown column: rowid"), including in a '
-            'WHERE clause. SQLite exposes it on every rowid table. See '
-            'findings/FINDINGS.md F57.');
+    });
 
-    test('F58 · negative LIMIT (the no-limit idiom) is a parse error', () async {
+    test('F58 · negative LIMIT is treated as no-limit', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY)');
       await db.execute('INSERT INTO t VALUES (1),(2),(3)');
-      // SQLite treats LIMIT -1 as "no limit"; the engine's parser rejects "-".
+      // SQLite treats LIMIT -1 as "no limit".
       await expectRows(db, 'SELECT id FROM t ORDER BY id LIMIT -1', [
         [1],
         [2],
         [3]
       ]);
-    },
-        skip: 'KNOWN ENGINE BUG: a negative LIMIT (e.g. LIMIT -1, the SQLite '
-            '"no limit" idiom used with OFFSET) is a parse error ("Expected '
-            'number but got \\"-\\""). SQLite treats LIMIT -1 as unlimited. See '
-            'findings/FINDINGS.md F58.');
+    });
 
-    test('F59 · multi-arg min()/max() silently returns the first argument',
+    test('F59 · multi-arg min()/max() no longer silently returns the first arg',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // The engine treats min/max as aggregate-only (use LEAST/GREATEST for
-      // scalar), so a multi-arg call should raise a wrong-argument-count error
-      // like Oracle/MySQL — instead it silently returns the first argument
-      // (min(3,1,2) -> 3 instead of 1 or an error).
+      // min/max are aggregate-only; a multi-arg call must error (not collapse
+      // to the first argument) — use LEAST/GREATEST for the scalar extreme.
       await expectThrows(db, 'SELECT min(3, 1, 2) FROM t');
-    },
-        skip: 'KNOWN ENGINE BUG: multi-arg min()/max() silently returns the '
-            'first argument (min(3,1,2) -> 3) instead of computing the extreme '
-            '(SQLite: 1) or raising a wrong-arg-count error (Oracle/MySQL, which '
-            'the engine targets via LEAST/GREATEST). Silent wrong result. See '
-            'findings/FINDINGS.md F59.');
+    });
   });
 }

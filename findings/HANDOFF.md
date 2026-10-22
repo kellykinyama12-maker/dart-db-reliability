@@ -1,29 +1,23 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **3 open bugs (F57–F59)**,
-SQLite-semantics gaps found by a broad differential vs SQLite. Each has a
-minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the last
+batch (F57–F59, SQLite-semantics gaps) has been fixed and verified. The full
+suite runs live with nothing skipped.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 59 found, 56 fixed & verified, 3 open.**
+**Status: 59 found, 59 fixed & verified, 0 open.**
 
-## Current open bugs (F57–F59)
+## Resolved batch (F57–F59) — ✅ fixed 2026-10-22 (SQLite-semantics gaps)
 
-| # | Bug | Severity | Repro → wrong result |
-| --- | --- | --- | --- |
-| **F59** | multi-arg min()/max() returns first arg | 🔴 silent wrong result | `SELECT min(3,1,2)` → `3` (SQLite `1`); `max(1,9,5)` → `1`; `min(3,NULL,1)` → `3` |
-| **F57** | rowid pseudo-column not queryable | 🟠 missing feature | `SELECT rowid FROM t` / `WHERE rowid = 5` → `Unknown column: rowid` (also `_rowid_`, `oid`) |
-| **F58** | negative LIMIT is a parse error | 🟠 common idiom | `… LIMIT -1` → `Expected number but got "-"`; SQLite treats `LIMIT -1` as unlimited |
+> **✅ RESOLVED.** Verified live; kept as active regression guards.
 
-> **F59** — `min`/`max` are aggregate-only (use `LEAST`/`GREATEST`), but a
-> multi-arg call silently collapses to the first argument. Raise a wrong-arg-
-> count error (Oracle/MySQL) or compute the scalar extreme (SQLite); either is
-> fine, silent-first-arg is not. **F57** — resolve `rowid`/`_rowid_`/`oid` in
-> SELECT list and predicates. **F58** — accept a negative LIMIT as unlimited
-> (already works for `LIMIT 0`).
+| # | Bug | Repro → now |
+| --- | --- | --- |
+| **F57** | rowid pseudo-column | `SELECT rowid FROM t` / `WHERE rowid = 5` now resolves (also `_rowid_`, `oid`) |
+| **F58** | negative LIMIT | `LIMIT -1` now treated as unlimited (SQLite) |
+| **F59** | multi-arg min()/max() | now errors (Oracle/MySQL — use `LEAST`/`GREATEST`) instead of silently returning the first arg |
 
 ## Probe coverage log — recently verified clean (no bugs)
 
