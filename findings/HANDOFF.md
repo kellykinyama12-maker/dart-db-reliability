@@ -1,5 +1,10 @@
 # Handoff — open engine blockers to fix
 
+> **✅ RESOLVED (2026-10-22).** All four blockers (F19–F22) have been fixed and
+> verified: the suite runs live with **nothing skipped** (291 pass / 0 fail),
+> the fuzzer finds 0 divergences, and the sakila/employees real-data
+> differentials match SQLite. This file is kept as a record of the handoff.
+
 For the engine author working in `dart-db-server`. These are the **4 open bugs**
 (F19–F22) blocking enterprise reliability certification. Each has a minimal
 repro and a skipped regression test that turns green when fixed.

@@ -1,13 +1,8 @@
 /// Engine-bug regression guards.
 ///
-/// Two groups:
-///  - **fixed regressions** — bugs F3–F18 that the engine author fixed
-///    (verified 2026-10-22). These are now ACTIVE tests: if any regresses, the
-///    suite goes red.
-///  - **open bugs** — F19, F20, still failing; marked `skip:` with a
-///    `KNOWN ENGINE BUG` reason. Un-skip when fixed.
-///
-/// (F1/F2 live in `constraints/`, F15 in `durability/` — same policy there.)
+/// All of F3–F22 were fixed by the engine author and verified (2026-10-22).
+/// These are ACTIVE tests — if any bug regresses, the suite goes red. Nothing
+/// here is skipped. (F1/F2 live in `constraints/`, F15 in `durability/`.)
 library;
 
 import 'package:dart_db_reliability/reliability.dart';
@@ -150,15 +145,13 @@ void main() {
     });
   });
 
-  group('open bugs (documented repros)', () {
+  group('formerly-open bugs F19–F22 (fixed & verified)', () {
     test('F19 · greater-than mishandles negative zero (0 > -0.0 is TRUE)',
         () async {
       final db = await openEngine();
       await expectScalar(db, 'SELECT (0 > -0.0)', 0);
       await expectScalar(db, 'SELECT (0 > (-14.939 * 0))', 0);
-    },
-        skip: 'KNOWN ENGINE BUG: `>` treats negative zero as less than zero, so '
-            '`0 > -0.0` returns TRUE. See findings/FINDINGS.md F19.');
+    });
 
     test('F20 · NOT IN (subquery/list containing NULL) ignores the NULL',
         () async {
@@ -168,10 +161,7 @@ void main() {
       await db.execute('INSERT INTO a VALUES (1,3)');
       await db.execute('INSERT INTO b VALUES (1,1),(2,2),(3,NULL)');
       await expectRows(db, 'SELECT id FROM a WHERE g NOT IN (SELECT g FROM b)', []);
-    },
-        skip: 'KNOWN ENGINE BUG: NOT IN with a NULL in the list/subquery ignores '
-            'the NULL and returns rows that 3-valued logic must exclude. '
-            'See findings/FINDINGS.md F20.');
+    });
 
     test('F21 · named table-level FK/UNIQUE/PK constraints fail to parse',
         () async {
@@ -182,10 +172,7 @@ void main() {
           db,
           'CREATE TABLE t (id INT, pid INT, '
           'CONSTRAINT fk FOREIGN KEY (pid) REFERENCES p(id))');
-    },
-        skip: 'KNOWN ENGINE BUG: `CONSTRAINT <name> FOREIGN KEY|UNIQUE|PRIMARY '
-            'KEY` table constraints fail to parse (only named CHECK works). '
-            'Blocks 10/16 sakila tables and Oracle HR. See findings/FINDINGS.md F21.');
+    });
 
     test('F22 · FK enforced despite PRAGMA foreign_keys=OFF; no forward refs',
         () async {
@@ -195,10 +182,6 @@ void main() {
           'FOREIGN KEY (pid) REFERENCES parent (pid))');
       // SQLite (foreign_keys OFF, forward refs allowed) inserts this fine.
       await expectOk(db, 'INSERT INTO c VALUES (1, 99)');
-    },
-        skip: 'KNOWN ENGINE BUG: `PRAGMA foreign_keys=OFF` is ignored and a FK '
-            'to a not-yet-created table throws `Bad state: FK references missing '
-            'table`. SQLite defaults OFF and allows forward refs. Blocks loading '
-            'real FK schemas (sakila). See findings/FINDINGS.md F22.');
+    });
   });
 }

@@ -1,10 +1,9 @@
 /// Randomized differential fuzz regression gate. Generates thousands of random
 /// SELECTs (type-aware) and asserts 0 divergences from SQLite.
 ///
-/// Currently **skipped** because bug F7 (NULL left-operand short-circuit in
-/// AND/OR) makes a few percent of random predicates diverge. Un-skip once F7 is
-/// fixed — this then becomes the standing correctness gate. The discovery tool
-/// `bin/fuzz_triage.dart` runs it unconditionally for triage.
+/// Active standing correctness gate (the F7/F19/F20 three-valued-logic and
+/// negative-zero bugs that once blocked it are fixed). The discovery tool
+/// `bin/fuzz_triage.dart` runs the same generator for ad-hoc triage.
 @Timeout(Duration(minutes: 3))
 library;
 
@@ -40,8 +39,5 @@ void main() {
       expect(failures, isEmpty,
           reason: 'differential divergences:\n${failures.join('\n')}');
     });
-  },
-      skip: sqliteSkipReason() ??
-          'BLOCKED by KNOWN ENGINE BUG F7 (NULL short-circuit in AND/OR). '
-              'Un-skip when F7 is fixed. See findings/FINDINGS.md.');
+  }, skip: sqliteSkipReason());
 }

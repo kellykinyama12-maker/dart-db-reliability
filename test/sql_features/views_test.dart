@@ -28,9 +28,7 @@ void main() {
       await o.expectSameRows('SELECT id, name, dept FROM emp_dept ORDER BY id');
       await o.expectSameRows(
           "SELECT name FROM emp_dept WHERE dept = 'Eng' ORDER BY id");
-    }, skip: 'KNOWN ENGINE BUG F16: selecting from a view defined over a join '
-        'fails to resolve the view output columns (`Unknown column: id`). '
-        'See findings/FINDINGS.md F16.');
+    });
 
     test('view over an aggregate', () async {
       await o.exec('CREATE VIEW dept_stats AS '
@@ -60,8 +58,6 @@ void main() {
           'SELECT e.*, d.name AS dname FROM emp e JOIN dept d ON e.dept = d.id');
       await o.expectSameRows(
           'SELECT dname, MAX(salary) FROM emp_dept GROUP BY dname ORDER BY dname');
-    }, skip: 'KNOWN ENGINE BUG F17: a view using `SELECT e.*` leaks the inner '
-        'table alias (`No such table or view: e`) when queried. '
-        'See findings/FINDINGS.md F17.');
+    });
   }, skip: sqliteSkipReason());
 }

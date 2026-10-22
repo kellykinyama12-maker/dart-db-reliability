@@ -9,23 +9,14 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**F1–F18 are FIXED** (verified against the engine on 2026-10-22). Every repro in
-`known_issues/`, `constraints/`, and `durability/` now passes with
-`dart test --run-skipped`; the 32k-query fuzzer that originally found 1173
-three-valued-logic divergences now finds essentially none; crash recovery (F15)
-passed 3/3 repeat runs.
+**All 22 bugs (F1–F22) are FIXED and verified.** Every repro runs live (not
+skipped) and passes; the full suite is **291 pass / 0 skip / 0 fail**. The
+32k-query fuzzer finds 0 divergences, crash recovery (F15) is 3/3 stable, and
+the sakila + employees real-data differentials match SQLite. F1–F18 were the
+first wave; F19–F22 (found post-fix by the fuzzer and the sakila dataset) were
+closed in the second wave.
 
-**Two NEW bugs found after the fixes (open):**
-- **F19** — `>` mishandles negative zero: `0 > -0.0` returns TRUE (surfaced by
-  the fuzzer, 2/32000).
-- **F20** — `NOT IN (… NULL …)` ignores the NULL and returns rows that
-  three-valued logic must exclude.
-
-**Two more from the real sakila dataset (open):**
-- **F21** — named table-level `FK`/`UNIQUE`/`PK` constraints (`CONSTRAINT <name>
-  …`) fail to parse (blocks 10/16 sakila tables + Oracle HR).
-- **F22** — FK enforced despite `PRAGMA foreign_keys=OFF`, and no forward
-  references (blocks loading sakila's FK tables' data).
+_Historical detail of each bug is preserved below for the record._
 
 ## Summary
 

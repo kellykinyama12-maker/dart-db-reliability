@@ -52,13 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 22 found, 18 fixed & verified, 4 open.**
-  F1–F18 were fixed by the engine author and verified here (`--run-skipped`
-  passes; the 32k-query fuzzer dropped from 1173 divergences to ~0; crash
-  recovery 3/3). **Open:** F19 (`0 > -0.0` is TRUE), F20 (`NOT IN` with a NULL
-  ignores the NULL), F21 (named FK/UNIQUE/PK table constraints fail to parse),
-  F22 (FK enforced despite `PRAGMA foreign_keys=OFF`; no forward refs). F19/F20
-  found by the fuzzer; F21/F22 found by loading the real sakila dataset.
+- **Bug status (2026-10-22): 22 found, 22 fixed & verified, 0 open.**
+  F1–F18 were the first fix wave; F19–F22 (found post-fix by the fuzzer and the
+  real sakila dataset) were closed in the second. All repros run live (nothing
+  skipped) and pass; the 32k-query fuzzer finds 0 divergences; crash recovery
+  3/3; sakila + employees real-data differentials match SQLite.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

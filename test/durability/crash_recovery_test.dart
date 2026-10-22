@@ -71,9 +71,5 @@ void main() {
 
     test('SQLite-format backend recovers committed baseline after SIGKILL',
         () => crashAndRecover('crash.db', 200));
-  },
-      skip: 'KNOWN ENGINE BUG F15: persistence is not crash-atomic — a hard '
-          'kill during flush() can truncate the data file and lose previously '
-          'committed+flushed rows (reopen returns 0/200). Timing-dependent on '
-          'both backends. Un-skip to reproduce. See findings/FINDINGS.md F15.');
+  });
 }
