@@ -9,13 +9,14 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**All 32 bugs (F1–F32) are FIXED and verified.** Every repro runs live (nothing
-skipped) and passes; the full suite is **433 pass / 0 skip / 0 fail**. F1–F22
-were the first waves; F23–F32 (parser/lexer gaps — COLLATE, window+GROUP BY,
-row-value tuples, CTAS, JSON missing-path, int overflow, sci-notation + hex
-literals, double-quoted identifiers, sized-type CAST) were closed and verified in
-the final wave. The 60k-query fuzzer finds 0 divergences; sakila + employees
-real-data differentials match SQLite.
+**34 bugs found; F1–F32 fixed & verified; F33–F34 open (newly found).**
+All of F1–F32 are closed (every repro runs live and passes; the 60k-query fuzzer
+finds 0 divergences; sakila + employees real-data differentials match SQLite).
+Continued hunting surfaced two more:
+- **F33** — a bare non-zero number is treated as FALSE in a boolean context
+  (`CASE WHEN 1` → `'n'`, `iif(5,…)` → `'n'`); only an explicit comparison works.
+- **F34** — the 2-argument form of `trim`/`ltrim`/`rtrim` (custom trim
+  characters) is ignored — the string is returned unchanged.
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -369,6 +370,24 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes
 non-ASCII case comparisons.
+
+---
+
+## Open bugs (round 2 — found 2026-10-22)
+
+### F33 · Non-zero number not truthy in a boolean context *(OPEN)*
+- **Severity:** High (broad correctness — wrong branch selection).
+- **Repro:** `SELECT CASE WHEN 1 THEN 'y' ELSE 'n' END` → `'n'`; `iif(5,'y','n')`
+  → `'n'`. A bare non-zero number is treated as FALSE; only an explicit
+  comparison (`1=1`) evaluates true. SQLite/MySQL treat any non-zero as TRUE.
+- **Test:** `known_issues/known_engine_bugs_test.dart` → F33.
+
+### F34 · 2-arg trim / ltrim / rtrim ignores the trim characters *(OPEN)*
+- **Severity:** Medium (silent wrong string).
+- **Repro:** `trim('xxhixx', 'x')` → `'xxhixx'` (unchanged); should be `'hi'`.
+  Same for `ltrim(x, chars)` / `rtrim(x, chars)`. The 2nd argument is ignored.
+  SQLite, MySQL, Oracle all support custom trim characters.
+- **Test:** F34.
 
 ---
 
