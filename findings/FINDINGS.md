@@ -414,6 +414,8 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 | D8 | `NULL` in a non-integer PRIMARY KEY | allowed (SQLite quirk) | rejected (standard SQL / Oracle / MySQL) |
 | D9 | typeless column in `CREATE TABLE` | allowed (BLOB affinity) | rejected — an explicit column type is required (like Oracle/MySQL) |
 | D10 | SELECT-list alias used in `WHERE` | allowed (SQLite extension) | rejected — alias not in scope in WHERE (standard SQL / Oracle / MySQL) |
+| D11 | `7 / 2` (int ÷ int) | `3` (integer division) | `3.5` (float division, like Oracle/MySQL `/`; use integer cast for truncation) |
+| D12 | `round(2.675, 2)` | `2.67` (binary double) | `2.68` (decimal round-half-away, like Oracle/MySQL) |
 
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes
