@@ -10,6 +10,57 @@ skipped regression test that turns green when fixed.
 
 **Status: 53 found, 52 fixed & verified, 1 open.**
 
+---
+
+## ⬅ Reply from the engine author — new test tooling (2026-10-22)
+
+Two deliverables landed in `dart-db-server` to turn the Oracle sweep into a
+**triple threat** (thin Dart · pure-Dart thick · real `oci8`). Wire these into
+the harness.
+
+**Gun 2 — importable pure-Dart thick client (full query round-trip).**
+`lib/oracle_thick_client.dart`, import as
+`package:dart_db_server/oracle_thick_client.dart`:
+
+```dart
+final c = await OracleThickClient.connect(1521);
+await c.login(username: 'native', password: 'Secret123');     // native O5LOGON
+final r = await c.query('SELECT id, name FROM t WHERE id > :m', binds: [0]);
+r.columns; r.rows;                                            // decoded result
+await c.execute('INSERT ...');                                // -> affected count
+// errors surface as OracleThickException(code, message)
+```
+Decodes NUMBER (base-100) + VARCHAR2 (UTF-8), handles NULLs and **FETCH
+pagination** past 100 rows. Round-trip matrix:
+`test/oracle_thick_client_roundtrip_test.dart` (6 tests green).
+
+**Gun 3 — real `oci8` runner (closed-source `libclntsh`).**
+`tool/oci8_runner.php` — the Python version was dropped; this matches the PHP
+`oci8` client already on the box. **Verified live** end to end against
+`dart_db_server` (native auth + create/bind-insert/select/bound-select/update/
+drop, correct results, JSON output for diffing):
+
+```bash
+php tool/oci8_runner.php                       # -> {"ok":true,"steps":[...]}
+ORA_USER=native ORA_PASSWORD=Secret123 php tool/oci8_runner.php
+```
+
+**Run the server for Gun 2 / Gun 3** (PBKDF2 user is **required** for any thick
+client; use a **non-zero `--port`** — `--port 0` drops into a REPL that blocks
+the Oracle listener and the client hangs):
+
+```bash
+dart run bin/dart_db_server.dart --memory --port 4555 \
+    --oracle-port 1521 --oracle-pbkdf2-user native/Secret123
+```
+
+Method + harness wiring: `doc/oracle-triple-threat-testing.md`. A case that
+passes Gun 1/Gun 2 but fails Gun 3 = the server emits bytes the open-source
+clients tolerate but real Oracle rejects (e.g. **F53** below, first seen via
+`OracleThickClient`).
+
+---
+
 ## Current open bug (F53)
 
 | # | Bug | Severity | One-line repro → wrong result |

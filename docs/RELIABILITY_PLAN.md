@@ -58,6 +58,13 @@ Each criterion below has concrete acceptance tests and a phase.
   the connection). The rest of the Oracle path (NUMBER/VARCHAR2 fidelity, binds,
   transactions, isolation, FETCH, DATE/BLOB, ~70 cases) is clean, as are MySQL
   wire fidelity and robustness.
+- **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
+  per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
+  dropped): every case is adjudicated by three Oracle participants — Gun A the
+  server emulator (`Database.execute`), Gun 2 the pure-Dart thick client
+  (`OracleThickClient`), and Gun 3 the **real `oci8` / Instant Client** via
+  `tool/oci8_exec.php`. Gun 3 auto-skips when Instant Client is absent; where
+  present it has confirmed the emulator's wire bytes match real Oracle.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 
