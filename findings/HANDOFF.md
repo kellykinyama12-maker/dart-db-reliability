@@ -1,43 +1,55 @@
 # Handoff — open engine bugs to fix
 
-> **✅ RESOLVED (2026-10-22).** F35–F39 have been fixed and verified — the suite
-> runs live with **nothing skipped** (440 pass / 0 fail). Combined with the
-> earlier waves, **all 39 bugs (F1–F39) are closed.** Kept as a record below.
-
-For the engine author working in `dart-db-server`. **5 open bugs (F35–F39)**,
-found by a systematic function-edge sweep. Each has a minimal repro and a skipped
-regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **4 open bugs (F40–F43)**,
+found by a math-coercion / CAST / PRAGMA sweep. Each has a minimal repro and a
+skipped regression test that turns green when fixed.
 
 - **Verify one:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`.
 - **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 39 found, 34 fixed & verified, 5 open.** The executor stays robust
-(60k-query fuzzer + feature sweeps clean); all five open bugs are in scalar
-*functions / CAST*.
+**Status: 43 found, 39 fixed & verified, 4 open.** The executor stays robust;
+the open bugs are in *coercion / CAST / introspection*.
 
-## Current open batch (F35–F39)
+## Current open batch (F40–F43)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
-| **F35** | `abs(text)` crashes | 🟠 internal exception | `abs('5')` → `"String is not a subtype of num"` (should coerce → 5.0) |
-| **F38** | CAST trailing garbage | 🟠 silent wrong value | `CAST('42abc' AS INTEGER)` → `0` (should be 42) |
-| **F37** | `replace` empty pattern | 🟠 silent wrong string | `replace('abc','','X')` → `'XaXbXcX'` (should be `'abc'`) |
-| **F36** | `substr(x, 0)` | 🟡 wrong window | `substr('hello', 0)` → `''` (should be `'hello'`) |
-| **F39** | `printf` `%e`/`%g` | 🟡 formatting | `printf('%e',1234.5)` → `1.234500e+3` (should be `e+03`); `%g` keeps trailing zeros |
+| **F40** | unary minus on text crashes | 🟠 internal exception | `SELECT -'5'` → `"String is not a subtype of num"` (should be `-5`) |
+| **F41** | `CAST(blob AS TEXT)` → bytes | 🟠 wrong value | `CAST(x'4869' AS TEXT)` → `[72,105]` (should be `'Hi'`) |
+| **F43** | PRAGMA introspection | 🟠 ORM-compat | `table_info` `notnull=1` for PK (should be 0); unquoted defaults; `index_list` wrong shape |
+| **F42** | `CAST(num AS BLOB)` throws | 🟡 one-sided error | `CAST(3.14 AS BLOB)` → `Cannot coerce` (should yield a blob) |
 
-> **Fix order:** F35 (internal crash — same cast-leak family as the already-fixed
-> F6/F12; `abs()` was simply uncovered), then the two silent-wrong-value bugs
-> (F38 CAST, F37 replace), then the formatting/window edges (F36, F39).
+> **Fix order:** F40 first (internal crash — the coercion path that binary ops
+> and `abs()` already have is missing for **unary minus**; grep for the operator
+> eval and route text through the same coercion). Then F41/F43 (wrong values /
+> ORM-visible introspection), then F42.
 
-Likely shared roots: **F35** is the text→num coercion path missing for `abs()`
-(and probably other math functions — sweep `round`/`ceil`/`floor`/`sign` the same
-way). **F38** is the CAST string-to-number parser not taking a leading numeric
-prefix.
+**F43 detail** — match SQLite's `PRAGMA` output: `table_info(t)` should report
+`notnull=0` for an `INTEGER PRIMARY KEY` (rowid alias), quote default-value
+literals (`'x'` not `x`), and `index_list(t)` should use SQLite's 5-column shape
+(`seq,name,unique,origin,partial`) and omit the implicit PK index.
 
 ---
 
-## Resolved batch (F33–F34) — ✅ fixed 2026-10-22
+## Resolved batch (F35–F39) — ✅ fixed 2026-10-22
+
+> **✅ RESOLVED.** The function-edge bugs F35–F39 (`abs(text)` crash, `substr(x,0)`,
+> `replace` empty pattern, `CAST` trailing-garbage, `printf` `%e`/`%g`) have been
+> fixed and verified (440 pass / 0 skip). Kept as a record below.
+
+### F35–F39 (resolved)
+
+| # | Bug | Repro → wrong result |
+| --- | --- | --- |
+| **F35** | `abs(text)` crash | `abs('5')` → cast error |
+| **F36** | `substr(x, 0)` | `substr('hello', 0)` → `''` |
+| **F37** | `replace` empty pattern | `replace('abc','','X')` → `'XaXbXcX'` |
+| **F38** | CAST trailing garbage | `CAST('42abc' AS INTEGER)` → `0` |
+| **F39** | `printf` `%e`/`%g` | `1.234500e+3` vs `e+03` |
+
+---
+
 
 > **✅ RESOLVED.** F33 (non-zero not truthy) and F34 (2-arg trim) have been fixed
 > and verified. Kept as a record below.
