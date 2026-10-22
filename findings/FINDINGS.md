@@ -9,21 +9,18 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**67 bugs found; F1–F65 fixed & verified; F66–F67 open.** Loading the real
-**Oracle HR sample schema** (`hr_create.sql`) has driven a wave of fixes: after
-F63–F65 (plus F60–F62) were fixed, **75 of 78** statements load (was 3/85). Two
-remaining Oracle-DDL gaps block the last tables:
-- **F60–F65** *(fixed & verified)* — self LEFT JOIN left-column, column-level
-  COLLATE + DISTINCT/GROUP BY collation, inline named column constraints,
-  `ALTER TABLE ADD (constraint)`, and `COMMENT ON`.
-- **F66** — a trailing `ORGANIZATION INDEX` (Oracle index-organized table)
-  clause on `CREATE TABLE` is a parse error; blocks `HR.countries`.
-- **F67** — `CREATE VIEW name (col-list) AS ...` (explicit view column list) is
-  a parse error; blocks `HR.emp_details_view`.
+**67 bugs found; F1–F67 fixed & verified; 0 open.** Loading the real **Oracle HR
+sample schema** drove the last wave of fixes: the full `hr_create.sql` now
+loads (all 7 core tables + the view create), up from 3/85 at the start. The
+last two Oracle-DDL gaps are closed:
+- **F66** *(fixed & verified)* — a trailing `ORGANIZATION INDEX` (index-organized
+  table) clause on `CREATE TABLE` is accepted/ignored.
+- **F67** *(fixed & verified)* — `CREATE VIEW name (col-list) AS ...` (explicit
+  view column list) parses.
 
-> **HR parity test:** `test/parity/oracle_hr_parity_test.dart` loads the real
-> `hr_create.sql`; now BLOCKED only by F66/F67 (6 of 7 core tables create).
-> Un-skip when they land.
+> **HR parity gate is GREEN:** `test/parity/oracle_hr_parity_test.dart` loads
+> the real `hr_create.sql` live and asserts all 7 core HR tables create. It
+> auto-skips only when the dataset is absent.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
@@ -689,7 +686,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   `COMMENT ON TABLE/COLUMN … IS '…'` now parse. After these, the real
   `hr_create.sql` loads 75/78 statements. Tests F63–F65.
 
-### F66 · ORGANIZATION INDEX clause not parsed *(OPEN)*
+### F66 · ORGANIZATION INDEX clause not parsed *(FIXED & VERIFIED)*
 - **Severity:** Medium (blocks Oracle index-organized tables, e.g. HR.countries).
 - **Repro:** `CREATE TABLE t (… CONSTRAINT pk PRIMARY KEY (id)) ORGANIZATION
   INDEX` → `Unexpected token after statement: ORGANIZATION`.
@@ -697,7 +694,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   clause on CREATE TABLE.
 - **Test:** F66 (skipped).
 
-### F67 · CREATE VIEW with an explicit column list not parsed *(OPEN)*
+### F67 · CREATE VIEW with an explicit column list not parsed *(FIXED & VERIFIED)*
 - **Severity:** Medium (standard SQL; blocks HR.emp_details_view).
 - **Repro:** `CREATE VIEW v (a, b) AS SELECT 1, 2` → `Expected AS but got "("`.
   The column-less form works.

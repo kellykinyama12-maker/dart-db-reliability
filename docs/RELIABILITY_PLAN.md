@@ -52,14 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 67 found, 65 fixed & verified, 2 open.**
-  F1–F65 are closed. **Open:** F66 (`ORGANIZATION INDEX` clause on CREATE TABLE)
-  and F67 (`CREATE VIEW` with an explicit column list) — the last two Oracle-DDL
-  gaps blocking the HR schema (75/78 `hr_create.sql` statements now load; 6/7
-  core tables create). The Oracle wire path is clean three-way vs real `oci8`;
-  triggers/views/aggregates/window-functions and MySQL wire are clean.
-- **Oracle HR parity test:** `test/parity/oracle_hr_parity_test.dart`; skipped
-  as BLOCKED by F66/F67, auto-skips if absent.
+- **Bug status (2026-10-22): 67 found, 67 fixed & verified, 0 open.**
+  F1–F67 are all closed; the suite runs live with nothing skipped. The real
+  Oracle HR schema loads fully (all 7 core tables). The Oracle wire path is
+  clean three-way vs real `oci8`; triggers/views/aggregates/window-functions
+  and MySQL wire fidelity and robustness are clean.
+- **Oracle HR parity gate:** `test/parity/oracle_hr_parity_test.dart` runs live
+  (loads `hr_create.sql`, asserts 7 core tables); auto-skips only if absent.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the

@@ -91,10 +91,7 @@ void main() {
     for (final t in tables) {
       await db.execute('SELECT COUNT(*) FROM $t'); // throws if missing
     }
-    expect(ok, greaterThanOrEqualTo(statements.length - 42),
+    expect(ok, greaterThanOrEqualTo(statements.length - 2),
         reason: 'too many hr_create.sql statements failed to load');
-  },
-      skip: 'BLOCKED by F66 (ORGANIZATION INDEX clause) and F67 (CREATE VIEW '
-          'column list): 75/78 hr_create.sql statements load after F63-F65, but '
-          'HR.countries + the view still fail. Un-skip when F66/F67 are fixed.');
+  });
 }

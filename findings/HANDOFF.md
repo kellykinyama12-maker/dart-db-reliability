@@ -1,27 +1,19 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs (F66–F67)** —
-the last two Oracle-DDL gaps blocking the real HR sample schema. Each has a
-minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the last
+batch (F66–F67, Oracle HR DDL) is fixed and verified. The full suite runs live
+with nothing skipped, and the real Oracle HR schema now loads end to end.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (both in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 67 found, 65 fixed & verified, 2 open.** After F60–F65, the real
-`hr_create.sql` loads 75/78 statements (6/7 core tables). F66/F67 block the last.
+**Status: 67 found, 67 fixed & verified, 0 open.**
 
-## Current open bugs (F66–F67) — finish the Oracle HR schema
+## Resolved batch (F66–F67) — ✅ fixed 2026-10-22 (finish Oracle HR schema)
 
-| # | Bug | Repro → error |
-| --- | --- | --- |
-| **F66** | ORGANIZATION INDEX clause | `CREATE TABLE t (… CONSTRAINT pk PRIMARY KEY (id)) ORGANIZATION INDEX` → `Unexpected token after statement: ORGANIZATION` (blocks `HR.countries`) |
-| **F67** | CREATE VIEW column list | `CREATE VIEW v (a, b) AS SELECT 1, 2` → `Expected AS but got "("` (blocks `HR.emp_details_view`) |
-
-> **F66** — accept (and ignore) a trailing `ORGANIZATION INDEX` / IOT storage
-> clause on CREATE TABLE. **F67** — parse an optional `(col1, col2, …)` list
-> after the view name and use it to rename the view's output columns.
-> Fixing both unblocks `test/parity/oracle_hr_parity_test.dart`.
+> **✅ RESOLVED.** `ORGANIZATION INDEX` clause (F66) and `CREATE VIEW` column
+> list (F67) now parse. The real `hr_create.sql` loads fully —
+> `test/parity/oracle_hr_parity_test.dart` runs live and is green.
 
 ---
 

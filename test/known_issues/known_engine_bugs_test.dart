@@ -496,28 +496,19 @@ void main() {
     });
   });
 
-  // Remaining gaps blocking the Oracle HR schema (75/78 load after F63-F65).
-  group('open bugs (round 12 — Oracle HR DDL parity)', () {
-    test('F66 · ORGANIZATION INDEX (index-organized table) clause not parsed',
+  // Oracle HR schema DDL: after these the real hr_create.sql loads fully.
+  group('formerly-open bugs F66–F67 (fixed & verified; Oracle HR DDL)', () {
+    test('F66 · ORGANIZATION INDEX (index-organized table) clause is accepted',
         () async {
       final db = await openEngine();
-      // Oracle IOT storage clause; a SQLite-style engine can accept and ignore
-      // it. It blocks HR.countries.
+      // Oracle IOT storage clause; accepted and ignored.
       await expectOk(db,
           'CREATE TABLE t (id NUMBER, nm VARCHAR2(10), CONSTRAINT pk PRIMARY KEY (id)) ORGANIZATION INDEX');
-    },
-        skip: 'KNOWN ENGINE BUG: a trailing ORGANIZATION INDEX clause on CREATE '
-            'TABLE is a parse error ("Unexpected token after statement: '
-            'ORGANIZATION"). Should be accepted/ignored. Blocks HR.countries. '
-            'See findings/FINDINGS.md F66.');
+    });
 
-    test('F67 · CREATE VIEW with an explicit column list not parsed', () async {
+    test('F67 · CREATE VIEW with an explicit column list is parsed', () async {
       final db = await openEngine();
-      // Standard: CREATE VIEW v (c1, c2) AS SELECT ...
       await expectOk(db, 'CREATE VIEW v (a, b) AS SELECT 1, 2');
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE VIEW name (col-list) AS ... is a parse '
-            'error ("Expected AS but got ("). The column-less form works. Blocks '
-            'HR.emp_details_view. See findings/FINDINGS.md F67.');
+    });
   });
 }
