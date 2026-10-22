@@ -1,5 +1,9 @@
 # Handoff — open engine bugs to fix
 
+> **✅ RESOLVED (2026-10-22).** F35–F39 have been fixed and verified — the suite
+> runs live with **nothing skipped** (440 pass / 0 fail). Combined with the
+> earlier waves, **all 39 bugs (F1–F39) are closed.** Kept as a record below.
+
 For the engine author working in `dart-db-server`. **5 open bugs (F35–F39)**,
 found by a systematic function-edge sweep. Each has a minimal repro and a skipped
 regression test that turns green when fixed.

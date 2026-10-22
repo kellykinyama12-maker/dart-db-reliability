@@ -291,53 +291,38 @@ void main() {
     });
   });
 
-  group('open bugs (round 3 — found 2026-10-22)', () {
+  group('formerly-open bugs F35–F39 (fixed & verified)', () {
     test('F35 · abs() on a text argument throws an internal cast error',
         () async {
       final db = await openEngine();
       // SQLite coerces: abs('5') -> 5.0, abs('abc') -> 0.0; must not throw.
       await expectScalar(db, "SELECT abs('5')", 5);
-    },
-        skip: 'KNOWN ENGINE BUG: abs() on a text value throws "String is not a '
-            'subtype of num" (internal cast leak) instead of coercing. '
-            'See findings/FINDINGS.md F35.');
+    });
 
     test('F36 · substr with start 0 / out-of-range start is wrong', () async {
       final db = await openEngine();
       // SQLite: substr(x, 0) returns the whole string (0 precedes position 1).
       await expectScalar(db, "SELECT substr('hello', 0)", 'hello');
-    },
-        skip: 'KNOWN ENGINE BUG: substr(x, 0) returns \'\' (should be the whole '
-            'string); negative start beyond length also mis-windows. '
-            'See findings/FINDINGS.md F36.');
+    });
 
     test('F37 · replace with an empty search pattern inserts everywhere',
         () async {
       final db = await openEngine();
       // An empty search string matches nothing; the string is unchanged.
       await expectScalar(db, "SELECT replace('abc', '', 'X')", 'abc');
-    },
-        skip: 'KNOWN ENGINE BUG: replace(x, \'\', y) inserts y between every '
-            "char (`'abc'` -> `'XaXbXcX'`); should return x unchanged. "
-            'See findings/FINDINGS.md F37.');
+    });
 
     test('F38 · CAST of text with a trailing garbage returns 0', () async {
       final db = await openEngine();
       // SQLite parses the leading numeric prefix.
       await expectScalar(db, "SELECT cast('42abc' AS INTEGER)", 42);
       await expectScalar(db, "SELECT cast('3.14xyz' AS REAL)", 3.14);
-    },
-        skip: 'KNOWN ENGINE BUG: CAST of text with trailing non-numeric chars '
-            "returns 0 instead of the leading number (`'42abc'`->0, not 42). "
-            'See findings/FINDINGS.md F38.');
+    });
 
     test('F39 · printf %e exponent width and %g trailing zeros', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT printf('%g', 0.0001)", '0.0001');
       await expectScalar(db, "SELECT printf('%e', 1234.5)", '1.234500e+03');
-    },
-        skip: 'KNOWN ENGINE BUG: printf `%e` emits a 1-digit exponent '
-            '(`e+3` vs `e+03`) and `%g` does not trim trailing zeros '
-            '(`0.000100000` vs `0.0001`). See findings/FINDINGS.md F39.');
+    });
   });
 }

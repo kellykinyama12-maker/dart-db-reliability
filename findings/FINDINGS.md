@@ -9,16 +9,12 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**39 bugs found; F1–F34 fixed & verified; F35–F39 open (newly found).**
-All of F1–F34 are closed. A systematic function-edge sweep surfaced five more:
-- **F35** — `abs()` on a text value throws an internal cast error (should coerce).
-- **F36** — `substr(x, 0)` returns `''` (should return the whole string);
-  out-of-range negative start mis-windows.
-- **F37** — `replace(x, '', y)` inserts `y` between every char instead of
-  returning `x` unchanged.
-- **F38** — `CAST` of text with trailing non-numeric chars returns `0`
-  (`'42abc'`→0) instead of the leading number (42).
-- **F39** — `printf` `%e` emits a 1-digit exponent and `%g` keeps trailing zeros.
+**All 39 bugs (F1–F39) are FIXED and verified.** Every repro runs live (nothing
+skipped) and passes; the full suite is **440 pass / 0 skip / 0 fail**. F35–F39
+(the function-edge sweep: `abs(text)` crash, `substr(x,0)`, `replace` empty
+pattern, `CAST` trailing-garbage, `printf` `%e`/`%g`) were the latest wave,
+closed after F1–F34. The 60k-query fuzzer finds 0 divergences; sakila +
+employees real-data differentials match SQLite.
 
 _Historical detail of each bug is preserved below for the record._
 
