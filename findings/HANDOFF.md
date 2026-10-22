@@ -1,20 +1,48 @@
-# Handoff — open engine blockers to fix
+# Handoff — open engine bugs to fix
 
-> **✅ RESOLVED (2026-10-22).** All four blockers (F19–F22) have been fixed and
-> verified: the suite runs live with **nothing skipped** (291 pass / 0 fail),
-> the fuzzer finds 0 divergences, and the sakila/employees real-data
-> differentials match SQLite. This file is kept as a record of the handoff.
-
-For the engine author working in `dart-db-server`. These are the **4 open bugs**
-(F19–F22) blocking enterprise reliability certification. Each has a minimal
-repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **10 open bugs (F23–F32)**,
+all found by the reliability harness. Each has a minimal repro and a skipped
+regression test that turns green when fixed.
 
 - **Verify one:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`.
-- **Verify all at once:** `dart test --run-skipped` (also unblocks the fuzz,
-  crash-recovery, and sakila data-driven suites).
+- **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-Status: 22 bugs found, **18 fixed & verified**, **4 open** (below).
+**Status: 32 found, 22 fixed & verified, 10 open.** The executor is robust
+(60k-query fuzzer + feature sweeps clean); **every open bug is in the
+parser/lexer.** Two (F29, F30) are *silent data corruption* — fix those first.
+
+## Priority order
+
+| # | Bug | Severity | One-line repro → wrong result |
+| --- | --- | --- | --- |
+| **F29** | sci-notation literal | 🔴 silent corruption | `SELECT 1e3` → `1` (should be 1000) |
+| **F30** | hex literal | 🔴 silent corruption | `SELECT 0x1F` → `0` (should be 31) |
+| **F28** | int64 overflow | 🟠 silent corruption | `SELECT 9223372036854775807 + 1` → negative wrap |
+| **F27** | JSON missing path | 🟠 wrong value | `json_type(doc,'$.absent')` → `'null'` string (should be NULL) |
+| **F24** | window + GROUP BY | 🟠 feature broken | `RANK() OVER(...) … GROUP BY g` → `Unknown function: RANK` |
+| **F26** | CREATE TABLE AS SELECT | 🟠 feature missing | `CREATE TABLE t AS SELECT …` → `Expected ( but got "AS"` |
+| **F23** | COLLATE operator | 🟡 feature missing | `… COLLATE NOCASE` → `Unexpected token: COLLATE` |
+| **F25** | row-value tuples | 🟡 feature missing | `WHERE (a,b) = (1,2)` → `Expected ) but got ","` |
+| **F31** | double-quoted idents | 🟡 feature missing | `SELECT id AS "x"` → `Expected name but got "x"` |
+| **F32** | sized-type CAST | 🟡 feature missing | `CAST(x AS VARCHAR(10))` → `Expected ) but got "("` |
+
+> **The two 🔴 silent-corruption bugs (F29, F30) are the highest risk to a
+> client** — a numeric literal in scientific or hex form yields the *wrong
+> value with no error*, so bad data lands silently. Fix those first, then the
+> 🟠 wrong-value/feature bugs, then the 🟡 parser gaps.
+
+Lexer/literal family (F28/F29/F30) likely shares a root cause: the number
+scanner stops early and the trailing `e..`/`x..` becomes a stray alias token —
+worth fixing together.
+
+---
+
+## Resolved batch (F19–F22) — ✅ fixed 2026-10-22
+
+> All four earlier blockers (F19–F22) were fixed and verified: the suite runs
+> live with nothing skipped, the fuzzer finds 0 divergences, and the
+> sakila/employees real-data differentials match SQLite. Kept below as a record.
 
 ---
 
