@@ -9,26 +9,28 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**56 bugs found; F1–F54 fixed & verified; F55–F56 open.** A constraint /
-type-integrity differential vs SQLite surfaced two `INTEGER PRIMARY KEY` bugs
-(the engine does not fully implement the rowid-alias contract):
-- **F55** — a non-integer value (text or float) inserted *or updated* into an
-  `INTEGER PRIMARY KEY` column is accepted; SQLite rejects it with a *datatype
-  mismatch* (the rowid alias must be an integer). Regular INTEGER columns
-  correctly use loose affinity, so only the PK/rowid path is affected.
-- **F56** — a *plain* `INTEGER PRIMARY KEY` does not auto-assign the rowid when
-  the id is omitted or NULL; it errors ("Column id cannot be NULL"). Only the
-  explicit `AUTOINCREMENT` form works. In SQLite a plain `INTEGER PRIMARY KEY`
-  is a rowid alias and always auto-assigns — the ubiquitous "let the DB assign
-  the id" idiom. Confirmed vs SQLite (not wire-specific).
+**58 bugs found; F1–F56 fixed & verified; F57–F58 open.** A constraint /
+type-integrity and broad-semantics differential vs SQLite surfaced four bugs;
+the `INTEGER PRIMARY KEY` pair (F55–F56) was fixed by the author and verified,
+with two SQLite-semantics gaps still open:
+- **F55** *(fixed & verified)* — `INTEGER PRIMARY KEY` now rejects a non-integer
+  value (insert or update), like SQLite's datatype mismatch.
+- **F56** *(fixed & verified)* — a plain `INTEGER PRIMARY KEY` now auto-assigns
+  the rowid when the id is omitted or NULL.
+- **F57** — the `rowid` pseudo-column (and aliases `_rowid_`, `oid`) is not
+  queryable ("Unknown column: rowid"), including in a `WHERE` clause; SQLite
+  exposes it on every rowid table.
+- **F58** — a negative `LIMIT` (e.g. `LIMIT -1`, SQLite's "no limit" idiom used
+  with `OFFSET`) is a parse error; SQLite treats `LIMIT -1` as unlimited.
 
-> **Deep hunt otherwise clean:** 15 Oracle-specific features agree three-way
-> with real `oci8`; sessions survive every error type without desyncing; 4
-> concurrent thick clients run correctly; UNIQUE / NOT NULL / CHECK (insert &
-> update) / DEFAULT all match SQLite.
-> **Dialect (not a bug, D8):** the engine rejects `NULL` in a non-integer
-> PRIMARY KEY (e.g. `TEXT PRIMARY KEY`); SQLite allows it (a documented SQLite
-> quirk). The engine matches standard SQL / Oracle / MySQL here.
+> **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
+> `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
+> ALL/INTERSECT/EXCEPT, NULL in IN/NOT IN/BETWEEN/LIKE/IS, COUNT DISTINCT,
+> group_concat, empty-set aggregates, mixed-type ORDER BY (type-class ordering),
+> CAST, numeric-string compare, and date/time functions all match SQLite.
+> **Dialect (not a bug, D9):** the engine requires an explicit column type in
+> `CREATE TABLE` (e.g. `CREATE TABLE t (id INTEGER PRIMARY KEY, v)` is rejected);
+> SQLite allows a typeless column. The engine matches Oracle/MySQL here.
 
 > **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
 > digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
@@ -401,6 +403,8 @@ convenience divergence asserted in `correctness/dialect_semantics_test.dart`.
 | D5 | `UPPER('café')` / `LOWER` | ASCII-only (`é` unchanged) | Unicode-aware (`É`) |
 | D6 | `'Apple' LIKE 'apple'` | TRUE (case-insensitive ASCII) | FALSE (case-sensitive, like Oracle) |
 | D7 | empty string `''` over the Oracle wire | distinct empty string | reads back as `NULL` (correct Oracle `'' = NULL` semantics) |
+| D8 | `NULL` in a non-integer PRIMARY KEY | allowed (SQLite quirk) | rejected (standard SQL / Oracle / MySQL) |
+| D9 | typeless column in `CREATE TABLE` | allowed (BLOB affinity) | rejected — an explicit column type is required (like Oracle/MySQL) |
 
 D5: the engine's Unicode-aware case folding is arguably more correct than
 SQLite's ASCII-only `UPPER`/`LOWER`; recorded so the differential suite excludes
@@ -583,7 +587,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   statement text is intact regardless of multi-byte characters.
 - **Test:** F54 (Oracle round-trip suite, skipped).
 
-### F55 · INTEGER PRIMARY KEY accepts non-integer values *(OPEN)*
+### F55 · INTEGER PRIMARY KEY accepts non-integer values *(FIXED & VERIFIED)*
 - **Severity:** Medium (data integrity — a PK/rowid column holds a wrong type).
 - **Repro:** `CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER);
   INSERT INTO t VALUES ('x', 1)` is accepted and stores `'x'` (text) in `id`;
@@ -596,7 +600,7 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   (rowid alias) column, rejecting non-integer values as SQLite does.
 - **Test:** F55 (`known_issues/known_engine_bugs_test.dart`, skipped).
 
-### F56 · plain INTEGER PRIMARY KEY does not auto-assign the rowid *(OPEN)*
+### F56 · plain INTEGER PRIMARY KEY does not auto-assign the rowid *(FIXED & VERIFIED)*
 - **Severity:** High (the standard autoincrement-PK idiom is broken).
 - **Repro:** `CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER);
   INSERT INTO t (v) VALUES (10)` → `FormatException: Column "id" cannot be NULL`
@@ -609,6 +613,23 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
 - **Fix:** treat a plain `INTEGER PRIMARY KEY` as a rowid alias — auto-assign the
   next rowid when the id is omitted or NULL.
 - **Test:** F56 (`known_issues/known_engine_bugs_test.dart`, skipped).
+
+### F57 · rowid pseudo-column is not queryable *(OPEN)*
+- **Severity:** Medium (a core SQLite row-access feature is missing).
+- **Repro:** `SELECT rowid FROM t` (and aliases `_rowid_`, `oid`, and
+  `WHERE rowid = 5`) → `Unknown column: rowid`. SQLite exposes `rowid` on every
+  rowid table (here it equals the `INTEGER PRIMARY KEY`).
+- **Fix:** resolve `rowid`/`_rowid_`/`oid` to the table's rowid in both the
+  SELECT list and predicates.
+- **Test:** F57 (skipped).
+
+### F58 · negative LIMIT is a parse error *(OPEN)*
+- **Severity:** Medium (a common SQLite/ORM idiom fails to parse).
+- **Repro:** `SELECT id FROM t ORDER BY id LIMIT -1` → `FormatException: Expected
+  number but got "-"`. SQLite treats `LIMIT -1` as *no limit* (used as
+  `LIMIT -1 OFFSET n` to skip without capping). `LIMIT 0` already works.
+- **Fix:** accept a negative LIMIT and treat it as unlimited, as SQLite does.
+- **Test:** F58 (skipped).
 
 
 ---

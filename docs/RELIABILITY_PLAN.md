@@ -52,15 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 56 found, 54 fixed & verified, 2 open.**
-  F1–F54 are closed. **Open:** F55 (a non-integer value inserted/updated into an
-  `INTEGER PRIMARY KEY` is accepted; SQLite rejects it) and F56 (a plain
-  `INTEGER PRIMARY KEY` does not auto-assign the rowid when the id is
-  omitted/NULL; only `AUTOINCREMENT` works). Both are `INTEGER PRIMARY KEY`
-  rowid-alias gaps, confirmed vs SQLite. The Oracle path (fidelity, binds,
-  transactions, isolation, FETCH, 15 Oracle-specific features, concurrency,
-  error recovery) is clean three-way vs real `oci8`; MySQL wire and robustness
-  are clean.
+- **Bug status (2026-10-22): 58 found, 56 fixed & verified, 2 open.**
+  F1–F56 are closed. **Open:** F57 (the `rowid`/`_rowid_`/`oid` pseudo-column is
+  not queryable) and F58 (a negative `LIMIT`, the SQLite no-limit idiom, is a
+  parse error). Both are SQLite-semantics gaps confirmed vs SQLite. The Oracle
+  path (fidelity, binds, transactions, isolation, FETCH, 15 Oracle-specific
+  features, concurrency, error recovery) is clean three-way vs real `oci8`;
+  MySQL wire and robustness are clean.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the

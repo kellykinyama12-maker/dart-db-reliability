@@ -1,27 +1,33 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs (F55–F56)**,
-both `INTEGER PRIMARY KEY` rowid-alias gaps found by a constraint/type-integrity
-differential vs SQLite. Each has a minimal repro and a skipped regression test
-that turns green when fixed.
+For the engine author working in `dart-db-server`. **2 open bugs (F57–F58)**,
+SQLite-semantics gaps found by a broad differential vs SQLite. Each has a
+minimal repro and a skipped regression test that turns green when fixed.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (both in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 56 found, 54 fixed & verified, 2 open.**
+**Status: 58 found, 56 fixed & verified, 2 open.**
 
-## Current open bugs (F55–F56) — INTEGER PRIMARY KEY rowid alias
+## Current open bugs (F57–F58)
 
 | # | Bug | Severity | Repro → wrong result |
 | --- | --- | --- | --- |
-| **F56** | plain INTEGER PK does not auto-assign rowid | 🔴 common idiom broken | `INSERT INTO t(v) VALUES(10)` on `id INTEGER PRIMARY KEY` → `Column "id" cannot be NULL` (SQLite → `id=1`); only `AUTOINCREMENT` works |
-| **F55** | INTEGER PK accepts non-integer | 🟠 data integrity | `INSERT/UPDATE` text or float into `id INTEGER PRIMARY KEY` accepted; SQLite → `datatype mismatch` |
+| **F57** | rowid pseudo-column not queryable | 🟠 missing feature | `SELECT rowid FROM t` / `WHERE rowid = 5` → `Unknown column: rowid` (also `_rowid_`, `oid`); SQLite exposes it |
+| **F58** | negative LIMIT is a parse error | 🟠 common idiom | `… LIMIT -1` → `Expected number but got "-"`; SQLite treats `LIMIT -1` as unlimited |
 
-> Both stem from `INTEGER PRIMARY KEY` not being a full rowid alias: it should
-> (a) **auto-assign** the next rowid when omitted/NULL (F56), and (b) **reject**
-> non-integer values (F55). The explicit `AUTOINCREMENT` form already works, and
-> regular non-PK INTEGER columns correctly keep loose affinity.
+> **F57** — resolve `rowid`/`_rowid_`/`oid` to the table's rowid in both the
+> SELECT list and predicates. **F58** — accept a negative LIMIT and treat it as
+> unlimited (SQLite semantics), as already works for `LIMIT 0`.
+
+---
+
+## Resolved — ✅ F55–F56 fixed 2026-10-22 (INTEGER PRIMARY KEY rowid alias)
+
+> **✅ RESOLVED.** A plain `INTEGER PRIMARY KEY` now auto-assigns the rowid when
+> the id is omitted/NULL (F56) and rejects non-integer values (F55), verified
+> vs SQLite. Kept as active regression guards.
 
 ---
 

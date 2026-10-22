@@ -392,33 +392,53 @@ void main() {
     });
   });
 
-  group('open bugs (round 7 — found 2026-10-22)', () {
-    test('F55 · INTEGER PRIMARY KEY accepts non-integer values', () async {
+  group('formerly-open bugs F55–F56 (fixed & verified)', () {
+    test('F55 · INTEGER PRIMARY KEY rejects non-integer values', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
-      // An INTEGER PRIMARY KEY is a rowid alias; SQLite rejects a non-integer
-      // value with "datatype mismatch". The engine stores it unchanged.
+      // An INTEGER PRIMARY KEY is a rowid alias; a non-integer value must be
+      // rejected (SQLite: datatype mismatch).
       await expectThrows(db, "INSERT INTO t VALUES ('x', 1)");
-    },
-        skip: 'KNOWN ENGINE BUG: a non-integer value (text or float) inserted '
-            'into an INTEGER PRIMARY KEY column is accepted; SQLite rejects it '
-            'with a datatype mismatch (the rowid alias must be an integer). '
-            'Regular INTEGER columns correctly use loose affinity. See '
-            'findings/FINDINGS.md F55.');
+    });
 
-    test('F56 · plain INTEGER PRIMARY KEY does not auto-assign the rowid',
+    test('F56 · plain INTEGER PRIMARY KEY auto-assigns the rowid', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
+      // A plain INTEGER PRIMARY KEY is a rowid alias and auto-assigns the id
+      // when omitted.
+      await db.execute('INSERT INTO t (v) VALUES (10)');
+      await expectScalar(db, 'SELECT id FROM t', 1);
+    });
+  });
+
+  group('open bugs (round 7 — found 2026-10-22)', () {
+    test('F57 · rowid / _rowid_ / oid pseudo-columns are not queryable',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
-      // In SQLite a plain INTEGER PRIMARY KEY is a rowid alias and auto-assigns
-      // the id when omitted; the engine errors ("Column id cannot be NULL")
-      // unless the explicit AUTOINCREMENT keyword is present.
-      await db.execute('INSERT INTO t (v) VALUES (10)');
-      await expectScalar(db, 'SELECT id FROM t', 1);
+      await db.execute('INSERT INTO t VALUES (5, 50)');
+      // SQLite exposes rowid (and aliases _rowid_/oid) on a rowid table.
+      await expectScalar(db, 'SELECT rowid FROM t', 5);
     },
-        skip: 'KNOWN ENGINE BUG: a plain INTEGER PRIMARY KEY does not auto-'
-            'assign the rowid when the id is omitted or NULL (it errors); only '
-            'the explicit AUTOINCREMENT form works. In SQLite INTEGER PRIMARY '
-            'KEY always auto-assigns. See findings/FINDINGS.md F56.');
+        skip: 'KNOWN ENGINE BUG: the rowid pseudo-column (and aliases _rowid_, '
+            'oid) is not queryable ("Unknown column: rowid"), including in a '
+            'WHERE clause. SQLite exposes it on every rowid table. See '
+            'findings/FINDINGS.md F57.');
+
+    test('F58 · negative LIMIT (the no-limit idiom) is a parse error', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY)');
+      await db.execute('INSERT INTO t VALUES (1),(2),(3)');
+      // SQLite treats LIMIT -1 as "no limit"; the engine's parser rejects "-".
+      await expectRows(db, 'SELECT id FROM t ORDER BY id LIMIT -1', [
+        [1],
+        [2],
+        [3]
+      ]);
+    },
+        skip: 'KNOWN ENGINE BUG: a negative LIMIT (e.g. LIMIT -1, the SQLite '
+            '"no limit" idiom used with OFFSET) is a parse error ("Expected '
+            'number but got \\"-\\""). SQLite treats LIMIT -1 as unlimited. See '
+            'findings/FINDINGS.md F58.');
   });
 }
