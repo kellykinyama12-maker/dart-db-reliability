@@ -1,24 +1,45 @@
 # Handoff — open engine bugs to fix
 
-> **✅ RESOLVED (2026-10-22).** All 10 parser/lexer bugs (F23–F32) have been fixed
-> and verified — the suite runs live with **nothing skipped** (433 pass / 0 fail),
-> and the fuzzer finds 0 divergences. Combined with the earlier F1–F22 waves,
-> **all 32 bugs are closed.** This file is kept as a record of the handoffs.
-
-For the engine author working in `dart-db-server`. **10 open bugs (F23–F32)**,
-all found by the reliability harness. Each has a minimal repro and a skipped
-regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **2 open bugs (F33–F34)**,
+found by the reliability harness while continuing to hunt after the F23–F32 wave.
+Each has a minimal repro and a skipped regression test that turns green when
+fixed.
 
 - **Verify one:** un-skip its test in `test/known_issues/known_engine_bugs_test.dart`.
 - **Verify all at once:** `dart test --run-skipped`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status (at handoff time): 32 found, 22 fixed & verified, 10 open** — *all 10
-now resolved; see the banner above.* The executor is robust
-(60k-query fuzzer + feature sweeps clean); **every open bug is in the
-parser/lexer.** Two (F29, F30) are *silent data corruption* — fix those first.
+**Status: 34 found, 32 fixed & verified, 2 open.** The executor remains robust
+(60k-query fuzzer + feature sweeps clean); the two open bugs are a boolean-
+truthiness semantic and a string-function gap.
 
-## Priority order
+## Current open batch (F33–F34)
+
+| # | Bug | Severity | One-line repro → wrong result |
+| --- | --- | --- | --- |
+| **F33** | non-zero not truthy | 🟠 wrong branch | `CASE WHEN 1 THEN 'y' ELSE 'n' END` → `'n'`; `iif(5,'y','n')` → `'n'` |
+| **F34** | 2-arg trim ignored | 🟡 silent wrong string | `trim('xxhixx','x')` → `'xxhixx'` (should be `'hi'`) |
+
+**F33 — non-zero number treated as FALSE in a boolean context.** A bare non-zero
+number used as a condition (in `CASE WHEN`, `iif`, and likely `WHERE`/`HAVING`)
+is evaluated as false; only an explicit comparison (`1=1`) works. SQLite and
+MySQL treat any non-zero value as true. This silently selects the wrong branch —
+broad impact, so fix first.
+
+**F34 — 2-argument `trim`/`ltrim`/`rtrim` ignores the trim-character argument**
+and returns the string unchanged (`trim(x, chars)` is a no-op on `chars`).
+SQLite, MySQL, and Oracle all support custom trim characters.
+
+---
+
+## Resolved batch (F23–F32) — ✅ fixed 2026-10-22
+
+> **✅ RESOLVED.** All 10 parser/lexer bugs (F23–F32) have been fixed and
+> verified — the suite runs live with **nothing skipped** (433 pass / 0 fail),
+> and the fuzzer finds 0 divergences. Combined with the earlier F1–F22 waves,
+> F1–F32 are all closed. Kept below as a record of the handoff.
+
+## Priority order (F23–F32, resolved)
 
 | # | Bug | Severity | One-line repro → wrong result |
 | --- | --- | --- | --- |
