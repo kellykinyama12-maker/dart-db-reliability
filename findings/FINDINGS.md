@@ -9,20 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**43 bugs found; F1–F39 fixed & verified; F40–F43 open (newly found).**
-All of F1–F39 are closed. A math-coercion / CAST / PRAGMA sweep surfaced four
-more:
-- **F40** — unary minus on text (`-'5'`) throws an internal cast error (binary
-  arithmetic coerces fine; unary minus is missing the coercion path).
-- **F41** — `CAST(<blob> AS TEXT)` returns the raw byte list instead of the
+**45 bugs found; F1–F45 fixed & verified; 0 open.** The full suite runs live
+with **nothing skipped** (446 pass / 0 fail). The last batch (a math-coercion /
+CAST / PRAGMA / aggregate / ATTACH sweep) surfaced six more, all now closed:
+- **F40** — unary minus on text (`-'5'`) threw an internal cast error (binary
+  arithmetic coerced fine; unary minus was missing the coercion path).
+- **F41** — `CAST(<blob> AS TEXT)` returned the raw byte list instead of the
   decoded string.
-- **F42** — `CAST(<number> AS BLOB)` throws instead of producing a blob.
-- **F43** — `PRAGMA` introspection diverges from SQLite (table_info `notnull=1`
+- **F42** — `CAST(<number> AS BLOB)` threw instead of producing a blob.
+- **F43** — `PRAGMA` introspection diverged from SQLite (table_info `notnull=1`
   for an INTEGER PRIMARY KEY, unquoted defaults, different index_list shape).
-- **F44** — `SUM(<boolean>)` throws instead of coercing the bool to 1/0 (the
+- **F44** — `SUM(<boolean>)` threw instead of coercing the bool to 1/0 (the
   common `SUM(cond)` count-matching idiom).
-- **F45** — `ATTACH DATABASE` is accepted but attached tables are unusable
-  (schema-qualified `aux.t` names fail to parse / resolve).
+- **F45** — `ATTACH DATABASE` was accepted but attached tables were unusable
+  (schema-qualified `aux.t` names failed to parse / resolve).
 
 _Historical detail of each bug is preserved below for the record._
 

@@ -52,11 +52,9 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 45 found, 39 fixed & verified, 6 open.**
-  F1–F39 are closed. **Open (F40–F45):** unary minus on text crashes;
-  `CAST(blob AS TEXT)` returns bytes; `CAST(num AS BLOB)` throws; `PRAGMA`
-  introspection diverges; `SUM(<bool>)` throws; `ATTACH DATABASE` is accepted but
-  non-functional. Robustness (deep nesting / large inputs / recursion) is clean.
+- **Bug status (2026-10-22): 45 found, 45 fixed & verified, 0 open.**
+  F1–F45 are all closed; the suite runs live with nothing skipped (446 pass /
+  0 fail). Robustness (deep nesting / large inputs / recursion) is clean.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 
