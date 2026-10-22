@@ -113,7 +113,8 @@ class SqlFuzzer {
       final ty = _r.nextBool() ? _Ty.num_ : _Ty.text;
       final cols = (ty == _Ty.num_ ? _numCols : _textCols);
       final c = '$prefix${cols[_r.nextInt(cols.length)]}';
-      switch (_r.nextInt(7)) {
+      final c2 = '$prefix${cols[_r.nextInt(cols.length)]}';
+      switch (_r.nextInt(13)) {
         case 0:
           return '$c IS NULL';
         case 1:
@@ -125,22 +126,46 @@ class SqlFuzzer {
         case 4:
           return ty == _Ty.num_ ? '$c > ${_numLit()}' : '$c > ${_textLit()}';
         case 5:
+          return ty == _Ty.num_ ? '$c <= ${_numLit()}' : '$c <= ${_textLit()}';
+        case 6:
+          // column-to-column comparison (same type)
+          return '$c >= $c2';
+        case 7:
           return ty == _Ty.num_
               ? '$c BETWEEN ${_r.nextInt(10) - 10} AND ${_r.nextInt(10)}'
               : "$c LIKE '%a%'";
-        default:
+        case 8:
+          return ty == _Ty.num_
+              ? '$c NOT BETWEEN ${_r.nextInt(10) - 10} AND ${_r.nextInt(10)}'
+              : "$c LIKE 'a%'";
+        case 9:
           return ty == _Ty.num_
               ? '$c IN (${_r.nextInt(10)}, ${_r.nextInt(10)}, NULL)'
               : "$c IN ('apple','x',NULL)";
+        case 10:
+          // NOT IN over a non-NULL list (NULL in NOT IN is its own semantics)
+          return ty == _Ty.num_
+              ? '$c NOT IN (${_r.nextInt(10)}, ${_r.nextInt(10)})'
+              : "$c NOT IN ('apple','x')";
+        case 11:
+          return ty == _Ty.num_
+              ? 'COALESCE($c, 0) > ${_numLit()}'
+              : "COALESCE($c, 'z') < ${_textLit()}";
+        default:
+          return ty == _Ty.num_
+              ? "$c LIKE '%'"
+              : "$c LIKE '_%'";
       }
     }
-    switch (_r.nextInt(4)) {
+    switch (_r.nextInt(5)) {
       case 0:
         return '(${_pred(prefix, depth - 1)} AND ${_pred(prefix, depth - 1)})';
       case 1:
         return '(${_pred(prefix, depth - 1)} OR ${_pred(prefix, depth - 1)})';
       case 2:
         return 'NOT (${_pred(prefix, depth - 1)})';
+      case 3:
+        return 'CASE WHEN ${_pred(prefix, depth - 1)} THEN 1 ELSE 0 END = 1';
       default:
         return '${_expr(_Ty.num_, prefix, depth - 1)} > '
             '${_expr(_Ty.num_, prefix, depth - 1)}';

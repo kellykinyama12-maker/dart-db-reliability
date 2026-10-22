@@ -27,7 +27,13 @@ Continued hunting surfaced two more:
 - **F27** — JSON path functions on a missing path return wrong values
   (`json_type` → `'null'` string, `json_array_length` → `0`) instead of SQL NULL.
 
-**Tally: 27 found, F1–F22 fixed, F23–F27 open.**
+**Two more from numeric edges (open):**
+- **F28** — int64 overflow wraps silently (`MAX + 1` → negative) instead of
+  promoting to float like SQLite.
+- **F29** — scientific-notation literals are mis-lexed: `1e3` → `1` (exponent
+  dropped), silently wrong with no error.
+
+**Tally: 29 found, F1–F22 fixed, F23–F29 open.**
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -315,6 +321,21 @@ Dialect differences (not bugs) are catalogued at the end (D1–D5).
   `json_array_length(doc, '\$.tags')` → `0`; SQLite returns **SQL NULL** for a
   path that does not exist.
 - **Test:** F27.
+
+### F28 · Integer overflow wraps silently *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (silent numeric corruption).
+- **Repro:** `SELECT 9223372036854775807 + 1` → `-9223372036854775808` (two's-
+  complement wrap). SQLite promotes to float (stays positive); MySQL errors.
+  Silent wraparound is the worst of the three. Also `-9223372036854775808` (int64
+  min literal) fails to lex.
+- **Test:** F28.
+
+### F29 · Scientific-notation literals silently mis-parsed *(OPEN — found 2026-10-22)*
+- **Severity:** Medium-High (silent wrong value, no error).
+- **Repro:** `SELECT 1e3` → `1` (the `e3` is swallowed as a column alias) instead
+  of `1000`; `1.5e2` → `1.5`; `1.0e-3` → parse error. Any data carrying
+  scientific-notation numbers (CSV/JSON imports) is silently corrupted.
+- **Test:** F29.
 
 ---
 

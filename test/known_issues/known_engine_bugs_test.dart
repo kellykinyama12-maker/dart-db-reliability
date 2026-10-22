@@ -251,5 +251,25 @@ void main() {
         skip: 'KNOWN ENGINE BUG: JSON path functions on a missing path return '
             "wrong values (json_type -> 'null' string, json_array_length -> 0) "
             'instead of SQL NULL. See findings/FINDINGS.md F27.');
+
+    test('F28 · integer overflow wraps silently instead of promoting', () async {
+      final db = await openEngine();
+      // SQLite promotes to float on int64 overflow (stays positive); the engine
+      // wraps two's-complement to a negative number.
+      await expectScalar(db, 'SELECT (9223372036854775807 + 1) > 0', 1);
+    },
+        skip: 'KNOWN ENGINE BUG: int64 overflow wraps silently '
+            '(9223372036854775807 + 1 -> -9223372036854775808) instead of '
+            'promoting to float like SQLite. See findings/FINDINGS.md F28.');
+
+    test('F29 · scientific-notation literals silently mis-parsed', () async {
+      final db = await openEngine();
+      // `1e3` is 1000; the engine returns 1 (the `e3` is swallowed as an alias).
+      await expectScalar(db, 'SELECT 1e3', 1000);
+      await expectScalar(db, 'SELECT 1.5e2', 150);
+    },
+        skip: 'KNOWN ENGINE BUG: scientific-notation numeric literals are '
+            'mis-lexed — `1e3` yields 1 (exponent dropped) instead of 1000, with '
+            'no error. See findings/FINDINGS.md F29.');
   });
 }
