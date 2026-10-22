@@ -153,5 +153,47 @@ void main() {
       await threeWay('reused bind', 'SELECT :x + :x AS d FROM dual',
           binds: [21]);
     });
+
+    // Result-encoder edges (stored unicode OUT via ASCII SQL — distinct from
+    // F54's inbound unicode-SQL bug; scattered NULL bitmaps; all-NULL rows).
+    test('result-encoder edges', () async {
+      await db.execute('CREATE TABLE u (id INTEGER PRIMARY KEY, s VARCHAR2(80))');
+      await db.execute("INSERT INTO u VALUES "
+          "(1, 'café'),(2, '日本語'),(3, 'Ωμέγα'),(4, 'naïve')");
+      await threeWay('stored unicode out', 'SELECT s FROM u ORDER BY id');
+      await threeWay('computed unicode out', 'SELECT UPPER(s) FROM u ORDER BY id');
+      await threeWay('unicode length', 'SELECT LENGTH(s) FROM u ORDER BY id');
+
+      await db.execute(
+          'CREATE TABLE n (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER, c INTEGER)');
+      await db.execute('INSERT INTO n VALUES '
+          '(1, 10, NULL, 30),(2, NULL, 20, NULL),(3, NULL, NULL, NULL)');
+      await threeWay('scattered NULL bitmap', 'SELECT id, a, b, c FROM n ORDER BY id');
+      await threeWay('all-null row', 'SELECT a, b, c FROM n WHERE id = 3');
+      await threeWay('empty result', 'SELECT id FROM n WHERE id > 99');
+    });
+
+    test('large fetch + wire transactions', () async {
+      await db.execute('CREATE TABLE big (id INTEGER PRIMARY KEY, v INTEGER)');
+      await db.execute('INSERT INTO big VALUES '
+          '${[for (var i = 1; i <= 2000; i++) '($i, ${i * 3})'].join(',')}');
+      await threeWay('2000-row aggregate',
+          'SELECT COUNT(*), SUM(v), MIN(v), MAX(v) FROM big');
+      await threeWay('fetch across batches',
+          'SELECT id FROM big WHERE id IN (1,100,101,1000,2000) ORDER BY id');
+
+      // A committed write and a rolled-back write must be visible identically
+      // to all three readers.
+      await db.execute('CREATE TABLE tx (id INTEGER PRIMARY KEY, v INTEGER)');
+      await thick.execute('INSERT INTO tx VALUES (1, 100)');
+      await thick.execute('BEGIN');
+      await thick.execute('INSERT INTO tx VALUES (2, 200)');
+      await thick.execute('COMMIT');
+      await thick.execute('BEGIN');
+      await thick.execute('INSERT INTO tx VALUES (3, 300)');
+      await thick.execute('ROLLBACK');
+      await threeWay('committed+rolledback visibility',
+          'SELECT id FROM tx ORDER BY id');
+    });
   });
 }
