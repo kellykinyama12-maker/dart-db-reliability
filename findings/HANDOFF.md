@@ -1,5 +1,10 @@
 # Handoff — open engine bugs to fix
 
+> **✅ RESOLVED (2026-10-22).** All 10 parser/lexer bugs (F23–F32) have been fixed
+> and verified — the suite runs live with **nothing skipped** (433 pass / 0 fail),
+> and the fuzzer finds 0 divergences. Combined with the earlier F1–F22 waves,
+> **all 32 bugs are closed.** This file is kept as a record of the handoffs.
+
 For the engine author working in `dart-db-server`. **10 open bugs (F23–F32)**,
 all found by the reliability harness. Each has a minimal repro and a skipped
 regression test that turns green when fixed.

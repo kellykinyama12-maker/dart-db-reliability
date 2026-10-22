@@ -52,12 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 32 found, 22 fixed & verified, 10 open.**
-  F1–F22 are closed. **Open (F23–F32):** COLLATE, window fns in GROUP BY,
-  row-value tuples, CREATE TABLE AS SELECT, JSON missing-path, int64 overflow,
-  scientific-notation + hex literals, double-quoted identifiers, sized-type CAST.
-  The executor is robust (60k-query fuzzer + feature sweeps clean); the open
-  bugs are concentrated in the **parser/lexer** (literals, identifiers, casts).
+- **Bug status (2026-10-22): 32 found, 32 fixed & verified, 0 open.**
+  All of F1–F32 are closed — every repro runs live (nothing skipped) and passes;
+  the 60k-query fuzzer finds 0 divergences; crash recovery 3/3; sakila +
+  employees real-data differentials match SQLite. F23–F32 (the final wave) were
+  parser/lexer gaps; the executor was robust throughout.
 - Parity ingestion: employees 6/6 tables; sakila blocked by `INT UNSIGNED`;
   Oracle HR blocked by inline constraints + `COMMENT ON`.
 

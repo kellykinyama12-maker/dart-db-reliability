@@ -33,8 +33,7 @@ void main() {
       await o.exec('CREATE TABLE cta AS SELECT g, COUNT(*) c, SUM(v) s '
           'FROM src GROUP BY g');
       await o.expectSameRows('SELECT g, c, s FROM cta ORDER BY g');
-    }, skip: 'KNOWN ENGINE BUG F26: CREATE TABLE AS SELECT not supported '
-        '(`Expected ( but got "AS"`). See findings/FINDINGS.md F26.');
+    });
 
     test('INSERT with explicit column list and omitted (default) column',
         () async {

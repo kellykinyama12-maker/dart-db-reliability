@@ -9,42 +9,13 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**24 bugs found; F1–F22 fixed & verified; F23–F24 open (newly found).**
-The first 22 are closed (every repro runs live and passes; fuzzer 0 divergences;
-crash recovery 3/3; sakila + employees real-data differentials match SQLite).
-Continued hunting surfaced two more:
-- **F23** — the `COLLATE` operator (`COLLATE NOCASE`/`BINARY`) fails to parse in
-  WHERE / ORDER BY / DISTINCT.
-- **F24** — window functions (`RANK`/`ROW_NUMBER`/…) throw `Unknown function`
-  in any query that also has `GROUP BY`.
-
-**Two more found continuing the hunt (open):**
-- **F25** — parenthesized row-value/tuple expressions `(a, b) = (…)` / `IN` are
-  not parsed.
-- **F26** — `CREATE TABLE <t> AS SELECT …` (CTAS) is not supported.
-
-**One more from JSON (open):**
-- **F27** — JSON path functions on a missing path return wrong values
-  (`json_type` → `'null'` string, `json_array_length` → `0`) instead of SQL NULL.
-
-**Two more from numeric edges (open):**
-- **F28** — int64 overflow wraps silently (`MAX + 1` → negative) instead of
-  promoting to float like SQLite.
-- **F29** — scientific-notation literals are mis-lexed: `1e3` → `1` (exponent
-  dropped), silently wrong with no error.
-
-**One more from the lexer (open):**
-- **F30** — hex integer literals `0x1F` → `0` (the `x1F` swallowed as an alias),
-  silently wrong; parse error inside an expression. Minor relatives: `5.`
-  (trailing-dot) and the SQLite `==` operator also unparsed.
-
-**Two more from identifier/CAST parsing (open):**
-- **F31** — double-quoted identifiers/aliases (`AS "x"`, `CREATE TABLE (... "c"
-  ...)`) fail to parse; `"…"` is treated as a string literal. Backticks work.
-- **F32** — `CAST` to a sized type (`VARCHAR(10)`, `DECIMAL(5,2)`) fails; only
-  bare type names parse.
-
-**Tally: 32 found, F1–F22 fixed, F23–F32 open.**
+**All 32 bugs (F1–F32) are FIXED and verified.** Every repro runs live (nothing
+skipped) and passes; the full suite is **433 pass / 0 skip / 0 fail**. F1–F22
+were the first waves; F23–F32 (parser/lexer gaps — COLLATE, window+GROUP BY,
+row-value tuples, CTAS, JSON missing-path, int overflow, sci-notation + hex
+literals, double-quoted identifiers, sized-type CAST) were closed and verified in
+the final wave. The 60k-query fuzzer finds 0 divergences; sakila + employees
+real-data differentials match SQLite.
 
 _Historical detail of each bug is preserved below for the record._
 

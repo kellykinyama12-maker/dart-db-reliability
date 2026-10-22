@@ -185,7 +185,7 @@ void main() {
     });
   });
 
-  group('open bugs (newly found 2026-10-22)', () {
+  group('formerly-open bugs F23–F32 (fixed & verified)', () {
     test('F23 · COLLATE clause not supported in expressions / ORDER BY',
         () async {
       final db = await openEngine();
@@ -197,10 +197,7 @@ void main() {
         [1],
         [2],
       ]);
-    },
-        skip: 'KNOWN ENGINE BUG: the `COLLATE` operator fails to parse '
-            '(`Unexpected token after statement: COLLATE`) in WHERE / ORDER BY / '
-            'DISTINCT. See findings/FINDINGS.md F23.');
+    });
 
     test('F24 · window functions fail in any GROUP BY query', () async {
       final db = await openEngine();
@@ -211,10 +208,7 @@ void main() {
           db,
           'SELECT g, SUM(v) s, RANK() OVER (ORDER BY SUM(v) DESC) '
           'FROM t GROUP BY g');
-    },
-        skip: 'KNOWN ENGINE BUG: a window function (RANK/ROW_NUMBER/…) in a query '
-            'that also has GROUP BY throws `Unknown function: RANK` — the window '
-            'path is not reached for grouped queries. See findings/FINDINGS.md F24.');
+    });
 
     test('F25 · row-value / tuple expressions not parsed', () async {
       final db = await openEngine();
@@ -224,19 +218,14 @@ void main() {
       await expectRows(db, 'SELECT id FROM t WHERE (a, b) = (1, 2)', [
         [1],
       ]);
-    },
-        skip: 'KNOWN ENGINE BUG: parenthesized row-value/tuple expressions '
-            '`(a, b)` fail to parse (`Expected ) but got ","`) in `=`, `IN`, and '
-            'comparisons. See findings/FINDINGS.md F25.');
+    });
 
     test('F26 · CREATE TABLE AS SELECT not supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE src (id INTEGER PRIMARY KEY, v INTEGER)');
       await db.execute('INSERT INTO src VALUES (1,10),(2,20)');
       await expectOk(db, 'CREATE TABLE t AS SELECT id, v FROM src');
-    },
-        skip: 'KNOWN ENGINE BUG: `CREATE TABLE <t> AS SELECT …` fails to parse '
-            '(`Expected ( but got "AS"`). See findings/FINDINGS.md F26.');
+    });
 
     test('F27 · JSON path functions return wrong value for a missing path',
         () async {
@@ -247,40 +236,28 @@ void main() {
       await expectScalar(db, "SELECT json_type(doc, '\$.age') FROM j", null);
       await expectScalar(
           db, "SELECT json_array_length(doc, '\$.tags') FROM j", null);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON path functions on a missing path return '
-            "wrong values (json_type -> 'null' string, json_array_length -> 0) "
-            'instead of SQL NULL. See findings/FINDINGS.md F27.');
+    });
 
     test('F28 · integer overflow wraps silently instead of promoting', () async {
       final db = await openEngine();
       // SQLite promotes to float on int64 overflow (stays positive); the engine
       // wraps two's-complement to a negative number.
       await expectScalar(db, 'SELECT (9223372036854775807 + 1) > 0', 1);
-    },
-        skip: 'KNOWN ENGINE BUG: int64 overflow wraps silently '
-            '(9223372036854775807 + 1 -> -9223372036854775808) instead of '
-            'promoting to float like SQLite. See findings/FINDINGS.md F28.');
+    });
 
     test('F29 · scientific-notation literals silently mis-parsed', () async {
       final db = await openEngine();
       // `1e3` is 1000; the engine returns 1 (the `e3` is swallowed as an alias).
       await expectScalar(db, 'SELECT 1e3', 1000);
       await expectScalar(db, 'SELECT 1.5e2', 150);
-    },
-        skip: 'KNOWN ENGINE BUG: scientific-notation numeric literals are '
-            'mis-lexed — `1e3` yields 1 (exponent dropped) instead of 1000, with '
-            'no error. See findings/FINDINGS.md F29.');
+    });
 
     test('F30 · hex integer literals silently mis-parsed', () async {
       final db = await openEngine();
       // `0x1F` is 31; the engine returns 0 (the `x1F` is swallowed as an alias).
       await expectScalar(db, 'SELECT 0x1F', 31);
       await expectScalar(db, 'SELECT 0xFF', 255);
-    },
-        skip: 'KNOWN ENGINE BUG: hex integer literals (`0x1F`) are mis-lexed to '
-            '`0` (the `x..` becomes an alias), silently wrong with no error '
-            '(parse error inside an expression). See findings/FINDINGS.md F30.');
+    });
 
     test('F31 · double-quoted identifiers / aliases not supported', () async {
       final db = await openEngine();
@@ -288,18 +265,12 @@ void main() {
       await db.execute('INSERT INTO c VALUES (1)');
       // `AS "x"` is valid in SQLite (identifier) and MySQL (quoted alias).
       await expectOk(db, 'SELECT id AS "my col" FROM c');
-    },
-        skip: 'KNOWN ENGINE BUG: double-quoted identifiers/aliases fail to parse '
-            '(`Expected name but got "…"`); `"…"` is treated as a string literal. '
-            'Backticks work. See findings/FINDINGS.md F31.');
+    });
 
     test('F32 · CAST to a sized/parameterized type not supported', () async {
       final db = await openEngine();
       // SQLite/MySQL/Oracle all accept CAST(x AS VARCHAR(10)).
       await expectScalar(db, 'SELECT CAST(42 AS VARCHAR(10))', '42');
-    },
-        skip: 'KNOWN ENGINE BUG: CAST to a parameterized type '
-            '(`VARCHAR(10)`/`CHAR(5)`/`DECIMAL(5,2)`) fails (`Expected ) but got '
-            '"("`); only bare type names parse. See findings/FINDINGS.md F32.');
+    });
   });
 }
