@@ -281,5 +281,25 @@ void main() {
         skip: 'KNOWN ENGINE BUG: hex integer literals (`0x1F`) are mis-lexed to '
             '`0` (the `x..` becomes an alias), silently wrong with no error '
             '(parse error inside an expression). See findings/FINDINGS.md F30.');
+
+    test('F31 · double-quoted identifiers / aliases not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE c (id INTEGER)');
+      await db.execute('INSERT INTO c VALUES (1)');
+      // `AS "x"` is valid in SQLite (identifier) and MySQL (quoted alias).
+      await expectOk(db, 'SELECT id AS "my col" FROM c');
+    },
+        skip: 'KNOWN ENGINE BUG: double-quoted identifiers/aliases fail to parse '
+            '(`Expected name but got "…"`); `"…"` is treated as a string literal. '
+            'Backticks work. See findings/FINDINGS.md F31.');
+
+    test('F32 · CAST to a sized/parameterized type not supported', () async {
+      final db = await openEngine();
+      // SQLite/MySQL/Oracle all accept CAST(x AS VARCHAR(10)).
+      await expectScalar(db, 'SELECT CAST(42 AS VARCHAR(10))', '42');
+    },
+        skip: 'KNOWN ENGINE BUG: CAST to a parameterized type '
+            '(`VARCHAR(10)`/`CHAR(5)`/`DECIMAL(5,2)`) fails (`Expected ) but got '
+            '"("`); only bare type names parse. See findings/FINDINGS.md F32.');
   });
 }

@@ -38,7 +38,13 @@ Continued hunting surfaced two more:
   silently wrong; parse error inside an expression. Minor relatives: `5.`
   (trailing-dot) and the SQLite `==` operator also unparsed.
 
-**Tally: 30 found, F1–F22 fixed, F23–F30 open.**
+**Two more from identifier/CAST parsing (open):**
+- **F31** — double-quoted identifiers/aliases (`AS "x"`, `CREATE TABLE (... "c"
+  ...)`) fail to parse; `"…"` is treated as a string literal. Backticks work.
+- **F32** — `CAST` to a sized type (`VARCHAR(10)`, `DECIMAL(5,2)`) fails; only
+  bare type names parse.
+
+**Tally: 32 found, F1–F22 fixed, F23–F32 open.**
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -349,6 +355,21 @@ Dialect differences (not bugs) are catalogued at the end (D1–D5).
 - **Minor relatives:** `SELECT 5.` (trailing-dot number) and `SELECT 1 == 1`
   (SQLite `==` operator) also fail to parse.
 - **Test:** F30.
+
+### F31 · Double-quoted identifiers / aliases not supported *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (standard SQL / Oracle identifier quoting; common alias).
+- **Repro:** `SELECT id AS "my col" FROM c` and `CREATE TABLE (... "col two"
+  INTEGER)` → `FormatException: Expected name but got "…"`. The engine treats
+  `"…"` as a string literal, so it is rejected in identifier/alias positions.
+  SQLite (identifier) and MySQL (quoted alias) both accept it. Backticks work.
+- **Test:** F31.
+
+### F32 · CAST to a sized/parameterized type not supported *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (common in portable SQL).
+- **Repro:** `CAST(42 AS VARCHAR(10))` / `CAST(x AS CHAR(5))` /
+  `CAST(x AS DECIMAL(5,2))` → `FormatException: Expected ) but got "("`. Only
+  bare type names parse; SQLite, MySQL, and Oracle all accept the sized form.
+- **Test:** F32.
 
 ---
 
