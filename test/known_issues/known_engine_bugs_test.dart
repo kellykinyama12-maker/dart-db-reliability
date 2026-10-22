@@ -440,5 +440,22 @@ void main() {
             '"no limit" idiom used with OFFSET) is a parse error ("Expected '
             'number but got \\"-\\""). SQLite treats LIMIT -1 as unlimited. See '
             'findings/FINDINGS.md F58.');
+
+    test('F59 · multi-arg min()/max() silently returns the first argument',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // The engine treats min/max as aggregate-only (use LEAST/GREATEST for
+      // scalar), so a multi-arg call should raise a wrong-argument-count error
+      // like Oracle/MySQL — instead it silently returns the first argument
+      // (min(3,1,2) -> 3 instead of 1 or an error).
+      await expectThrows(db, 'SELECT min(3, 1, 2) FROM t');
+    },
+        skip: 'KNOWN ENGINE BUG: multi-arg min()/max() silently returns the '
+            'first argument (min(3,1,2) -> 3) instead of computing the extreme '
+            '(SQLite: 1) or raising a wrong-arg-count error (Oracle/MySQL, which '
+            'the engine targets via LEAST/GREATEST). Silent wrong result. See '
+            'findings/FINDINGS.md F59.');
   });
 }

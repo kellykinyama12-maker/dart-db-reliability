@@ -9,10 +9,10 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**58 bugs found; F1–F56 fixed & verified; F57–F58 open.** A constraint /
-type-integrity and broad-semantics differential vs SQLite surfaced four bugs;
-the `INTEGER PRIMARY KEY` pair (F55–F56) was fixed by the author and verified,
-with two SQLite-semantics gaps still open:
+**59 bugs found; F1–F56 fixed & verified; F57–F59 open.** A constraint /
+type-integrity and broad-semantics differential vs SQLite surfaced several
+bugs; the `INTEGER PRIMARY KEY` pair (F55–F56) was fixed by the author and
+verified, with three SQLite-semantics gaps still open:
 - **F55** *(fixed & verified)* — `INTEGER PRIMARY KEY` now rejects a non-integer
   value (insert or update), like SQLite's datatype mismatch.
 - **F56** *(fixed & verified)* — a plain `INTEGER PRIMARY KEY` now auto-assigns
@@ -22,6 +22,10 @@ with two SQLite-semantics gaps still open:
   exposes it on every rowid table.
 - **F58** — a negative `LIMIT` (e.g. `LIMIT -1`, SQLite's "no limit" idiom used
   with `OFFSET`) is a parse error; SQLite treats `LIMIT -1` as unlimited.
+- **F59** — multi-arg `min()`/`max()` silently returns the *first* argument
+  (`min(3,1,2)` → `3`) instead of computing the extreme (SQLite: `1`) or raising
+  a wrong-argument-count error (Oracle/MySQL, which the engine targets via
+  `LEAST`/`GREATEST`). Silent wrong result.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
@@ -390,7 +394,7 @@ in `correctness/dialect_semantics_test.dart`.
 | ID | Behavior | SQLite | dart_db_server (MySQL/Oracle) |
 | --- | --- | --- | --- |
 | D1 | `7 / 2` | `3` (integer division) | `3.5` (real division) ✔ |
-| D2 | `MIN(x, y)` two-arg scalar | scalar least | aggregate-only; use `LEAST`/`GREATEST` |
+| D2 | `MIN(x, y)` two-arg scalar | scalar least | aggregate-only; use `LEAST`/`GREATEST` (⚠ multi-arg min/max silently returns the first arg — see F59) |
 | D3 | `CREATE TABLE t (v)` typeless column | allowed | rejected (types required) ✔ |
 | D4 | `CAST('0x10' AS INTEGER)` | `0` | `16` (parses hex) |
 
@@ -630,6 +634,20 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
   `LIMIT -1 OFFSET n` to skip without capping). `LIMIT 0` already works.
 - **Fix:** accept a negative LIMIT and treat it as unlimited, as SQLite does.
 - **Test:** F58 (skipped).
+
+### F59 · multi-arg min()/max() silently returns the first argument *(OPEN)*
+- **Severity:** High (silent wrong result for a common function name).
+- **Repro:** `SELECT min(3, 1, 2)` → `3` (should be `1`); `SELECT max(1, 9, 5)`
+  → `1` (should be `9`); `min('b','a','c')` → `'b'`. The engine returns the
+  *first* argument regardless of value, and ignores NULLs (`min(3, NULL, 1)`
+  → `3`; SQLite → `NULL`). `LEAST`/`GREATEST` work correctly.
+- **Root cause:** `min`/`max` are aggregate-only (dialect D2), but a multi-arg
+  call is accepted and collapses to the first argument instead of erroring.
+- **Fix:** raise a wrong-argument-count error for multi-arg `min()`/`max()`
+  (Oracle/MySQL behaviour — direct users to `LEAST`/`GREATEST`), or compute the
+  scalar extreme (SQLite). Either is fine; silently returning the first arg is
+  not.
+- **Test:** F59 (skipped).
 
 
 ---

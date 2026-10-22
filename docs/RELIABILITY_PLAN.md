@@ -52,13 +52,14 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-22): 58 found, 56 fixed & verified, 2 open.**
+- **Bug status (2026-10-22): 59 found, 56 fixed & verified, 3 open.**
   F1–F56 are closed. **Open:** F57 (the `rowid`/`_rowid_`/`oid` pseudo-column is
-  not queryable) and F58 (a negative `LIMIT`, the SQLite no-limit idiom, is a
-  parse error). Both are SQLite-semantics gaps confirmed vs SQLite. The Oracle
-  path (fidelity, binds, transactions, isolation, FETCH, 15 Oracle-specific
-  features, concurrency, error recovery) is clean three-way vs real `oci8`;
-  MySQL wire and robustness are clean.
+  not queryable), F58 (a negative `LIMIT`, the SQLite no-limit idiom, is a parse
+  error), and F59 (multi-arg `min()`/`max()` silently returns the first
+  argument). All are differential-vs-SQLite findings. The Oracle path (fidelity,
+  binds, transactions, isolation, FETCH, 15 Oracle-specific features,
+  concurrency, error recovery) is clean three-way vs real `oci8`; MySQL wire and
+  robustness are clean.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the
