@@ -25,6 +25,25 @@ minimal repro and a skipped regression test that turns green when fixed.
 > SELECT list and predicates. **F58** — accept a negative LIMIT as unlimited
 > (already works for `LIMIT 0`).
 
+## Probe coverage log — recently verified clean (no bugs)
+
+Differential vs SQLite + three-way vs real `oci8`; no divergences beyond those
+filed above.
+
+- **Triggers:** AFTER INSERT/UPDATE/DELETE with `OLD`/`NEW`, `WHEN` clause,
+  BEFORE `RAISE(ABORT)` rollback, cascade triggers (a→b→c).
+- **Views:** over a join, with aggregate+GROUP BY, nested, filtered.
+- **Aggregates:** `FILTER (WHERE …)`, `group_concat`, `COUNT/SUM/AVG DISTINCT`,
+  `COUNT(DISTINCT)` multi, MIN/MAX over mixed types, GROUP BY expression,
+  correlated aggregate subquery, aggregate in ORDER BY.
+- **Functions/features (round 8):** JSON (`json_extract`/`array`/`object`/`->`/
+  `->>`/`json_type`), window frames (`LAG`/`LEAD`/`NTILE`/`FIRST_VALUE`/
+  `ROWS BETWEEN`/`DENSE_RANK`), UPSERT (`ON CONFLICT`), `INSERT OR REPLACE/IGNORE`,
+  generated columns, recursive CTEs, GLOB, LIKE ESCAPE, `typeof`, `LEAST`/
+  `GREATEST`.
+- **Oracle path:** 15 Oracle-specific features, binds, transactions, isolation,
+  FETCH, concurrency (4 clients), session survival after every error type.
+
 ---
 
 ## Resolved — ✅ F55–F56 fixed 2026-10-22 (INTEGER PRIMARY KEY rowid alias)
