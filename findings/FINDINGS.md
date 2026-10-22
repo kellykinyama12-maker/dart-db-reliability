@@ -9,22 +9,26 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**55 bugs found; F1–F54 fixed & verified; F55 open (newly found).** A deeper
-Oracle hunt (session-survival-after-errors, Oracle-specific features, and
-concurrency, all three-way vs real `oci8`) surfaced one core type-integrity bug
-and otherwise found the engine solid:
-- **F55** — a non-integer value (text or float) inserted into an `INTEGER
-  PRIMARY KEY` column is accepted; SQLite rejects it with a *datatype mismatch*
-  (the rowid alias must be an integer). Regular INTEGER columns correctly use
-  loose affinity, so only the PK/rowid path is affected. Found via the Oracle
-  error-recovery sweep; confirmed with a direct SQLite differential (not
-  wire-specific).
+**56 bugs found; F1–F54 fixed & verified; F55–F56 open.** A constraint /
+type-integrity differential vs SQLite surfaced two `INTEGER PRIMARY KEY` bugs
+(the engine does not fully implement the rowid-alias contract):
+- **F55** — a non-integer value (text or float) inserted *or updated* into an
+  `INTEGER PRIMARY KEY` column is accepted; SQLite rejects it with a *datatype
+  mismatch* (the rowid alias must be an integer). Regular INTEGER columns
+  correctly use loose affinity, so only the PK/rowid path is affected.
+- **F56** — a *plain* `INTEGER PRIMARY KEY` does not auto-assign the rowid when
+  the id is omitted or NULL; it errors ("Column id cannot be NULL"). Only the
+  explicit `AUTOINCREMENT` form works. In SQLite a plain `INTEGER PRIMARY KEY`
+  is a rowid alias and always auto-assigns — the ubiquitous "let the DB assign
+  the id" idiom. Confirmed vs SQLite (not wire-specific).
 
-> **Deep Oracle hunt otherwise clean:** 15 Oracle-specific features (ROWNUM,
-> `ROW_NUMBER`/`RANK`/running `SUM` window functions, GROUP BY/HAVING, DECODE,
-> NVL/COALESCE, GREATEST/LEAST, scalar subquery, EXISTS, DISTINCT, UNION,
-> self-join) agree three-way with real `oci8`; sessions survive every error type
-> without desyncing; and 4 concurrent thick clients run correctly.
+> **Deep hunt otherwise clean:** 15 Oracle-specific features agree three-way
+> with real `oci8`; sessions survive every error type without desyncing; 4
+> concurrent thick clients run correctly; UNIQUE / NOT NULL / CHECK (insert &
+> update) / DEFAULT all match SQLite.
+> **Dialect (not a bug, D8):** the engine rejects `NULL` in a non-integer
+> PRIMARY KEY (e.g. `TEXT PRIMARY KEY`); SQLite allows it (a documented SQLite
+> quirk). The engine matches standard SQL / Oracle / MySQL here.
 
 > **Oracle path otherwise clean (~70 cases):** NUMBER fidelity to 1e30 and 38
 > digits, aggregates, NULLs, expressions, consistent ORA error codes, bound
@@ -591,6 +595,20 @@ connections; each symptom has its own repro in `test/wire/mysql_isolation_test.d
 - **Fix:** enforce integer type on insert/update into an `INTEGER PRIMARY KEY`
   (rowid alias) column, rejecting non-integer values as SQLite does.
 - **Test:** F55 (`known_issues/known_engine_bugs_test.dart`, skipped).
+
+### F56 · plain INTEGER PRIMARY KEY does not auto-assign the rowid *(OPEN)*
+- **Severity:** High (the standard autoincrement-PK idiom is broken).
+- **Repro:** `CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER);
+  INSERT INTO t (v) VALUES (10)` → `FormatException: Column "id" cannot be NULL`
+  (SQLite auto-assigns `id = 1`). Explicit `VALUES (NULL, 10)` fails the same
+  way. `INTEGER PRIMARY KEY AUTOINCREMENT` *does* work, so the engine only
+  auto-assigns with the explicit keyword.
+- **Root cause:** a plain `INTEGER PRIMARY KEY` is treated as a NOT NULL column
+  rather than a rowid alias. In SQLite `INTEGER PRIMARY KEY` always auto-assigns
+  the next rowid; `AUTOINCREMENT` only changes the allocation guarantee.
+- **Fix:** treat a plain `INTEGER PRIMARY KEY` as a rowid alias — auto-assign the
+  next rowid when the id is omitted or NULL.
+- **Test:** F56 (`known_issues/known_engine_bugs_test.dart`, skipped).
 
 
 ---

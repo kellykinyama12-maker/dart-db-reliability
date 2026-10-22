@@ -1,27 +1,27 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F55)**, a core
-type-integrity gap found during a deeper Oracle hunt and confirmed against
-SQLite. It has a minimal repro and a skipped regression test that turns green
-when fixed.
+For the engine author working in `dart-db-server`. **2 open bugs (F55–F56)**,
+both `INTEGER PRIMARY KEY` rowid-alias gaps found by a constraint/type-integrity
+differential vs SQLite. Each has a minimal repro and a skipped regression test
+that turns green when fixed.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (F55 in
+- **Verify:** `dart test --run-skipped --timeout 25s` (both in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 55 found, 54 fixed & verified, 1 open.**
+**Status: 56 found, 54 fixed & verified, 2 open.**
 
-## Current open bug (F55)
+## Current open bugs (F55–F56) — INTEGER PRIMARY KEY rowid alias
 
 | # | Bug | Severity | Repro → wrong result |
 | --- | --- | --- | --- |
-| **F55** | INTEGER PRIMARY KEY accepts non-integer | 🟠 data integrity | `INSERT INTO t(id INTEGER PRIMARY KEY) VALUES ('x', …)` accepted (stores `'x'`); `1.5` stored as double. SQLite → `datatype mismatch` |
+| **F56** | plain INTEGER PK does not auto-assign rowid | 🔴 common idiom broken | `INSERT INTO t(v) VALUES(10)` on `id INTEGER PRIMARY KEY` → `Column "id" cannot be NULL` (SQLite → `id=1`); only `AUTOINCREMENT` works |
+| **F55** | INTEGER PK accepts non-integer | 🟠 data integrity | `INSERT/UPDATE` text or float into `id INTEGER PRIMARY KEY` accepted; SQLite → `datatype mismatch` |
 
-> **F55 detail** — an `INTEGER PRIMARY KEY` is a rowid alias that must hold an
-> integer; SQLite rejects a text/float value with `datatype mismatch`, but the
-> engine stores it unchanged. Regular (non-PK) INTEGER columns correctly use
-> loose affinity, so only the rowid-alias path needs the integer check on
-> insert/update. Not wire-specific (reproduced on the direct engine).
+> Both stem from `INTEGER PRIMARY KEY` not being a full rowid alias: it should
+> (a) **auto-assign** the next rowid when omitted/NULL (F56), and (b) **reject**
+> non-integer values (F55). The explicit `AUTOINCREMENT` form already works, and
+> regular non-PK INTEGER columns correctly keep loose affinity.
 
 ---
 

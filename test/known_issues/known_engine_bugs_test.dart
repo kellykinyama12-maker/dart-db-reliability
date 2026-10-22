@@ -405,5 +405,20 @@ void main() {
             'with a datatype mismatch (the rowid alias must be an integer). '
             'Regular INTEGER columns correctly use loose affinity. See '
             'findings/FINDINGS.md F55.');
+
+    test('F56 · plain INTEGER PRIMARY KEY does not auto-assign the rowid',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
+      // In SQLite a plain INTEGER PRIMARY KEY is a rowid alias and auto-assigns
+      // the id when omitted; the engine errors ("Column id cannot be NULL")
+      // unless the explicit AUTOINCREMENT keyword is present.
+      await db.execute('INSERT INTO t (v) VALUES (10)');
+      await expectScalar(db, 'SELECT id FROM t', 1);
+    },
+        skip: 'KNOWN ENGINE BUG: a plain INTEGER PRIMARY KEY does not auto-'
+            'assign the rowid when the id is omitted or NULL (it errors); only '
+            'the explicit AUTOINCREMENT form works. In SQLite INTEGER PRIMARY '
+            'KEY always auto-assigns. See findings/FINDINGS.md F56.');
   });
 }
