@@ -1,39 +1,36 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F60–F65)**:
-two join/collation correctness bugs, a collation gap, and a **three-bug Oracle
-HR DDL parity cluster** that blocks the real sample schema. Each has a minimal
-repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **2 open bugs (F66–F67)** —
+the last two Oracle-DDL gaps blocking the real HR sample schema. Each has a
+minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+- **Verify:** `dart test --run-skipped --timeout 25s` (both in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 65 found, 59 fixed & verified, 6 open.**
+**Status: 67 found, 65 fixed & verified, 2 open.** After F60–F65, the real
+`hr_create.sql` loads 75/78 statements (6/7 core tables). F66/F67 block the last.
 
-## Highest value — F63–F65 Oracle HR schema parity (only 3/85 statements load)
-
-These three Oracle-dialect DDL gaps block the real `hr_create.sql`. Fixing them
-unblocks `test/parity/oracle_hr_parity_test.dart` (and most real Oracle DDL).
+## Current open bugs (F66–F67) — finish the Oracle HR schema
 
 | # | Bug | Repro → error |
 | --- | --- | --- |
-| **F63** | inline named column constraint | `CREATE TABLE t (id NUMBER CONSTRAINT id_nn NOT NULL, …)` → `Expected ) but got "CONSTRAINT"` |
-| **F64** | ALTER TABLE ADD (constraint) | `ALTER TABLE t ADD (CONSTRAINT t_pk PRIMARY KEY (id))` → `Expected name but got "("` |
-| **F65** | COMMENT ON | `COMMENT ON TABLE t IS 'x'` → `Unsupported statement starting with COMMENT` |
+| **F66** | ORGANIZATION INDEX clause | `CREATE TABLE t (… CONSTRAINT pk PRIMARY KEY (id)) ORGANIZATION INDEX` → `Unexpected token after statement: ORGANIZATION` (blocks `HR.countries`) |
+| **F67** | CREATE VIEW column list | `CREATE VIEW v (a, b) AS SELECT 1, 2` → `Expected AS but got "("` (blocks `HR.emp_details_view`) |
 
-## Correctness / collation (F60–F62)
+> **F66** — accept (and ignore) a trailing `ORGANIZATION INDEX` / IOT storage
+> clause on CREATE TABLE. **F67** — parse an optional `(col1, col2, …)` list
+> after the view name and use it to rename the view's output columns.
+> Fixing both unblocks `test/parity/oracle_hr_parity_test.dart`.
 
-| # | Bug | Severity | Repro → wrong result |
-| --- | --- | --- | --- |
-| **F60** | self LEFT JOIN nulls the left column | 🔴 silent wrong result | `SELECT e.id FROM e LEFT JOIN e m ON e.mgr = m.id` → `NULL` for the unmatched row; cascades into `COUNT`/`GROUP BY`/`COALESCE` |
-| **F61** | COLLATE in column definition | 🟠 parse error | `CREATE TABLE t (… s TEXT COLLATE NOCASE)` → `Expected ) but got "COLLATE"` |
-| **F62** | COLLATE ignored in DISTINCT/GROUP BY | 🟠 wrong dedup | `COUNT(DISTINCT s COLLATE NOCASE)` → 3 (should be 2); `COLLATE RTRIM` unimplemented |
+---
 
-> **F60** — keep the left row's own columns on a self-join; only NULL-pad the
-> right instance. **F61/F62** — accept `COLLATE` in column defs and apply the
-> override (and column default collation) in DISTINCT/GROUP BY + comparisons;
-> implement RTRIM. COLLATE already works in WHERE/ORDER BY (F23).
+## Resolved batch (F60–F65) — ✅ fixed 2026-10-22
+
+> **✅ RESOLVED.** Self LEFT JOIN left-column (F60), column-level COLLATE +
+> DISTINCT/GROUP BY collation (F61/F62), and the Oracle HR DDL trio — inline
+> named column constraints (F63), `ALTER TABLE ADD (constraint)` (F64), and
+> `COMMENT ON` (F65). Verified live; kept as active regression guards.
 
 ---
 

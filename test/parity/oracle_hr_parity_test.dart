@@ -94,7 +94,7 @@ void main() {
     expect(ok, greaterThanOrEqualTo(statements.length - 42),
         reason: 'too many hr_create.sql statements failed to load');
   },
-      skip: 'BLOCKED by F63 (inline named column constraints), F64 (ALTER TABLE '
-          'ADD (constraint)), F65 (COMMENT ON): only 3/85 hr_create.sql '
-          'statements load. Un-skip when those are fixed.');
+      skip: 'BLOCKED by F66 (ORGANIZATION INDEX clause) and F67 (CREATE VIEW '
+          'column list): 75/78 hr_create.sql statements load after F63-F65, but '
+          'HR.countries + the view still fail. Un-skip when F66/F67 are fixed.');
 }

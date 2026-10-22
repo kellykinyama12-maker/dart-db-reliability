@@ -443,8 +443,8 @@ void main() {
     });
   });
 
-  group('open bugs (round 10 — found 2026-10-22)', () {
-    test('F60 · self LEFT JOIN nulls the left row own column when unmatched',
+  group('formerly-open bugs F60–F62 (fixed & verified)', () {
+    test('F60 · self LEFT JOIN keeps the left row own column when unmatched',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE e (id INTEGER PRIMARY KEY, mgr INTEGER)');
@@ -458,72 +458,66 @@ void main() {
         [3],
         [4]
       ]);
-    },
-        skip: 'KNOWN ENGINE BUG: in a self LEFT JOIN the left table own column '
-            'returns NULL for rows that do not match the right side (the engine '
-            'confuses the two aliased instances when NULL-padding). Two-table '
-            'LEFT JOIN is correct. See findings/FINDINGS.md F60.');
+    });
 
-    test('F61 · COLLATE in a column definition is a parse error', () async {
+    test('F61 · COLLATE in a column definition is accepted', () async {
       final db = await openEngine();
-      // SQLite accepts a column-level COLLATE; the engine rejects it.
       await expectOk(
           db, 'CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT COLLATE NOCASE)');
-    },
-        skip: 'KNOWN ENGINE BUG: a COLLATE clause in a CREATE TABLE column '
-            'definition (e.g. s TEXT COLLATE NOCASE) is a parse error. COLLATE '
-            'works in WHERE/ORDER BY but not in column definitions. See '
-            'findings/FINDINGS.md F61.');
+    });
 
-    test('F62 · COLLATE is not applied in DISTINCT / GROUP BY dedup', () async {
+    test('F62 · COLLATE is applied in DISTINCT / GROUP BY dedup', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, s TEXT)');
       await db.execute("INSERT INTO t VALUES (1,'A'),(2,'a'),(3,'b')");
-      // NOCASE makes 'A' and 'a' equal -> 2 distinct values; the engine
-      // ignores the collation in DISTINCT/GROUP BY and returns 3.
+      // NOCASE folds 'A' and 'a' -> 2 distinct values.
       await expectScalar(db, 'SELECT COUNT(DISTINCT s COLLATE NOCASE) FROM t', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: a COLLATE override is not applied in DISTINCT '
-            'or GROUP BY de-duplication (NOCASE ignored). COLLATE RTRIM is also '
-            'unimplemented in comparisons. COLLATE works in WHERE/ORDER BY. See '
-            'findings/FINDINGS.md F62.');
+    });
   });
 
-  // Gaps that block the real Oracle HR sample schema (hr_create.sql): only
-  // 3 of 85 statements load without these.
-  group('open bugs (round 11 — Oracle HR DDL parity)', () {
-    test('F63 · inline named column constraint is not parsed', () async {
+  group('formerly-open bugs F63–F65 (fixed & verified; Oracle HR DDL)', () {
+    test('F63 · inline named column constraint is parsed', () async {
       final db = await openEngine();
-      // Oracle/standard: col TYPE CONSTRAINT <name> NOT NULL (inline, named).
       await expectOk(db,
           'CREATE TABLE t (id NUMBER CONSTRAINT id_nn NOT NULL, nm VARCHAR2(25))');
-    },
-        skip: 'KNOWN ENGINE BUG: a named inline column constraint '
-            '(col TYPE CONSTRAINT name NOT NULL) is a parse error ("Expected ) '
-            'but got CONSTRAINT"). Table-level named constraints work. Blocks '
-            'the Oracle HR schema. See findings/FINDINGS.md F63.');
+    });
 
-    test('F64 · ALTER TABLE ADD (parenthesized constraint) is not parsed',
+    test('F64 · ALTER TABLE ADD (parenthesized constraint) is parsed',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, nm VARCHAR2(10))');
-      // Oracle: ALTER TABLE t ADD ( CONSTRAINT pk PRIMARY KEY (id) ).
       await expectOk(db, 'ALTER TABLE t ADD (CONSTRAINT t_pk PRIMARY KEY (id))');
-    },
-        skip: 'KNOWN ENGINE BUG: ALTER TABLE t ADD (CONSTRAINT ... PRIMARY KEY/'
-            'FOREIGN KEY (cols)) is a parse error ("Expected name but got (");'
-            ' the non-parenthesized form also fails to consume the column list. '
-            'Blocks the Oracle HR schema. See findings/FINDINGS.md F64.');
+    });
 
-    test('F65 · COMMENT ON TABLE/COLUMN is not supported', () async {
+    test('F65 · COMMENT ON TABLE/COLUMN is supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER)');
-      // Oracle metadata: COMMENT ON TABLE/COLUMN ... IS '...'.
       await expectOk(db, "COMMENT ON TABLE t IS 'a table'");
+    });
+  });
+
+  // Remaining gaps blocking the Oracle HR schema (75/78 load after F63-F65).
+  group('open bugs (round 12 — Oracle HR DDL parity)', () {
+    test('F66 · ORGANIZATION INDEX (index-organized table) clause not parsed',
+        () async {
+      final db = await openEngine();
+      // Oracle IOT storage clause; a SQLite-style engine can accept and ignore
+      // it. It blocks HR.countries.
+      await expectOk(db,
+          'CREATE TABLE t (id NUMBER, nm VARCHAR2(10), CONSTRAINT pk PRIMARY KEY (id)) ORGANIZATION INDEX');
     },
-        skip: 'KNOWN ENGINE BUG: COMMENT ON TABLE/COLUMN ... IS \'...\' is '
-            '"Unsupported statement starting with COMMENT". Should be accepted '
-            '(stored or ignored). Blocks the Oracle HR schema. See '
-            'findings/FINDINGS.md F65.');
+        skip: 'KNOWN ENGINE BUG: a trailing ORGANIZATION INDEX clause on CREATE '
+            'TABLE is a parse error ("Unexpected token after statement: '
+            'ORGANIZATION"). Should be accepted/ignored. Blocks HR.countries. '
+            'See findings/FINDINGS.md F66.');
+
+    test('F67 · CREATE VIEW with an explicit column list not parsed', () async {
+      final db = await openEngine();
+      // Standard: CREATE VIEW v (c1, c2) AS SELECT ...
+      await expectOk(db, 'CREATE VIEW v (a, b) AS SELECT 1, 2');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE VIEW name (col-list) AS ... is a parse '
+            'error ("Expected AS but got ("). The column-less form works. Blocks '
+            'HR.emp_details_view. See findings/FINDINGS.md F67.');
   });
 }
