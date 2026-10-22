@@ -18,6 +18,13 @@ Continued hunting surfaced two more:
 - **F24** — window functions (`RANK`/`ROW_NUMBER`/…) throw `Unknown function`
   in any query that also has `GROUP BY`.
 
+**Two more found continuing the hunt (open):**
+- **F25** — parenthesized row-value/tuple expressions `(a, b) = (…)` / `IN` are
+  not parsed.
+- **F26** — `CREATE TABLE <t> AS SELECT …` (CTAS) is not supported.
+
+**Tally: 26 found, F1–F22 fixed, F23–F26 open.**
+
 _Historical detail of each bug is preserved below for the record._
 
 ## Summary
@@ -268,6 +275,34 @@ Dialect differences (not bugs) are catalogued at the end (D1–D5).
   full in SQLite).
 - **Test:** `known_issues/known_engine_bugs_test.dart` → F22;
   `data_driven/sakila_differential_test.dart` (blocked).
+
+### F23 · COLLATE operator not supported *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (standard SQL; blocks case-insensitive query logic).
+- **Repro:** `... WHERE s = 'apple' COLLATE NOCASE` / `... ORDER BY s COLLATE
+  NOCASE` → `FormatException: Unexpected token after statement: COLLATE`. The
+  `COLLATE` operator is unparsed anywhere (WHERE, ORDER BY, DISTINCT).
+- **Test:** F23.
+
+### F24 · Window functions fail in any GROUP BY query *(OPEN — found 2026-10-22)*
+- **Severity:** High (ranking groups by an aggregate is a core analytic).
+- **Repro:** `SELECT g, SUM(v) s, RANK() OVER (ORDER BY SUM(v) DESC) FROM t
+  GROUP BY g` → `Bad state: Unknown function: RANK`. Even `RANK() OVER (ORDER BY
+  g) FROM t GROUP BY g` fails. Window functions work on *ungrouped* queries; the
+  window path is not reached once `GROUP BY` is present.
+- **Test:** F24.
+
+### F25 · Row-value / tuple expressions not parsed *(OPEN — found 2026-10-22)*
+- **Severity:** Medium (standard SQL row values).
+- **Repro:** `WHERE (a, b) = (1, 2)` → `FormatException: Expected ) but got ","`.
+  Same for `(a, b) IN ((1,1),(2,2))`, `(a, b) < (c, d)`, tuple `IN (subquery)`.
+- **Test:** F25.
+
+### F26 · CREATE TABLE AS SELECT not supported *(OPEN — found 2026-10-22)*
+- **Severity:** High (common ETL / materialization idiom).
+- **Repro:** `CREATE TABLE t AS SELECT … FROM src` → `FormatException: Expected (
+  but got "AS"`. The CREATE TABLE parser requires a column-def `(` with no
+  `AS SELECT` branch. Supported by SQLite, MySQL, Oracle, Postgres.
+- **Test:** F26.
 
 ---
 

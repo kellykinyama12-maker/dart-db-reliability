@@ -215,5 +215,27 @@ void main() {
         skip: 'KNOWN ENGINE BUG: a window function (RANK/ROW_NUMBER/…) in a query '
             'that also has GROUP BY throws `Unknown function: RANK` — the window '
             'path is not reached for grouped queries. See findings/FINDINGS.md F24.');
+
+    test('F25 · row-value / tuple expressions not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER)');
+      await db.execute('INSERT INTO t VALUES (1,1,2),(2,2,1)');
+      // `(a, b) = (1, 2)` is standard SQL row-value comparison.
+      await expectRows(db, 'SELECT id FROM t WHERE (a, b) = (1, 2)', [
+        [1],
+      ]);
+    },
+        skip: 'KNOWN ENGINE BUG: parenthesized row-value/tuple expressions '
+            '`(a, b)` fail to parse (`Expected ) but got ","`) in `=`, `IN`, and '
+            'comparisons. See findings/FINDINGS.md F25.');
+
+    test('F26 · CREATE TABLE AS SELECT not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE src (id INTEGER PRIMARY KEY, v INTEGER)');
+      await db.execute('INSERT INTO src VALUES (1,10),(2,20)');
+      await expectOk(db, 'CREATE TABLE t AS SELECT id, v FROM src');
+    },
+        skip: 'KNOWN ENGINE BUG: `CREATE TABLE <t> AS SELECT …` fails to parse '
+            '(`Expected ( but got "AS"`). See findings/FINDINGS.md F26.');
   });
 }
