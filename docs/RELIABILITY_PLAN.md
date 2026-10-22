@@ -100,6 +100,95 @@ certification.
 
 ---
 
+## 2A. Bug-hunting strategy (maximize catch rate)
+
+> **Goal:** systematically surface a *substantial* number of defects before a
+> client does. This section distills what the first 34 bugs taught us into a
+> repeatable method and a wide coverage sweep.
+
+### What the 34 bugs taught us
+- **The executor is robust; the parser/lexer is where bugs live.** 60k fuzz
+  queries + every feature sweep passed, yet targeted literal/parser probes found
+  F23–F34. **Lesson:** spend hunting budget on *input surface* (lexer, parser,
+  type/affinity, functions), not just execution.
+- **Silent corruption is the highest-risk class.** F29 (`1e3`→`1`), F30
+  (`0x1F`→`0`), F28 (overflow), F34 (2-arg trim), F33 (truthiness) return a
+  *wrong value with no error*. Prioritize anything that can silently mis-value.
+- **The fuzzer only finds what it generates.** It missed F33 (bare-number
+  conditions), COLLATE, tuples, CTAS because the grammar never emitted them.
+  **Lesson:** every manual find must be *fed back into the generator* so the
+  class is covered forever.
+- **Differential-vs-SQLite is the workhorse**; authored goldens cover engine-
+  owned behavior; real datasets catch what synthetic data misses (F21/F22).
+
+### The method (apply to every surface area)
+1. **Differential first** — run the construct on the engine *and* SQLite; diff
+   as a sorted multiset. Divergence → triage bug vs dialect.
+2. **Probe the edges** — NULLs, empty, zero, negative, overflow, missing keys,
+   case, whitespace, type mismatches, absent/extra args.
+3. **Classify honestly** — bug (fix) vs dialect (assert engine behavior, record
+   in the D-table). Never assert a bug away.
+4. **Minimize & regress** — reduce to a one-line repro, add a skipped
+   `KNOWN ENGINE BUG` test, and (if generative) extend the fuzzer.
+5. **Re-verify live** — once fixed, un-skip and run with **nothing skipped**.
+
+### Coverage sweep — surface areas to hunt (checklist)
+Tracks each area's state so the sweep is auditable. ✅ swept clean · ⚠️ bug(s)
+found & fixed · ◻ not yet swept.
+
+| Area | State | Notes / next probes |
+| --- | --- | --- |
+| Numeric literals (int/real/hex/sci/underscore) | ⚠️→✅ | F28/F29/F30 fixed; add `0o`/binary, huge decimals |
+| String/blob literals, quote/escape | ⚠️→✅ | F11 fixed; probe `\x`, unicode escapes, `X''` empty |
+| Identifier quoting (`"`/`` ` ``/`[]`) | ⚠️→✅ | F31 fixed; probe reserved-word idents, schema-qualified |
+| Operators (`=`/`==`/`<>`/`!=`/`||`/bitwise) | ◻ | `==`, `IS`, `IS DISTINCT FROM`, `->`/`->>`, `#>` |
+| Boolean/truthiness in CASE/iif/WHERE/HAVING | ⚠️→✅ | F33 fixed; probe `WHERE 1`, `HAVING col`, `ON 1` |
+| NULL / three-valued logic | ⚠️→✅ | F7/F20 fixed; probe `IS DISTINCT FROM`, `COALESCE` chains |
+| Type affinity & coercion | ⚠️→✅ | F6/F12 fixed; probe text↔num in ORDER BY, index, join keys |
+| CAST (bare/sized/exotic targets) | ⚠️→✅ | F32 fixed; probe `CAST(x AS JSON/INTERVAL/BLOB)` |
+| Scalar functions (string/num/date) | ⚠️→✅ | F34 fixed; sweep every documented function's edge cases |
+| Aggregates (DISTINCT/FILTER/empty/overflow) | ◻ | `SUM` overflow, `AVG` empty, ordered-set aggregates |
+| Window functions (frames/EXCLUDE/groups) | ⚠️→✅ | F24 fixed; probe `RANGE`, `EXCLUDE`, `GROUPS`, named windows |
+| JSON / JSONB function family | ⚠️→✅ | F27 fixed; probe `json_set/insert/replace/patch/each/tree` |
+| Subqueries (scalar/correlated/EXISTS/IN) | ✅ | tuple-IN (F25) fixed; probe lateral, multiple columns |
+| CTE (recursive/cycles/limits) | ✅ | probe cycle detection, `MATERIALIZED`, mutual recursion |
+| Set ops (UNION/INTERSECT/EXCEPT typing) | ✅ | probe mixed-type arms, `ORDER BY` ordinal in compound |
+| DDL (CTAS/ALTER/generated/constraints) | ⚠️→✅ | F21/F26 fixed; probe `ALTER` add-constraint, check expr eval |
+| Constraints (PK/UNIQUE/FK/CHECK, all paths) | ⚠️→✅ | F1/F2/F10/F14 fixed; probe deferred FK, partial-index unique |
+| Transactions / savepoints / isolation | ✅(API) | **D4 wire isolation not yet done** |
+| Durability / crash recovery | ⚠️→✅ | F15 fixed; probe WAL modes, torn writes, fsync ordering |
+| Collation / case / sort | ⚠️→✅ | F23 fixed; probe `COLLATE` in index/PK, custom collations |
+| Row values / tuples | ⚠️→✅ | F25 fixed; probe tuple in `IN (subquery)`, `VALUES` rows |
+| Dates / times / intervals / zones | ✅ | probe `INTERVAL` arithmetic, TZ conversions, 2-digit years |
+| `RETURNING` / UPSERT variants | ✅ | probe `RETURNING *`, multi-row, `ON CONFLICT` multi-target |
+| PRAGMA / introspection / `EXPLAIN` | ◻ | `table_info`, `foreign_key_list`, plan shape correctness |
+| ATTACH / multi-database | ◻ | cross-db joins, name resolution, txn across DBs |
+| Wire protocols (MySQL/Oracle) | ◻ | **D8** — real-driver round-trips of the whole corpus |
+| Security (injection/limits/DoS) | ◻ | deep nesting, huge IN-lists, recursion/stack limits |
+
+### Fuzzer enhancement backlog (so classes stay covered)
+The generator currently emits type-safe projection/aggregate/group/join queries
+with comparison predicates. Extend it to also emit — and thereby *regress* —
+the classes manual probes found:
+- bare-value conditions (`WHERE <number>`, `CASE WHEN <col>`), truthiness;
+- numeric literals in all forms (hex/sci/underscore) as a correctness check;
+- `COLLATE`, row-value tuples, scalar subqueries, `CASE`/`COALESCE`/`NULLIF`
+  nests, `IN (subquery)`, `EXISTS`;
+- string/date function calls with edge arguments;
+- window functions with/without `GROUP BY` and explicit frames.
+Target: **≥10 seeds × thousands of queries per shape**, 0 divergences as the
+standing gate.
+
+### Highest-value unswept areas (do next)
+1. **Operators** (`==`, `IS DISTINCT FROM`, JSON `->`/`->>`) — cheap, likely hits.
+2. **Aggregate edges** (overflow, empty, ordered-set) — silent-corruption risk.
+3. **PRAGMA / introspection / `EXPLAIN`** — ORMs depend on these.
+4. **Wire round-trips (D8)** and **cross-connection isolation (D4)** — the two
+   remaining dimensions with **no** coverage; highest enterprise value.
+5. **Security/limits** — deep nesting, huge lists, recursion caps.
+
+---
+
 ## 3. Phased roadmap
 
 ### Phase 1 — Close the correctness & integrity core (highest priority)
