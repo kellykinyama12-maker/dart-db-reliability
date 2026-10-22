@@ -9,9 +9,22 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**45 bugs found; F1–F45 fixed & verified; 0 open.** The full suite runs live
-with **nothing skipped** (446 pass / 0 fail). The last batch (a math-coercion /
-CAST / PRAGMA / aggregate / ATTACH sweep) surfaced six more, all now closed:
+**47 bugs found; F1–F45 fixed & verified; F46–F47 open (newly found).** A
+MySQL wire-protocol round-trip sweep (real `mysql_client` driver, text
+COM_QUERY + binary COM_STMT_EXECUTE) surfaced two more:
+- **F46** — a prepared statement with **zero parameter markers** hangs the
+  connection: `COM_STMT_PREPARE` never sends its response so `conn.prepare`
+  never completes (a parameterised prepare works). Parameterless prepared
+  statements are common in ORMs.
+- **F47** — the most-negative int64 literal `-9223372036854775808` crashes the
+  parser (`Positive input exceeds the limit of integer`); the magnitude is
+  `int.parse`d as a positive int before unary minus is applied.
+
+> **Wire fidelity otherwise clean:** 23 round-trip cases (ints incl. int64 max,
+> doubles, unicode/quote/newline/empty text, NULL, bound binary params, column
+> order, row order) all survive both the text and binary encoders intact.
+
+_Earlier batch (F40–F45) and historical detail are preserved below._
 - **F40** — unary minus on text (`-'5'`) threw an internal cast error (binary
   arithmetic coerced fine; unary minus was missing the coercion path).
 - **F41** — `CAST(<blob> AS TEXT)` returned the raw byte list instead of the
@@ -481,6 +494,22 @@ non-ASCII case comparisons.
 Deep nesting (100 parens, 50-level CASE), 1000-element `IN` lists, 200-term
 arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
 50-way `UNION` all match SQLite with no crashes or stack overflows.
+
+### F46 · prepared statement with no parameters hangs *(OPEN)*
+- **Severity:** High (client freeze — no error, no timeout on the engine side).
+- **Repro:** over the MySQL wire, `conn.prepare('SELECT v FROM t WHERE id = 1')`
+  (no `?`) never completes; the engine's `COM_STMT_PREPARE` response is never
+  sent. `conn.prepare('… WHERE id = ?')` + `execute([1])` works. Many ORMs and
+  drivers prepare parameterless statements, so this hangs real clients.
+- **Test:** F46 (wire suite, skipped; fails via a 5s timeout guard when forced).
+
+### F47 · most-negative int64 literal crashes the parser *(OPEN)*
+- **Severity:** Medium (valid literal rejected with an internal exception).
+- **Repro:** `SELECT -9223372036854775808` → `FormatException: Positive input
+  exceeds the limit of integer`. The parser `int.parse`s the magnitude
+  `9223372036854775808` (which overflows int64) before applying unary minus.
+  SQLite returns `-9223372036854775808`.
+- **Test:** F47.
 
 
 ---

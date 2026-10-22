@@ -1,15 +1,35 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the last
-batch (F40–F45) has been fixed and verified. Each has a minimal repro and a
-regression test that now runs live (446 pass / 0 skip / 0 fail).
+For the engine author working in `dart-db-server`. **2 open bugs (F46–F47)**,
+found by a MySQL wire-protocol round-trip sweep. Each has a minimal repro and a
+skipped regression test that turns green when fixed.
 
-- **Verify one:** its test in `test/known_issues/known_engine_bugs_test.dart`.
-- **Verify all at once:** `dart test --run-skipped`.
+- **Verify one:** un-skip its test (F46 in `test/wire/mysql_wire_roundtrip_test.dart`,
+  F47 in `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify all at once:** `dart test --run-skipped --timeout 20s`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 45 found, 45 fixed & verified, 0 open.** The executor stays robust
-(deep nesting / large inputs / 10k-deep recursion all clean).
+**Status: 47 found, 45 fixed & verified, 2 open.**
+
+## Current open batch (F46–F47)
+
+| # | Bug | Severity | One-line repro → wrong result |
+| --- | --- | --- | --- |
+| **F46** | parameterless prepared stmt hangs | 🔴 client freeze | `conn.prepare('SELECT v FROM t WHERE id = 1')` (no `?`) never returns; `… WHERE id = ?` works |
+| **F47** | int64-min literal crashes parser | 🟠 internal exception | `SELECT -9223372036854775808` → `"Positive input exceeds the limit of integer"` |
+
+> **F46 detail** — `COM_STMT_PREPARE` for a statement with **0 parameter
+> markers** never writes its prepare-OK response, so the driver waits forever.
+> The parameterised path (`WHERE id = ?`) is fine, so the bug is specific to the
+> `num_params == 0` branch of the prepare handler. Parameterless prepared
+> statements are extremely common (ORMs, cached plans), so this freezes clients.
+
+> **F47 detail** — the parser reads the digits of `9223372036854775808` with
+> `int.parse` (overflows int64) *before* the unary minus is applied, so the
+> valid literal `-9223372036854775808` is rejected. Parse the sign together with
+> the magnitude, or special-case the int64-min boundary.
+
+---
 
 ## Resolved batch (F40–F45) — ✅ fixed 2026-10-22
 

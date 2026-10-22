@@ -22,3 +22,7 @@ dev_dependencies:
   # the native sqlite3 shared library at test time; suites skip themselves if
   # it is unavailable (mirrors dart_db_server's own regression harness).
   sqlite3: ^2.4.0
+  # Real published MySQL driver used to drive the engine's MySQL wire server
+  # end-to-end (text COM_QUERY + binary COM_STMT_EXECUTE) for the D8
+  # wire-protocol round-trip suite. Same version the engine tests against.
+  mysql_client: ^0.0.27
