@@ -378,5 +378,18 @@ void main() {
     },
         skip: 'KNOWN ENGINE BUG: SUM of a boolean expression throws '
             '"SUM requires numeric, got bool"; should coerce bool to 1/0 (the '
-            'common count-matching idiom). See findings/FINDINGS.md F44.');  });
+            'common count-matching idiom). See findings/FINDINGS.md F44.');
+
+    test('F45 · ATTACH DATABASE accepted but attached tables are unusable',
+        () async {
+      final db = await openEngine();
+      await db.execute("ATTACH DATABASE ':memory:' AS aux");
+      // A schema-qualified name must work for an attached db to be usable.
+      await expectOk(db, 'CREATE TABLE aux.t (id INTEGER PRIMARY KEY, v INTEGER)');
+    },
+        skip: 'KNOWN ENGINE BUG: ATTACH/DETACH DATABASE are accepted but '
+            'schema-qualified names (`aux.t`) fail to parse in CREATE/INSERT and '
+            'do not resolve in SELECT, so attached databases are unusable (cross-'
+            'db queries error). See findings/FINDINGS.md F45.');
+  });
 }

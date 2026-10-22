@@ -21,6 +21,8 @@ more:
   for an INTEGER PRIMARY KEY, unquoted defaults, different index_list shape).
 - **F44** — `SUM(<boolean>)` throws instead of coercing the bool to 1/0 (the
   common `SUM(cond)` count-matching idiom).
+- **F45** — `ATTACH DATABASE` is accepted but attached tables are unusable
+  (schema-qualified `aux.t` names fail to parse / resolve).
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -465,6 +467,20 @@ non-ASCII case comparisons.
 > **Note (not counted):** `SUM` of values that exceed int64 returns `NULL` in the
 > engine, where SQLite raises an "integer overflow" error and MySQL promotes to
 > DECIMAL. Behavior is implementation-defined; recorded as an observation.
+
+### F45 · ATTACH DATABASE accepted but non-functional *(OPEN)*
+- **Severity:** Medium (cross-database feature unusable).
+- **Repro:** `ATTACH DATABASE ':memory:' AS aux` and `DETACH` succeed, but
+  `CREATE TABLE aux.t (…)` → `Expected ( but got "."`, `INSERT INTO aux.t …` →
+  parse error, and `SELECT … FROM aux.t` → `No such table or view: aux.t`.
+  Schema-qualified `db.table` names are not parsed/resolved, so attached
+  databases (and cross-db joins) are unusable despite ATTACH being accepted.
+- **Test:** F45.
+
+### Robustness — clean
+Deep nesting (100 parens, 50-level CASE), 1000-element `IN` lists, 200-term
+arithmetic, 10k-char strings, 10k-deep recursive CTE, nested subqueries, and
+50-way `UNION` all match SQLite with no crashes or stack overflows.
 
 
 ---
