@@ -9,11 +9,16 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**All 34 bugs (F1–F34) are FIXED and verified.** Every repro runs live (nothing
-skipped) and passes; the full suite is **435 pass / 0 skip / 0 fail**. F33–F34
-(non-zero truthiness in `CASE`/`iif`; 2-arg `trim` ignoring its character set)
-were the final two, closed after the F1–F32 waves. The 60k-query fuzzer finds 0
-divergences; sakila + employees real-data differentials match SQLite.
+**39 bugs found; F1–F34 fixed & verified; F35–F39 open (newly found).**
+All of F1–F34 are closed. A systematic function-edge sweep surfaced five more:
+- **F35** — `abs()` on a text value throws an internal cast error (should coerce).
+- **F36** — `substr(x, 0)` returns `''` (should return the whole string);
+  out-of-range negative start mis-windows.
+- **F37** — `replace(x, '', y)` inserts `y` between every char instead of
+  returning `x` unchanged.
+- **F38** — `CAST` of text with trailing non-numeric chars returns `0`
+  (`'42abc'`→0) instead of the leading number (42).
+- **F39** — `printf` `%e` emits a 1-digit exponent and `%g` keeps trailing zeros.
 
 _Historical detail of each bug is preserved below for the record._
 
@@ -385,6 +390,40 @@ non-ASCII case comparisons.
   Same for `ltrim(x, chars)` / `rtrim(x, chars)`. The 2nd argument is ignored.
   SQLite, MySQL, Oracle all support custom trim characters.
 - **Test:** F34.
+
+## Open bugs (round 3 — found 2026-10-22, function-edge sweep)
+
+### F35 · abs() on a text argument throws an internal cast error *(OPEN)*
+- **Severity:** Medium-High (internal exception leak; same family as F6/F12).
+- **Repro:** `SELECT abs('5')` / `abs('abc')` → `type 'String' is not a subtype
+  of type 'num'`. SQLite coerces: `abs('5')`→5.0, `abs('abc')`→0.0.
+- **Test:** F35.
+
+### F36 · substr edge (start 0 / out-of-range) is wrong *(OPEN)*
+- **Severity:** Medium.
+- **Repro:** `substr('hello', 0)` → `''`; SQLite returns `'hello'` (position 0
+  precedes 1). `substr('hello', -10, 3)` → `'hel'`; SQLite returns `''`.
+- **Test:** F36.
+
+### F37 · replace with an empty search pattern inserts everywhere *(OPEN)*
+- **Severity:** Medium (silent wrong string).
+- **Repro:** `replace('abc', '', 'X')` → `'XaXbXcX'`; an empty search matches
+  nothing, so SQLite returns `'abc'` unchanged.
+- **Test:** F37.
+
+### F38 · CAST of text with trailing garbage returns 0 *(OPEN)*
+- **Severity:** Medium (silent wrong value on import).
+- **Repro:** `CAST('42abc' AS INTEGER)` → `0` (SQLite `42`);
+  `CAST('3.14xyz' AS REAL)` → `0` (SQLite `3.14`). SQLite parses the leading
+  numeric prefix.
+- **Test:** F38.
+
+### F39 · printf %e exponent width and %g trailing zeros *(OPEN)*
+- **Severity:** Low (formatting).
+- **Repro:** `printf('%e', 1234.5)` → `1.234500e+3` (should be `e+03`);
+  `printf('%g', 0.0001)` → `0.000100000` (should trim to `0.0001`).
+- **Test:** F39.
+
 
 ---
 
