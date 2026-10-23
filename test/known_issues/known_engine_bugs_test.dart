@@ -2457,4 +2457,23 @@ void main() {
             'instead of 2. (F223 covered interval columns.) '
             'See findings/FINDINGS.md F252.');
   });
+
+  // REGRESSION (round 63): the F221 CHAR blank-pad fix over-applied to VARCHAR2 /
+  // TEXT, which must use NON-padded comparison. This also broke the active
+  // collation_test and random_differential_fuzz_test guards.
+  group('open bugs (round 63 — VARCHAR2 padding regression, adjudicated)', () {
+    test('F253 · VARCHAR2 comparison is NOT blank-padded', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, s VARCHAR2(10))');
+      await db.execute("INSERT INTO t VALUES (2, 'apple'), (6, 'apple ')");
+      // VARCHAR2 keeps trailing spaces significant: only the exact 'apple' matches.
+      await expectScalar(db, "SELECT COUNT(*) FROM t WHERE s = 'apple'", 1);
+    },
+        skip: 'KNOWN ENGINE BUG (REGRESSION from F221): blank-padded comparison '
+            'was applied to VARCHAR2/TEXT, not just CHAR(n). "s = \'apple\'" now '
+            'matches both \'apple\' and \'apple \' (returns 2) — Oracle VARCHAR2 '
+            'is non-padded (returns 1). This also fails the active collation_test '
+            'and fuzz_test guards. Scope blank-padding to CHAR(n) only. '
+            'See findings/FINDINGS.md F253.');
+  });
 }

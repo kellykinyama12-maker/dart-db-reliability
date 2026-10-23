@@ -6,10 +6,18 @@ For the engine author working in `dart-db-server`. **29 open bugs** (F224–F252
 schema-object, misc built-ins, NLS) surfaced these. Real HR + SH + CO data
 match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F224–F252 skipped).
+- **Verify:** `dart test --timeout 30s`.
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 252 found, 223 fixed & verified, 29 open (F224–F252).**
+**Status: 253 found, 223 fixed & verified, 30 open (F224–F253).**
+
+> ⚠️ **REGRESSION (F253) — suite is RED.** The F221 CHAR blank-pad fix was
+> over-applied to **VARCHAR2 / TEXT**, which must use non-padded comparison.
+> `s = 'apple'` on a VARCHAR2 column now also matches `'apple '` (returns 2;
+> Oracle returns 1). This broke the active `collation_test` and
+> `random_differential_fuzz_test` guards (3 real failures). **Fix: scope blank-
+> padding to CHAR(n) only.** Until then `dart test` is red by design — the
+> harness is correctly flagging the regression.
 
 ## Reproduce the real-Oracle adjudication
 
