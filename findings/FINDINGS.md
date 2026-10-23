@@ -9,19 +9,15 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**240 bugs found; 223 fixed & verified; 17 open (F224–F240).**
+**247 bugs found; 223 fixed & verified; 24 open (F224–F247).**
 
-> **Open (confirmed vs real Oracle 23ai):** F224 multi-col UPDATE subquery; F225
-> MATCH_RECOGNIZE; F226 recursive WITH CYCLE/SEARCH; F227 TABLE() unnest; F228
-> PIVOT XML; F229 LATERAL; F230 CROSS/OUTER APPLY; F231 SYS_CONTEXT/USERENV;
-> F232 XMLTABLE PASSING; F233 JSON dot-notation; F234 default NULLS ordering;
-> F235 ALTER ADD multi-col; F236 ALTER MODIFY ignored; F237 ALTER DROP
-> CONSTRAINT ignored; F238 parameterless fn no-parens; F239 DETERMINISTIC;
-> F240 function DEFAULT param.
->
-> Surfaced by complex-query, data-type, advanced-SQL, ALTER TABLE, and PL/SQL-
-> routine three-way sweeps. The engine already handles basic stored routines,
-> packages, anon-block loops, MERGE, constraints, IDENTITY, sequences.
+> Open bugs span multi-column UPDATE, MATCH_RECOGNIZE, recursive CYCLE/SEARCH,
+> TABLE() unnest, PIVOT XML, LATERAL, CROSS/OUTER APPLY, SYS_CONTEXT, XMLTABLE,
+> JSON dot-notation, default NULLS ordering (F234, most impactful), ALTER TABLE
+> ADD-multi/MODIFY/DROP CONSTRAINT, parameterless-fn/DETERMINISTIC/DEFAULT-param,
+> DEFERRABLE/GTT/INVISIBLE DDL, and TZ/flashback/SAMPLE/STANDARD_HASH built-ins.
+> All confirmed vs real Oracle 23ai. The engine's core (DML, MERGE, constraints,
+> IDENTITY, sequences, stored routines, partitioning, MViews) is solid.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **17 open bugs** (F224–F240)
+For the engine author working in `dart-db-server`. **24 open bugs** (F224–F247)
 — everything else through F223 is fixed and verified. Complex-query, data-type,
-advanced-SQL, ALTER TABLE, and PL/SQL-routine three-way sweeps surfaced these.
-Real HR + SH + CO data load and match real Oracle 23ai.
+advanced-SQL, ALTER TABLE, PL/SQL-routine, schema-object, and misc-built-in
+three-way sweeps surfaced these. Real HR + SH + CO data match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F224–F240 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F224–F247 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 240 found, 223 fixed & verified, 17 open (F224–F240).**
+**Status: 247 found, 223 fixed & verified, 24 open (F224–F247).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -55,6 +55,8 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 | **F238** | parameterless fn no-parens | `SELECT f0 FROM dual` → "Unknown column" (f0() works) | resolve no-arg function calls |
 | **F239** | DETERMINISTIC clause | `CREATE FUNCTION … DETERMINISTIC` → parse error | parse DETERMINISTIC |
 | **F240** | function DEFAULT param | `FUNCTION(x, y NUMBER DEFAULT 10)` → parse error | parse parameter defaults |
+| **F241–F243** | DDL | DEFERRABLE constraints, GLOBAL TEMPORARY TABLE, INVISIBLE columns → parse errors | parse those DDL forms |
+| **F244–F247** | misc built-ins | TO_TIMESTAMP_TZ/TZ_OFFSET, flashback VERSIONS, SAMPLE clause, STANDARD_HASH/ROWIDTOCHAR | add them |
 
 > Found by complex-query, data-type, advanced-SQL, ALTER TABLE, and PL/SQL-
 > routine three-way sweeps. F234 (NULLS ordering) is the most impactful. The
