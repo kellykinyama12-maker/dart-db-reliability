@@ -660,4 +660,44 @@ void main() {
       await expectOk(db, 'CREATE INDEX ix ON mv (id)');
     });
   });
+
+  // Gaps found in the real Oracle OE (order-entry) object-relational schema
+  // (oc_cre.sql): object tables, REF columns, and nested-table storage.
+  group('open bugs (round 18 — Oracle OE object-relational DDL)', () {
+    test('F86 · CREATE TABLE OF object_type (object table) is not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TYPE category_typ AS OBJECT ( id NUMBER, name VARCHAR2(30) )');
+      // OE: `CREATE TABLE categories_tab OF category_typ`.
+      await expectOk(db, 'CREATE TABLE categories_tab OF category_typ');
+    },
+        skip: 'KNOWN ENGINE BUG: an object table (CREATE TABLE t OF type) is a '
+            'parse error ("Expected ( but got OF"). Used by OE oc_cre.sql. See '
+            'findings/FINDINGS.md F86.');
+
+    test('F87 · a REF column type is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TYPE product_typ AS OBJECT ( id NUMBER )');
+      // OE: `product_ref REF product_information_typ`.
+      await expectOk(db,
+          'CREATE TABLE line_items ( id NUMBER, product_ref REF product_typ )');
+    },
+        skip: 'KNOWN ENGINE BUG: a REF column type (col REF type) is a parse '
+            'error ("Expected ) but got <type>"). Used by OE oc_cre.sql. See '
+            'findings/FINDINGS.md F87.');
+
+    test('F88 · NESTED TABLE ... STORE AS storage clause is not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TYPE item_typ AS OBJECT ( id NUMBER )');
+      await db.execute('CREATE TYPE item_tab AS TABLE OF item_typ');
+      // OE: `... NESTED TABLE <col> STORE AS <name>`.
+      await expectOk(db,
+          'CREATE TABLE orders2 ( id NUMBER, items item_tab ) '
+          'NESTED TABLE items STORE AS items_nt');
+    },
+        skip: 'KNOWN ENGINE BUG: the NESTED TABLE <col> STORE AS <name> storage '
+            'clause is a parse error ("Unexpected token after statement: '
+            'NESTED"). Used by OE oc_cre.sql. See findings/FINDINGS.md F88.');
+  });
 }

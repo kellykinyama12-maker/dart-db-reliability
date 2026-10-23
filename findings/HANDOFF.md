@@ -1,14 +1,29 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — F85
-(indexing a materialized view) is fixed and verified. The full suite runs live
-with nothing skipped; the real HR schema and data, and the SH schema and lookup
-data, all load.
+For the engine author working in `dart-db-server`. **3 open bugs (F86–F88)** —
+object-relational DDL gaps found probing the real OE schema (`oc_cre.sql`). Each
+has a minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 85 found, 85 fixed & verified, 0 open.**
+**Status: 88 found, 85 fixed & verified, 3 open.**
+
+## Current open bugs (F86–F88)
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F86** | object table | `CREATE TABLE categories_tab OF category_typ` → `Expected ( but got "OF"` | parse `CREATE TABLE t OF <type>` (columns come from the object type) |
+| **F87** | REF column type | `CREATE TABLE t ( id NUMBER, p REF product_typ )` → `Expected ) but got "<type>"` | parse `REF <type>` as a column datatype |
+| **F88** | nested-table storage | `… ) NESTED TABLE items STORE AS items_nt` → `Unexpected token after statement: NESTED` | accept the `NESTED TABLE <col> STORE AS <name>` storage clause |
+
+> All three are used by OE `oc_cre.sql`: object tables (`OF category_typ`), REF
+> columns (`product_ref REF …`, `customer_ref REF …`), and nested-table storage.
+> OE depends on SQL*Plus `@` includes + `&` substitution, so it is probed
+> construct-by-construct rather than loaded whole.
+
+---
 
 ## Resolved batch (F85) — ✅ fixed 2026-10-23 (materialized view indexing)
 
