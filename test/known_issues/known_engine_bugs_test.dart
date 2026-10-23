@@ -570,4 +570,46 @@ void main() {
       await expectScalar(db, 'SELECT v FROM t WHERE id = 1', 42);
     });
   });
+
+  // Gaps found loading the real Oracle HR *data* (hr_populate.sql): only 5/43
+  // units load without these.
+  group('open bugs (round 15 — Oracle data-load / DML parity)', () {
+    test('F75 · TO_DATE function is not supported', () async {
+      final db = await openEngine();
+      // Fundamental Oracle date conversion; TO_CHAR/TO_NUMBER already work.
+      await expectOk(db, "SELECT TO_DATE('2024-01-15','YYYY-MM-DD') FROM dual");
+    },
+        skip: 'KNOWN ENGINE BUG: TO_DATE(text, fmt) is "Unknown function: '
+            'TO_DATE". Fundamental Oracle date function; blocks HR employees/'
+            'job_history data. See findings/FINDINGS.md F75.');
+
+    test('F76 · ALTER TABLE ENABLE/DISABLE CONSTRAINT is not supported',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, CONSTRAINT pk PRIMARY KEY (id))');
+      // Needed for the circular-FK deferred-load flow.
+      await expectOk(db, 'ALTER TABLE t DISABLE CONSTRAINT pk');
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE t DISABLE/ENABLE CONSTRAINT c is a '
+            'parse error ("Expected ADD but got DISABLE"). Needed for the '
+            'circular-FK deferred-load flow (HR). See findings/FINDINGS.md F76.');
+
+    test('F77 · ALTER SESSION SET ... is not supported', () async {
+      final db = await openEngine();
+      // Session NLS/other settings; can be accepted and ignored.
+      await expectOk(db, 'ALTER SESSION SET NLS_LANGUAGE=American');
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER SESSION SET ... is a parse error '
+            '("Expected TABLE but got SESSION"). Should be accepted/ignored. '
+            'Common at the top of Oracle scripts. See findings/FINDINGS.md F77.');
+
+    test('F78 · COMMIT with no active transaction should be a no-op', () async {
+      final db = await openEngine();
+      // Oracle/MySQL treat COMMIT with no tx as a no-op; the engine errors.
+      await expectOk(db, 'COMMIT');
+    },
+        skip: 'KNOWN ENGINE BUG: COMMIT with no active transaction throws "No '
+            'transaction in progress"; Oracle/MySQL treat it as a no-op. Oracle '
+            'scripts COMMIT freely. See findings/FINDINGS.md F78.');
+  });
 }

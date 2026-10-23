@@ -9,19 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**74 bugs found; F1–F74 fixed & verified; 0 open.** The Oracle **SH** and **OE**
-sample-schema DDL gaps (F68–F73) plus the PL/SQL trigger body-execution caveat
-(F74) are fixed and verified. The real `hr_create.sql` and `sh_create.sql` load
-fully (all core tables), and a PL/SQL `BEFORE INSERT` trigger body now executes:
-- **F68–F73** *(fixed & verified)* — `PARTITION BY`, `CREATE MATERIALIZED VIEW`,
-  `CREATE TYPE` (object types), `CREATE SYNONYM`, PL/SQL trigger parsing, and
-  the constraint `ENABLE` clause.
-- **F74** *(fixed & verified)* — a PL/SQL trigger procedural body now executes:
-  `BEFORE INSERT … :new.v := 42` sets `v` to 42.
+**78 bugs found; F1–F74 fixed & verified; F75–F78 open.** Loading the real
+Oracle HR **data** (`hr_populate.sql`) — after the schema loads fully — surfaced
+four DML/parity gaps (only 5/43 populate units load):
+- **F75** — `TO_DATE(text, fmt)` is “Unknown function” (fundamental Oracle date
+  function; blocks the employees/job_history data). `TO_CHAR`/`TO_NUMBER` work.
+- **F76** — `ALTER TABLE t ENABLE/DISABLE CONSTRAINT c` is a parse error; needed
+  for the circular-FK deferred-load flow (26 FK failures cascade from this).
+- **F77** — `ALTER SESSION SET ...` is a parse error; should be accepted/ignored.
+- **F78** — `COMMIT` with no active transaction throws “No transaction in
+  progress”; Oracle/MySQL treat it as a no-op.
 
-> **HR and SH parity gates are both GREEN:** `oracle_hr_parity_test.dart` and
-> `oracle_sh_parity_test.dart` load the real schemas live; both auto-skip only
-> when the dataset is absent.
+> **Anonymous PL/SQL blocks work:** `BEGIN INSERT ...; INSERT ...; END;` (the
+> form the populate script uses) executes. HR and SH *schema* parity gates are
+> GREEN. A later `hr_populate` data gate can go live once F75–F78 land.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

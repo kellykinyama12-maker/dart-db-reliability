@@ -1,18 +1,31 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — F74 (the
-F72 PL/SQL trigger body-execution caveat) is fixed and verified. The full suite
-runs live with nothing skipped; the Oracle HR and SH sample schemas both load
-fully and a PL/SQL trigger body executes.
+For the engine author working in `dart-db-server`. **4 open bugs (F75–F78)** —
+Oracle data-load / DML gaps found loading the real `hr_populate.sql`. Each has a
+minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 74 found, 74 fixed & verified, 0 open.**
+**Status: 78 found, 74 fixed & verified, 4 open.** HR + SH *schema* parity gates
+are live/green; the HR *data* load needs these four.
 
-> **Not yet filed (observations for later):** schema-qualified FK references
-> (`REFERENCES schema.table`) parse-error; `COMMIT` with no active transaction
-> erroring instead of being a no-op.
+## Current open bugs (F75–F78) — Oracle data load
+
+| # | Bug | Severity | Repro → error |
+| --- | --- | --- | --- |
+| **F75** | TO_DATE unsupported | 🔴 common function | `SELECT TO_DATE('2024-01-15','YYYY-MM-DD') FROM dual` → `Unknown function: TO_DATE` |
+| **F76** | ALTER TABLE ENABLE/DISABLE CONSTRAINT | 🟠 deferred-FK flow | `ALTER TABLE t DISABLE CONSTRAINT pk` → `Expected ADD but got DISABLE` |
+| **F77** | ALTER SESSION SET | 🟡 accept/ignore | `ALTER SESSION SET NLS_LANGUAGE=American` → `Expected TABLE but got SESSION` |
+| **F78** | COMMIT with no transaction | 🟡 should be no-op | `COMMIT` (no tx) → `No transaction in progress` (Oracle/MySQL: no-op) |
+
+> **F75** is the big one — `TO_DATE` is used throughout Oracle DML (`TO_CHAR`/
+> `TO_NUMBER` already work). **F76** enables the circular-FK deferred load
+> (disable → load → enable). **F77/F78** are accept-and-ignore / no-op.
+> Anonymous PL/SQL blocks (`BEGIN INSERT…; INSERT…; END;`) already work.
+
+---
 
 ## Resolved batch (F74) — ✅ fixed 2026-10-22 (PL/SQL trigger body executes)
 
