@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs** (F212, F213)
-— everything else through F211 is fixed and verified. A sixth broad HR
-three-way mega-sweep surfaced these. Real HR + SH + CO data load and match real
+For the engine author working in `dart-db-server`. **2 open bugs** (F214, F215)
+— everything else through F213 is fixed and verified. A DML/DDL-effects
+three-way sweep surfaced these. Real HR + SH + CO data load and match real
 Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F212, F213 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F214, F215 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 213 found, 211 fixed & verified, 2 open (F212, F213).**
+**Status: 215 found, 213 fixed & verified, 2 open (F214, F215).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,17 +34,17 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweep VI — real-Oracle-adjudicated (F212, F213)
+### DML/DDL effects — real-Oracle-adjudicated (F214, F215)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F212** | TO_CLOB | missing ("Unknown function") (Oracle `hello`) | add TO_CLOB |
-| **F213** | NLS_UPPER/LOWER/INITCAP | missing ("Unknown function") (Oracle `Hello World`) | add the NLS case functions |
+| **F214** | INSERT ALL | multi-table `INSERT ALL … SELECT * FROM dual` fails ("No such table or view: dual"), inserts 0 (Oracle 2) | support the multi-table INSERT ALL |
+| **F215** | row-level trigger | `BEFORE UPDATE … FOR EACH ROW` parses but never fires — `:NEW` assignment ignored (Oracle fires it) | execute row-level triggers |
 
-> Found by a sixth HR three-way mega-sweep (46 queries) — most diffs this round
-> were boolean-literal casing, Oracle-also-errors (POWER/LOG/SQRT/FF-on-DATE),
-> engine-superset (`WITH RECURSIVE`, `IS DISTINCT FROM`), or RAW display
-> representation; only these two are genuine gaps.
+> Found by a DML/DDL-effects three-way sweep — **16/18 cases already matched real
+> Oracle**: MERGE update/insert/delete, CHECK/UNIQUE/FK ON DELETE CASCADE,
+> IDENTITY columns, sequences, column DEFAULT, correlated UPDATE, DELETE with
+> subquery, NUMBER(p,s) scale, VARCHAR2 length, virtual columns, CASE UPDATE.
 
 ---
 

@@ -9,14 +9,17 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**213 bugs found; 211 fixed & verified; 2 open (F212, F213).**
+**215 bugs found; 213 fixed & verified; 2 open (F214, F215).**
 
-> **Open (confirmed vs real Oracle 23ai):** F212 TO_CLOB missing; F213
-> NLS_UPPER/NLS_LOWER/NLS_INITCAP missing.
+> **Open (confirmed vs real Oracle 23ai):** F214 INSERT ALL (multi-table insert)
+> fails and inserts nothing; F215 a BEFORE UPDATE FOR EACH ROW trigger parses
+> but never fires.
 >
-> **Drained:** F203 (composite ROLLUP/CUBE), F204 (JSON_TABLE wildcard), F209
-> (REGEXP POSIX classes), F210 (APPROX_PERCENTILE), F211 (INTERVAL YEAR TO MONTH
-> arithmetic) — all fixed & verified.
+> Surfaced by a new **DML/DDL-effects** three-way sweep (16/18 cases already
+> matched real Oracle — MERGE, constraints, IDENTITY, sequences, DEFAULT,
+> correlated UPDATE, type enforcement, virtual columns all correct).
+>
+> **Drained:** F212 (TO_CLOB), F213 (NLS case functions) — fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

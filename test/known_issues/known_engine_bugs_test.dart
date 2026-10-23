@@ -1920,24 +1920,53 @@ void main() {
     });
   });
 
-  // Found by a sixth HR three-way mega-sweep (LOB + NLS functions — confirmed
-  // vs real Oracle 23ai). Mostly boolean-casing / Oracle-also-errors / engine-
-  // superset diffs this round; these two are genuine gaps.
-  group('open bugs (round 51 — mega-sweep VI, real-Oracle-adjudicated)', () {
+  // Found by a sixth HR three-way mega-sweep (LOB + NLS functions). Both fixed
+  // & verified against real Oracle 23ai.
+  group('formerly-open bugs F212–F213 (fixed & verified; LOB + NLS)', () {
     test('F212 · TO_CLOB', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT TO_CHAR(TO_CLOB('hello')) FROM dual", 'hello');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CLOB is missing ("Unknown function: '
-            'TO_CLOB"). Real Oracle returns "hello". See findings/FINDINGS.md F212.');
+    });
 
     test('F213 · NLS_UPPER / NLS_LOWER / NLS_INITCAP', () async {
       final db = await openEngine();
       await expectScalar(
           db, "SELECT NLS_INITCAP('hello world') FROM dual", 'Hello World');
+    });
+  });
+
+  // Found by a DML/DDL-effects three-way sweep (16/18 cases already matched real
+  // Oracle 23ai: MERGE update/insert/delete, CHECK/UNIQUE/FK-cascade, IDENTITY,
+  // sequences, DEFAULT, correlated UPDATE, number-scale, varchar-length, virtual
+  // columns). These two are genuine gaps.
+  group('open bugs (round 52 — DML/DDL effects, real-Oracle-adjudicated)', () {
+    test('F214 · INSERT ALL (multi-table insert)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE ia (id NUMBER, v NUMBER)');
+      // The multi-table INSERT ALL with a driving SELECT should insert 2 rows.
+      await db.execute(
+          'INSERT ALL INTO ia (id, v) VALUES (1, 10) '
+          'INTO ia (id, v) VALUES (2, 20) SELECT * FROM dual');
+      await expectScalar(db, 'SELECT COUNT(*) FROM ia', 2);
     },
-        skip: 'KNOWN ENGINE BUG: the NLS case functions NLS_UPPER, NLS_LOWER, '
-            'and NLS_INITCAP are missing ("Unknown function"). Real Oracle '
-            'returns "Hello World". See findings/FINDINGS.md F213.');
+        skip: 'KNOWN ENGINE BUG: INSERT ALL (multi-table insert) fails with '
+            '"No such table or view: dual" and inserts nothing. Real Oracle '
+            'inserts 2 rows. See findings/FINDINGS.md F214.');
+
+    test('F215 · BEFORE UPDATE row-level trigger fires', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE tg (id NUMBER, v NUMBER, upd NUMBER DEFAULT 0)');
+      await db.execute('INSERT INTO tg VALUES (1, 10, 0)');
+      await db.execute(
+          'CREATE OR REPLACE TRIGGER tg_bu BEFORE UPDATE ON tg FOR EACH ROW '
+          'BEGIN :NEW.upd := :OLD.upd + 1; END;');
+      await db.execute('UPDATE tg SET v = 20 WHERE id = 1');
+      // The trigger should have incremented upd to 1.
+      await expectScalar(db, 'SELECT upd FROM tg WHERE id = 1', 1);
+    },
+        skip: 'KNOWN ENGINE BUG: a BEFORE UPDATE ... FOR EACH ROW trigger is '
+            'parsed (CREATE TRIGGER succeeds) but never fires — upd stays 0 '
+            'after the UPDATE instead of becoming 1. Real Oracle fires it. '
+            'See findings/FINDINGS.md F215.');
   });
 }
