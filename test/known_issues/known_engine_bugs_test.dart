@@ -2388,4 +2388,19 @@ void main() {
             'missing ("Unknown function/column"). Real Oracle STANDARD_HASH '
             '(MD5) is a 32-char hex string. See findings/FINDINGS.md F247.');
   });
+
+  // Found by a CO real-data complex-query sweep (19/20 matched real Oracle 23ai).
+  group('open bugs (round 61 — TO_CHAR D element, real-Oracle-adjudicated)', () {
+    test('F248 · TO_CHAR(date, \'D\') numeric day-of-week', () async {
+      final db = await openEngine();
+      // 2024-07-20 is a Saturday; day-of-week is 7 (US NLS).
+      await expectScalar(
+          db, "SELECT TO_CHAR(DATE '2024-07-20','D') FROM dual", '7');
+    },
+        skip: 'KNOWN ENGINE BUG: the single-letter TO_CHAR date element \'D\' '
+            '(numeric day-of-week) is not applied \u2014 it returns the date '
+            'unchanged (though \'DAY\' works). COUNT(DISTINCT TO_CHAR(ts,\'D\')) '
+            'over real orders returns 1950 instead of 7. Real Oracle returns 7. '
+            'See findings/FINDINGS.md F248.');
+  });
 }
