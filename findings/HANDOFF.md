@@ -1,24 +1,22 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F85)** — found
-loading the real SH lookup data: `CREATE INDEX` on a materialized view is
-rejected. It has a minimal repro and a skipped regression test that turns green
-when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — F85
+(indexing a materialized view) is fixed and verified. The full suite runs live
+with nothing skipped; the real HR schema and data, and the SH schema and lookup
+data, all load.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 85 found, 84 fixed & verified, 1 open.**
+**Status: 85 found, 85 fixed & verified, 0 open.**
 
-## Current open bug (F85)
+## Resolved batch (F85) — ✅ fixed 2026-10-23 (materialized view indexing)
 
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F85** | CREATE INDEX on a materialized view | `CREATE MATERIALIZED VIEW mv AS SELECT …; CREATE INDEX ix ON mv (id)` → `Bad state: No such table: mv` | register the MV as an indexable relation (it is already queryable via `SELECT`) |
-
-> The SH populate indexes its fact materialized views (`CREATE BITMAP INDEX … ON
-> fweek_pscat_sales_mv`). The MV is queryable via `SELECT` but not indexable.
+> **✅ RESOLVED.** `CREATE INDEX` / `CREATE BITMAP INDEX` on a materialized view
+> now works (the MV is both queryable and indexable). The SH populate indexes
+> its fact MVs this way and now applies with 0 failures. Verified live; the
+> repro is an active regression guard in
+> `test/known_issues/known_engine_bugs_test.dart`.
 
 ---
 

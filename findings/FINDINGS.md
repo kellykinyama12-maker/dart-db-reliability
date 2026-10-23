@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**85 bugs found; F1–F84 fixed & verified; F85 open.** With a correct
+**85 bugs found; all 85 fixed & verified; 0 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
@@ -26,10 +26,10 @@ schema/data and OE surfaced six Oracle DDL gaps, now all closed:
 - **F84** — the PL/SQL named-argument syntax (`arg => value`, e.g.
   `dbms_stats.gather_schema_stats`) now parses.
 
-Loading the SH **lookup data** then surfaced one more, still open:
-- **F85** (open) — `CREATE INDEX` / `CREATE BITMAP INDEX` on a materialized
-  view fails ("No such table") even though the MV is queryable via `SELECT`.
-  The SH populate indexes its fact MVs this way.
+Loading the SH **lookup data** then surfaced one more, now closed:
+- **F85** — `CREATE INDEX` / `CREATE BITMAP INDEX` on a materialized
+  view now works (the MV is both queryable and indexable). The SH populate
+  indexes its fact MVs this way; the SH populate now applies with 0 failures.
 
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**

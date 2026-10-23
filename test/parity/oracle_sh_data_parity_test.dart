@@ -37,23 +37,20 @@ void main() {
       } catch (_) {}
     }
 
-    // Run the populate, skipping the SQL*Loader fact-CSV directives. Collect
-    // any failures so we can prove the only tolerated ones are the known
-    // out-of-scope fact materialized-view bitmap indexes (tracked as F85).
-    final unexpected = <String>[];
+    // Run the populate, skipping only the SQL*Loader fact-CSV directives.
+    // Everything else — constraint toggles, PL/SQL INSERT blocks, and the
+    // fact materialized-view bitmap indexes — must apply cleanly.
+    final failures = <String>[];
     for (final u in splitOracleScript(populate.readAsStringSync())) {
       if (_loadDirective.hasMatch(u)) continue;
       try {
         await db.execute(u);
       } catch (e) {
-        // The SH fact MV is built over sales data we never load; indexing it
-        // fails because CREATE INDEX on a materialized view is unsupported.
-        if (e.toString().contains('fweek_pscat_sales_mv')) continue;
-        unexpected.add('${u.split('\n').first} -> $e');
+        failures.add('${u.split('\n').first} -> $e');
       }
     }
-    expect(unexpected, isEmpty,
-        reason: 'unexpected populate failures:\n${unexpected.join('\n')}');
+    expect(failures, isEmpty,
+        reason: 'populate failures:\n${failures.join('\n')}');
 
     Future<int> count(String t) async =>
         ((await db.execute('SELECT COUNT(*) FROM $t')).rows.first.first as num)

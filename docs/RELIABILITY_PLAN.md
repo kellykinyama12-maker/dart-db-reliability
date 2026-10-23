@@ -52,13 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 85 found, 84 fixed & verified, 1 open.**
-  F1–F84 are closed. **Open (F85):** `CREATE INDEX` on a materialized view is
-  rejected ("No such table") though the MV is queryable via `SELECT` — found
-  loading the SH fact materialized views. The real HR schema + **full data**
-  load (107 employees via `TO_DATE` + deferred FKs) and the SH **lookup data**
-  loads (channels=5, countries=35, products=72). The Oracle wire path is clean
-  three-way vs real `oci8`; MySQL wire and robustness clean.
+- **Bug status (2026-10-23): 85 found, 85 fixed & verified, 0 open.**
+  F1–F85 are closed. The last fix (F85) made materialized views indexable
+  (`CREATE INDEX`/`CREATE BITMAP INDEX` on an MV). The real HR schema + **full
+  data** load (107 employees via `TO_DATE` + deferred FKs) and the SH **lookup
+  data** loads (channels=5, countries=35, products=72). The Oracle wire path is
+  clean three-way vs real `oci8`; MySQL wire and robustness clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.
