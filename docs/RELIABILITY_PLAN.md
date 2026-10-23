@@ -52,14 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 108 found, 98 fixed & verified, 10 open.**
-  F1–F93 and F95–F99 are closed (author fixed F86–F99 except F94 async). **Open:**
-  F94 (SYS_CONNECT_BY_PATH/PIVOT), a date/time + regex batch (F100–F104), and an
-  analytic/set-op/format batch (F105 KEEP ignored, F106 TO_CHAR number format,
-  F107 MINUS, F108 RATIO_TO_REPORT/PERCENTILE/WIDTH_BUCKET/GROUPING_ID/IGNORE
-  NULLS/CONNECT_BY_ROOT) — all adjudicated vs real Oracle 23ai. Driving Oracle to
-  full closure. The real HR schema + **full data** load and SH **lookup data**
-  loads. MySQL wire clean.
+- **Bug status (2026-10-23): 112 found, 98 fixed & verified, 14 open.**
+  F1–F93 and F95–F99 are closed (author fixed F86–F99 except F94 async). **Open
+  (Oracle closure push):** F94 (SYS_CONNECT_BY_PATH/PIVOT), date/time + regex
+  (F100–F104), analytic/set-op/format (F105–F108), and DML/DDL (F109 IDENTITY,
+  F110 NUMBER(p,s) scale, F111 MERGE DELETE, F112 DEFAULT ON NULL) — all
+  adjudicated vs real Oracle 23ai. The real HR schema + **full data** load and
+  SH **lookup data** loads. MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.

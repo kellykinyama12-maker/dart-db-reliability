@@ -954,4 +954,50 @@ void main() {
             'IGNORE NULLS clause, and the CONNECT_BY_ROOT operator are '
             'unsupported. See findings/FINDINGS.md F108.');
   });
+
+  // Oracle DML/DDL gaps found by an effect-based differential vs real Oracle
+  // 23ai. (Sequences, virtual columns, DEFAULT, INSERT ALL, UPDATE, and CHECK
+  // constraints all work.)
+  group('open bugs (round 25 — Oracle DML/DDL, real-Oracle-adjudicated)', () {
+    test('F109 · IDENTITY columns are not supported', () async {
+      final db = await openEngine();
+      await expectOk(db,
+          'CREATE TABLE t (id NUMBER GENERATED ALWAYS AS IDENTITY, v NUMBER)');
+    },
+        skip: 'KNOWN ENGINE BUG: an IDENTITY column (GENERATED ALWAYS/BY DEFAULT '
+            'AS IDENTITY) is a parse error ("Expected ( but got IDENTITY"). See '
+            'findings/FINDINGS.md F109.');
+
+    test('F110 · NUMBER(p,s) does not enforce scale (no rounding)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (n NUMBER(5,2))');
+      await db.execute('INSERT INTO t VALUES (1.239)');
+      // Oracle rounds to the declared scale (1.24); the engine stores 1.239.
+      await expectScalar(db, 'SELECT n FROM t', 1.24);
+    },
+        skip: 'KNOWN ENGINE BUG: NUMBER(p,s) does not round values to the '
+            'declared scale — 1.239 into NUMBER(5,2) stays 1.239 instead of '
+            '1.24. Silent data-integrity bug. See findings/FINDINGS.md F110.');
+
+    test('F111 · MERGE ... DELETE clause is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 10), (2, 20)');
+      await expectOk(db,
+          'MERGE INTO t USING (SELECT 1 id FROM dual) s ON (t.id = s.id) '
+          'WHEN MATCHED THEN UPDATE SET v = 99 DELETE WHERE v > 50');
+    },
+        skip: 'KNOWN ENGINE BUG: the MERGE ... WHEN MATCHED THEN UPDATE ... '
+            'DELETE WHERE clause is a parse error ("Unexpected token after '
+            'statement: DELETE"). See findings/FINDINGS.md F111.');
+
+    test('F112 · DEFAULT ON NULL is not parsed', () async {
+      final db = await openEngine();
+      await expectOk(db,
+          'CREATE TABLE t (a NUMBER DEFAULT ON NULL 7, b NUMBER)');
+    },
+        skip: 'KNOWN ENGINE BUG: a column DEFAULT ON NULL <expr> clause is a '
+            'parse error ("DEFAULT must be a literal"). See '
+            'findings/FINDINGS.md F112.');
+  });
 }

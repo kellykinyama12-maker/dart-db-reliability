@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**108 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F108 open.**
+**112 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F112 open.**
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
@@ -35,6 +35,15 @@ F108:
   `GROUPING_ID`, `NANVL`, the `IGNORE NULLS` clause, and the `CONNECT_BY_ROOT`
   operator are unsupported. (ROWNUM, MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE,
   LISTAGG DISTINCT, LEVEL all work.)
+
+An Oracle DML/DDL effect sweep vs real Oracle then added F109–F112:
+- **F109** (open) — IDENTITY columns (`GENERATED ALWAYS/BY DEFAULT AS IDENTITY`)
+  are a parse error.
+- **F110** (open, data integrity) — `NUMBER(p,s)` does not round to the declared
+  scale (`1.239` into `NUMBER(5,2)` stays `1.239`, not `1.24`).
+- **F111** (open) — the `MERGE … UPDATE … DELETE WHERE` clause is a parse error.
+- **F112** (open) — `DEFAULT ON NULL <expr>` is a parse error. (Sequences,
+  virtual columns, column DEFAULT, INSERT ALL, UPDATE, CHECK all work.)
 
 Original write-up of the now-fixed F86–F99 batch follows for the record.
 

@@ -1,15 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **10 open bugs** — the
-advanced-SQL set (F94), a date/time + regex batch (F100–F104), and an analytic /
-set-operator / formatting batch (F105–F108), all adjudicated against real Oracle
-23ai. F86–F93 and F95–F99 were fixed async and are now active regression guards.
+For the engine author working in `dart-db-server`. **14 open bugs** — the
+advanced-SQL set (F94), a date/time + regex batch (F100–F104), an analytic /
+set-operator / formatting batch (F105–F108), and a DML/DDL batch (F109–F112),
+all adjudicated against real Oracle 23ai. F86–F93 and F95–F99 were fixed async
+and are now active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 108 found, 98 fixed & verified, 10 open.**
+**Status: 112 found, 98 fixed & verified, 14 open.**
 
 ## Current open bugs
 
@@ -46,6 +47,19 @@ set-operator / formatting batch (F105–F108), all adjudicated against real Orac
 > of F94, which is now just SYS_CONNECT_BY_PATH + PIVOT). Already clean: ROWNUM,
 > MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE, LISTAGG DISTINCT, LEVEL,
 > TO_CHAR sign format.
+
+### DML / DDL — real-Oracle-adjudicated (F109–F112)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F109** | IDENTITY columns | `GENERATED ALWAYS AS IDENTITY` → parse error | support IDENTITY columns |
+| **F110** | NUMBER(p,s) scale | `1.239` into `NUMBER(5,2)` stays `1.239`, Oracle → `1.24` | round values to the declared scale |
+| **F111** | MERGE DELETE | `WHEN MATCHED THEN UPDATE SET … DELETE WHERE …` → parse error | parse the MERGE DELETE clause |
+| **F112** | DEFAULT ON NULL | `a NUMBER DEFAULT ON NULL 7` → `DEFAULT must be a literal` | parse `DEFAULT ON NULL <expr>` |
+
+> **F110 is a silent data-integrity bug** (stored precision wrong). Already
+> clean: sequences (NEXTVAL), virtual columns, column DEFAULT, INSERT ALL,
+> UPDATE, CHECK constraints.
 
 ---
 
