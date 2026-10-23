@@ -63,7 +63,7 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 | **F142** | NUMBER agg is binary | `SUM(0.1,0.2)` over NUMBER(8,2) → `0.30000000000000004` (Oracle `0.3`) | exact-decimal aggregation (F131 fixed single-value rounding, not arithmetic) |
 
 > Found by the new **SH real-data three-way gate**
-> (`oracle_sh_realdata_parity_test.dart`, 17 queries): 18/20 matched; raw
+> (`oracle_realdata_parity_test.dart`, 17 queries): 18/20 matched; raw
 > `SUM`/`MEDIAN` over NUMBER columns carry the binary residual.
 
 > Found by a 30-query HR real-data battery (27/30 already matched real Oracle,
