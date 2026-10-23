@@ -895,19 +895,14 @@ void main() {
   // differential vs real Oracle 23ai.
   group('open bugs (round 24 — Oracle analytic/set-op/format, real-Oracle-adjudicated)',
       () {
-    test('F105 · KEEP (DENSE_RANK FIRST/LAST) is parsed but ignored', () async {
+    test('F105 · KEEP (DENSE_RANK FIRST/LAST) applies its ordering', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
       await db.execute('INSERT INTO t VALUES (1,10),(2,30),(3,20),(4,40)');
-      // KEEP ... FIRST ORDER BY id -> the v of the lowest id (10); the engine
-      // ignores KEEP and returns the overall MAX (40).
+      // KEEP ... FIRST ORDER BY id -> the v of the lowest id (10).
       await expectScalar(db,
           'SELECT MAX(v) KEEP (DENSE_RANK FIRST ORDER BY id) FROM t', 10);
-    },
-        skip: 'KNOWN ENGINE BUG: the KEEP (DENSE_RANK FIRST/LAST ORDER BY …) '
-            'aggregate now parses but is ignored — it returns the plain '
-            'aggregate (MAX=40 instead of 10). Silent wrong answer. See '
-            'findings/FINDINGS.md F105.');
+    });
 
     test('F106 · TO_CHAR(number, format) ignores the format model', () async {
       final db = await openEngine();
@@ -956,14 +951,11 @@ void main() {
   // 23ai. (Sequences, virtual columns, DEFAULT, INSERT ALL, UPDATE, and CHECK
   // constraints all work.)
   group('open bugs (round 25 — Oracle DML/DDL, real-Oracle-adjudicated)', () {
-    test('F109 · IDENTITY columns are not supported', () async {
+    test('F109 · IDENTITY columns are supported', () async {
       final db = await openEngine();
       await expectOk(db,
           'CREATE TABLE t (id NUMBER GENERATED ALWAYS AS IDENTITY, v NUMBER)');
-    },
-        skip: 'KNOWN ENGINE BUG: an IDENTITY column (GENERATED ALWAYS/BY DEFAULT '
-            'AS IDENTITY) is a parse error ("Expected ( but got IDENTITY"). See '
-            'findings/FINDINGS.md F109.');
+    });
 
     test('F110 · NUMBER(p,s) does not enforce scale (no rounding)', () async {
       final db = await openEngine();
@@ -988,14 +980,11 @@ void main() {
             'DELETE WHERE clause is a parse error ("Unexpected token after '
             'statement: DELETE"). See findings/FINDINGS.md F111.');
 
-    test('F112 · DEFAULT ON NULL is not parsed', () async {
+    test('F112 · DEFAULT ON NULL is parsed', () async {
       final db = await openEngine();
       await expectOk(db,
           'CREATE TABLE t (a NUMBER DEFAULT ON NULL 7, b NUMBER)');
-    },
-        skip: 'KNOWN ENGINE BUG: a column DEFAULT ON NULL <expr> clause is a '
-            'parse error ("DEFAULT must be a literal"). See '
-            'findings/FINDINGS.md F112.');
+    });
   });
 
   // Oracle type-enforcement and CTE gaps found by an effect-based differential
@@ -1049,5 +1038,48 @@ void main() {
         skip: 'KNOWN ENGINE BUG: a WITH clause inside a parenthesized subquery / '
             'derived table is a parse error ("Expected SELECT but got WITH"). '
             'See findings/FINDINGS.md F116.');
+  });
+
+  // More Oracle function / numeric / timestamp gaps vs real Oracle 23ai.
+  // (CONNECT_BY_ISLEAF, ORDER SIBLINGS BY, NOCYCLE, LOG/LN, TO_CHAR '000',
+  // TO_NUMBER '9D999' all work.)
+  group('open bugs (round 27 — Oracle functions/numeric/timestamp, real-Oracle-adjudicated)',
+      () {
+    test('F117 · bit / byte / hash built-in functions are missing', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // BITAND(6,3) = 2 in real Oracle.
+      await expectScalar(db, 'SELECT BITAND(6, 3) FROM t', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: BITAND, BIN_TO_NUM, SUBSTRB/LENGTHB/INSTRB '
+            '(byte-length string functions), and ORA_HASH are unknown '
+            'functions. See findings/FINDINGS.md F117.');
+
+    test('F118 · POWER with a fractional exponent is unsupported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Cube root via POWER(27, 1/3) = 3 in real Oracle.
+      await expectScalar(db, 'SELECT ROUND(POWER(27, 1.0/3)) FROM t', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: POWER with a non-integer exponent throws '
+            '("POWER with non-integer exponent not supported"); real Oracle '
+            'computes it. See findings/FINDINGS.md F118.');
+
+    test('F119 · TIMESTAMP subtraction / EXTRACT from the interval is wrong',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // ts - ts = INTERVAL '4 00:00:00'; EXTRACT(DAY ...) = 4; engine returns 24.
+      await expectScalar(db,
+          "SELECT EXTRACT(DAY FROM (TIMESTAMP '2020-01-05 00:00:00' - "
+          "TIMESTAMP '2020-01-01 00:00:00')) FROM t",
+          4);
+    },
+        skip: 'KNOWN ENGINE BUG: TIMESTAMP - TIMESTAMP does not yield a correct '
+            'INTERVAL — EXTRACT(DAY FROM (ts5 - ts1)) returns 24 instead of 4. '
+            'See findings/FINDINGS.md F119.');
   });
 }

@@ -1,16 +1,16 @@
 # Handoff — open engine bugs to fix
 
 For the engine author working in `dart-db-server`. **17 open bugs** — a date/time
-+ regex batch (F100–F104), an analytic / set-operator / formatting batch
-(F105–F108), a DML/DDL batch (F109–F112), and a type-enforcement + CTE batch
-(F113–F116), all adjudicated against real Oracle 23ai. F86–F99 (except — now
-also — F94) were fixed async and are active regression guards.
++ regex batch (F100–F104), analytic/set-op/format (F106–F108), DML/DDL (F110,
+F111), type-enforcement + CTE (F113–F116), and a functions/numeric/timestamp
+batch (F117–F119), all adjudicated against real Oracle 23ai. F86–F99, F94,
+F105, F109, F112 were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 116 found, 99 fixed & verified, 17 open.**
+**Status: 119 found, 102 fixed & verified, 17 open.**
 
 ## Current open bugs
 
@@ -28,32 +28,27 @@ also — F94) were fixed async and are active regression guards.
 > `ADD_MONTHS` already parse date values, so F100/F101 are TO_CHAR/arithmetic-
 > specific, not a missing temporal type.
 
-### Analytic / set-op / formatting — real-Oracle-adjudicated (F105–F108)
+### Analytic / set-op / formatting — real-Oracle-adjudicated (F106–F108)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F105** | KEEP ignored | `MAX(v) KEEP (DENSE_RANK FIRST ORDER BY id)` → 40 (plain MAX), Oracle → 10 | apply the KEEP ordering (it parses but is ignored) |
 | **F106** | TO_CHAR number format ignored | `TO_CHAR(1234.5,'FM9,999.00')` → `1234.5`, Oracle → `1,234.50` | apply the number format model (companion to F100) |
 | **F107** | MINUS set operator | `SELECT g FROM t MINUS SELECT 1 FROM t` → parse error | accept `MINUS` (EXCEPT synonym) |
 | **F108** | analytic features | `RATIO_TO_REPORT` / `PERCENTILE_CONT`/`DISC` / `WIDTH_BUCKET` / `GROUPING_ID` / `NANVL` / `IGNORE NULLS` / `CONNECT_BY_ROOT` → unsupported | add these analytic functions/clauses |
 
-> **F105 is a silent wrong answer** (KEEP now parses but is ignored — moved out
-> of F94, which is now just SYS_CONNECT_BY_PATH + PIVOT). Already clean: ROWNUM,
-> MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE, LISTAGG DISTINCT, LEVEL,
-> TO_CHAR sign format.
+> Already clean: ROWNUM, MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE,
+> LISTAGG DISTINCT, LEVEL, TO_CHAR sign format.
 
-### DML / DDL — real-Oracle-adjudicated (F109–F112)
+### DML / DDL — real-Oracle-adjudicated (F110, F111)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F109** | IDENTITY columns | `GENERATED ALWAYS AS IDENTITY` → parse error | support IDENTITY columns |
 | **F110** | NUMBER(p,s) scale | `1.239` into `NUMBER(5,2)` stays `1.239`, Oracle → `1.24` | round values to the declared scale |
 | **F111** | MERGE DELETE | `WHEN MATCHED THEN UPDATE SET … DELETE WHERE …` → parse error | parse the MERGE DELETE clause |
-| **F112** | DEFAULT ON NULL | `a NUMBER DEFAULT ON NULL 7` → `DEFAULT must be a literal` | parse `DEFAULT ON NULL <expr>` |
 
 > **F110 is a silent data-integrity bug** (stored precision wrong). Already
-> clean: sequences (NEXTVAL), virtual columns, column DEFAULT, INSERT ALL,
-> UPDATE, CHECK constraints.
+> clean: sequences (NEXTVAL), IDENTITY, virtual columns, column DEFAULT /
+> DEFAULT ON NULL, INSERT ALL, UPDATE, CHECK constraints.
 
 ### Type-enforcement + CTE — real-Oracle-adjudicated (F113–F116)
 
@@ -68,14 +63,24 @@ also — F94) were fixed async and are active regression guards.
 > CASCADE/SET NULL, CLOB, TIMESTAMP, PL/SQL loops, CREATE FUNCTION + call,
 > NOT NULL, UNIQUE, plain + `WITH RECURSIVE` CTEs.
 
+### Functions / numeric / timestamp — real-Oracle-adjudicated (F117–F119)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F117** | missing functions | `BITAND` / `BIN_TO_NUM` / `SUBSTRB` / `LENGTHB` / `INSTRB` / `ORA_HASH` → unknown | add these built-ins |
+| **F118** | POWER fractional exponent | `POWER(27, 1.0/3)` → throws, Oracle → 3 | support non-integer exponents |
+| **F119** | TIMESTAMP subtraction | `EXTRACT(DAY FROM (ts5 - ts1))` → 24, Oracle → 4 | yield a correct INTERVAL from ts - ts |
+
+> Already clean: CONNECT_BY_ISLEAF, ORDER SIBLINGS BY, NOCYCLE, LOG/LN,
+> TO_CHAR '000', TO_NUMBER '9D999'.
+
 ---
 
-## Resolved batch (F86–F99 + F94) — ✅ fixed 2026-10-23
+## Resolved batch (F86–F99, F94, F105, F109, F112) — ✅ fixed 2026-10-23
 
-> **✅ RESOLVED (async).** OE object-relational DDL (F86–F88), the Oracle function
-> sweep (F89–F92), ORDER BY under ROLLUP (F93), SYS_CONNECT_BY_PATH + PIVOT
-> (F94), MERGE alias-qualified SET (F95), and the three-way scalar sweep
-> (F96–F99). All verified live and kept as active regression guards.
+> **✅ RESOLVED (async).** The F86–F99 batch, SYS_CONNECT_BY_PATH + PIVOT (F94),
+> the KEEP aggregate ordering (F105), IDENTITY columns (F109), and DEFAULT ON
+> NULL (F112). All verified live and kept as active regression guards.
 
 ---
 

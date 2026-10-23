@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**116 bugs found; F1–F99 fixed & verified; F100–F116 open.**
+**119 bugs found; F1–F99 + F94, F105, F109, F112 fixed & verified; 17 open.**
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
@@ -56,6 +56,18 @@ An Oracle type-enforcement + CTE sweep vs real Oracle then added F113–F116:
 - **F116** (open) — a `WITH` clause inside a parenthesized subquery / derived
   table is a parse error. (FK ON DELETE CASCADE/SET NULL, CLOB, TIMESTAMP,
   PL/SQL loops, CREATE FUNCTION, NOT NULL, UNIQUE all work.)
+
+A functions/numeric/timestamp sweep vs real Oracle then added F117–F119:
+- **F117** (open) — `BITAND`, `BIN_TO_NUM`, `SUBSTRB`/`LENGTHB`/`INSTRB`, and
+  `ORA_HASH` are unknown functions.
+- **F118** (open) — `POWER` with a non-integer exponent throws (`POWER(27,1.0/3)`
+  → error; Oracle → 3).
+- **F119** (open) — `TIMESTAMP - TIMESTAMP` does not yield a correct INTERVAL:
+  `EXTRACT(DAY FROM (ts5 - ts1))` → 24 instead of 4. (CONNECT_BY_ISLEAF, ORDER
+  SIBLINGS BY, NOCYCLE, LOG/LN, TO_CHAR '000', TO_NUMBER '9D999' all work.)
+
+> **Drained async since last round:** F94 (SYS_CONNECT_BY_PATH/PIVOT), F105
+> (KEEP ordering), F109 (IDENTITY), F112 (DEFAULT ON NULL) — now active guards.
 
 Original write-up of the now-fixed F86–F99 batch follows for the record.
 

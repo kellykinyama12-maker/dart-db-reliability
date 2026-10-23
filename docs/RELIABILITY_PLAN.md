@@ -52,12 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 116 found, 99 fixed & verified, 17 open.**
-  F1–F99 are closed (author fixed F86–F99 async). **Open (Oracle closure push,
-  all vs real Oracle 23ai):** date/time + regex (F100–F104), analytic/set-op/
-  format (F105–F108), DML/DDL (F109–F112: IDENTITY, NUMBER scale, MERGE DELETE,
-  DEFAULT ON NULL), and type-enforcement + CTE (F113 VARCHAR2 length, F114
-  NUMBER precision, F115 recursive-WITH keyword, F116 WITH-in-subquery). The
+- **Bug status (2026-10-23): 119 found, 102 fixed & verified, 17 open.**
+  F1–F99, F94, F105, F109, F112 are closed. **Open (Oracle closure push, all vs
+  real Oracle 23ai):** date/time + regex (F100–F104), analytic/set-op/format
+  (F106–F108), DML/DDL (F110 NUMBER scale, F111 MERGE DELETE), type-enforcement
+  + CTE (F113–F116), and functions/numeric/timestamp (F117 missing bit/byte/hash
+  functions, F118 POWER fractional exponent, F119 TIMESTAMP subtraction). The
   real HR schema + **full data** load and SH **lookup data** loads. MySQL wire
   clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
