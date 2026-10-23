@@ -1660,22 +1660,13 @@ void main() {
       final db = await openEngine();
       await expectScalar(
           db, "SELECT TO_CHAR(DATE '2024-07-20','IYYY') FROM dual", '2024');
-    },
-        skip: 'KNOWN ENGINE BUG: more TO_CHAR(date) elements are not applied '
-            '(return garbage/unchanged) — IYYY -> "I24Y" (Oracle 2024), RM '
-            '(Roman month -> VII), W (week of month -> 3), SSSSS (secs past '
-            'midnight), and DDspth (ordinal spelled -> TWENTIETH). '
-            'See findings/FINDINGS.md F183.');
+    });
 
     test('F184 · TO_CHAR(number) format elements (RM/G/D/MI)', () async {
       final db = await openEngine();
       // MI puts a trailing minus for negatives.
       await expectScalar(db, "SELECT TO_CHAR(-1234,'FM9999MI') FROM dual", '1234-');
-    },
-        skip: 'KNOWN ENGINE BUG: more TO_CHAR(number) elements are not applied — '
-            'MI (trailing minus: -1234 -> "1234-"), RM (Roman: 12 -> XII), and '
-            'G/D (group/decimal: FM9G999D99 -> "1,234.5"). Companion to F160. '
-            'See findings/FINDINGS.md F184.');
+    });
 
     test('F185 · linear-regression aggregates (REGR_*)', () async {
       final db = await openEngine();
@@ -1695,10 +1686,7 @@ void main() {
           '(ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) '
           'nv FROM m)',
           30);
-    },
-        skip: 'KNOWN ENGINE BUG: the NTH_VALUE ... FROM LAST (and FROM FIRST) '
-            'clause is a parse error ("Expected identifier but got LAST"). Real '
-            'Oracle returns 30. See findings/FINDINGS.md F186.');
+    });
 
     test('F187 · JSON aggregate/manipulation functions', () async {
       final db = await openEngine();
@@ -1714,10 +1702,7 @@ void main() {
           db,
           "SELECT XMLCAST(XMLQUERY('1+2' RETURNING CONTENT) AS NUMBER) FROM dual",
           3);
-    },
-        skip: 'KNOWN ENGINE BUG: XMLQUERY / XMLCAST / XMLSERIALIZE / XMLTABLE '
-            'are parse errors (F172 added XMLELEMENT only). Real Oracle returns '
-            '3. See findings/FINDINGS.md F188.');
+    });
 
     test('F189 · ROWID / SESSIONTIMEZONE pseudocolumns', () async {
       final db = await openEngine();
@@ -1725,9 +1710,11 @@ void main() {
       await db.execute('INSERT INTO t VALUES (1)');
       await expectOk(db, 'SELECT COUNT(*) FROM t WHERE ROWID IS NOT NULL');
     },
-        skip: 'KNOWN ENGINE BUG: the ROWID pseudocolumn is unsupported '
-            '("Unknown column: ROWID"); SESSIONTIMEZONE is too. Real Oracle '
-            'exposes both. See findings/FINDINGS.md F189.');
+        skip: 'KNOWN ENGINE BUG: the Oracle ROWID pseudocolumn is unsupported '
+            '("Unknown column: ROWID"); SESSIONTIMEZONE is too. NOTE: ROWID must '
+            'coexist with the SQLite integer `rowid` alias (F57) — do not break '
+            'one to add the other; disambiguate by dialect. '
+            'See findings/FINDINGS.md F189.');
 
     test('F190 · missing scalar functions (NCHR/COMPOSE/NEW_TIME/…)', () async {
       final db = await openEngine();
@@ -1741,10 +1728,7 @@ void main() {
           "SELECT CASE WHEN (DATE '2024-01-01', DATE '2024-06-01') OVERLAPS "
           "(DATE '2024-03-01', DATE '2024-09-01') THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: the OVERLAPS period predicate is a parse error '
-            '("Expected THEN but got OVERLAPS"). Real Oracle returns 1. '
-            'See findings/FINDINGS.md F191.');
+    });
 
     test('F192 · = ALL (subquery)', () async {
       final db = await openEngine();
@@ -1755,10 +1739,7 @@ void main() {
           db,
           'SELECT COUNT(*) FROM m WHERE y = ALL (SELECT y FROM m WHERE x = 1)',
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: "= ALL (subquery)" is a parse error ("Expected '
-            ') but got salary/y"). F138 added >= ALL but not = ALL. Real Oracle '
-            'returns 1. See findings/FINDINGS.md F192.');
+    });
 
     test('F193 · MONTHS_BETWEEN end-of-month handling', () async {
       final db = await openEngine();
@@ -1805,5 +1786,69 @@ void main() {
         skip: 'KNOWN ENGINE BUG: INTERSECT ALL is a parse error ("Expected '
             'SELECT but got ALL") — only the DISTINCT form is parsed. Real '
             'Oracle returns 1. See findings/FINDINGS.md F196.');
+  });
+
+  // Found by a third HR three-way mega-sweep (regexp flags, grouping, analytic,
+  // date parsing — confirmed vs real Oracle 23ai). CROSS-JOIN and PIVOT diffs
+  // were excluded (could not reproduce minimally / inconsistent).
+  group('open bugs (round 48 — mega-sweep III, real-Oracle-adjudicated)', () {
+    test('F197 · REGEXP case-insensitive match_param', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN REGEXP_LIKE('abc', 'ABC', 'i') THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: the REGEXP case-insensitive match_param (\'i\') '
+            'is ignored — REGEXP_LIKE(\'abc\',\'ABC\',\'i\') returns 0. Real '
+            'Oracle matches case-insensitively (1). See findings/FINDINGS.md F197.');
+
+    test('F198 · GROUP BY () empty grouping', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE a (x NUMBER)');
+      await db.execute('INSERT INTO a VALUES (1), (2)');
+      // GROUP BY () is a single grand-total group.
+      await expectScalar(db, 'SELECT COUNT(*) FROM a GROUP BY ()', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: GROUP BY () (the explicit empty/grand-total '
+            'grouping) is a parse error ("Unexpected token )"). Real Oracle '
+            'returns the grand total (2). See findings/FINDINGS.md F198.');
+
+    test('F199 · aggregate-over-aggregate analytic (SUM(COUNT(*)) OVER ())',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE a (x NUMBER)');
+      await db.execute('INSERT INTO a VALUES (1), (2)');
+      // Two groups of 1; the windowed sum of the group counts is 2.
+      await expectScalar(
+          db, 'SELECT DISTINCT SUM(COUNT(*)) OVER () FROM a GROUP BY x', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: an analytic over an aggregate '
+            '(SUM(COUNT(*)) OVER ()) throws "Aggregate function COUNT() cannot '
+            'be evaluated as a scalar". Real Oracle returns 2. '
+            'See findings/FINDINGS.md F199.');
+
+    test('F200 · TO_DATE with DDD day-of-year', () async {
+      final db = await openEngine();
+      // Day 60 of leap-year 2024 is Feb 29.
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(TO_DATE('2024-060','YYYY-DDD'),'YYYY-MM-DD') FROM dual",
+          '2024-02-29');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_DATE with the DDD (day-of-year) format '
+            'returns NULL. Real Oracle parses it (2024-060 -> 2024-02-29). '
+            'Companion to F156. See findings/FINDINGS.md F200.');
+
+    test('F201 · TRUNC(date, \'IYYY\') ISO year', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(TRUNC(DATE '2024-07-20','IYYY'),'YYYY-MM-DD') FROM dual",
+          '2024-01-01');
+    },
+        skip: 'KNOWN ENGINE BUG: TRUNC(date, \'IYYY\') (ISO year) is not applied '
+            '— returns the date unchanged. Real Oracle returns 2024-01-01. '
+            'Companion to F168. See findings/FINDINGS.md F201.');
   });
 }

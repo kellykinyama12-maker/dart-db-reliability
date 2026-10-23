@@ -52,11 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 196 found, 186 fixed & verified, 10 open (F183/F184
-  TO_CHAR elements; F186 NTH_VALUE FROM LAST; F188 XML funcs; F189 ROWID/
-  SESSIONTIMEZONE; F191 OVERLAPS; F192 = ALL subquery; F194 INITCAP apostrophe;
-  F195 CONNECT BY LEVEL row-gen; F196 INTERSECT ALL).** The author drained
-  F143–F193 (bar the 10 open); eight HR feature sweeps surfaced F150–F196.
+- **Bug status (2026-10-23): 201 found, 192 fixed & verified, 9 open (F189
+  ROWID/SESSIONTIMEZONE; F194 INITCAP apostrophe; F195 CONNECT BY LEVEL row-gen;
+  F196 INTERSECT ALL; F197 REGEXP i-flag; F198 GROUP BY (); F199 analytic over
+  aggregate; F200 TO_DATE DDD; F201 TRUNC IYYY).** Note: F189 (Oracle ROWID)
+  conflicts with the SQLite `rowid` alias (F57) — needs dialect disambiguation.
+  The author drained F143–F196 (bar the 9 open); nine HR sweeps surfaced
+  F150–F201.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.

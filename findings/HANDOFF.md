@@ -1,14 +1,20 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **10 open bugs** (F183, F184,
-F186, F188, F189, F191, F192, F194–F196) — everything else through F193 is fixed
-and verified. Two broad HR three-way mega-sweeps surfaced these. Real HR + SH +
-CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **9 open bugs** (F189, F194–
+F201) — everything else through F196 is fixed and verified. Three broad HR
+three-way mega-sweeps surfaced these. Real HR + SH + CO data load and match
+real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; the 10 open bugs skipped).
+> ⚠️ **ROWID vs `rowid` dialect tension (F189 ↔ F57).** Adding the Oracle
+> `ROWID` pseudocolumn (F189) briefly regressed the SQLite integer `rowid`
+> alias (F57 — `SELECT rowid FROM t` returned `'AAAAAAAAAA'` instead of `5`).
+> The harness caught it. They are mutually exclusive right now; **disambiguate
+> by dialect** so both work — don't break one to add the other.
+
+- **Verify:** `dart test --timeout 30s` (all green; the 9 open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 196 found, 186 fixed & verified, 10 open.**
+**Status: 201 found, 192 fixed & verified, 9 open (F189, F194–F201).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,25 +40,24 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweeps — real-Oracle-adjudicated (10 open)
+### HR mega-sweeps — real-Oracle-adjudicated (9 open)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F183** | TO_CHAR(date) IYYY/RM/W/SSSSS/SP-TH | not applied / garbage (`IYYY` → "I24Y" vs 2024) | apply those date format elements |
-| **F184** | TO_CHAR(number) RM/G/D/MI | not applied (`FM9999MI` on -1234 → "-1234" vs "1234-") | apply Roman, group/decimal, trailing-minus |
-| **F186** | NTH_VALUE FROM LAST | `NTH_VALUE(y,1) FROM LAST OVER(…)` → parse error (Oracle `30`) | parse FROM FIRST/LAST |
-| **F188** | XML functions | XMLQUERY/XMLCAST/XMLSERIALIZE/XMLTABLE → parse error (Oracle `3`) | support the XML query/serialize functions |
-| **F189** | ROWID / SESSIONTIMEZONE | pseudocolumns unsupported ("Unknown column") | expose ROWID + SESSIONTIMEZONE |
-| **F191** | OVERLAPS predicate | `(d1,d2) OVERLAPS (d3,d4)` → parse error (Oracle `1`) | parse the OVERLAPS period predicate |
-| **F192** | = ALL (subquery) | parse error (F138 added >= ALL only) (Oracle `1`) | parse `= ALL`/`= ANY (subquery)` |
-| **F194** | INITCAP apostrophe | `o'brien` → "O'brien" (Oracle "O'Brien") | word-break on non-alphanumerics, not just spaces |
+| **F189** | ROWID / SESSIONTIMEZONE | pseudocolumns unsupported (must coexist with SQLite `rowid` — see F57 note) | expose ROWID + SESSIONTIMEZONE, dialect-aware |
+| **F194** | INITCAP apostrophe | `o'brien` → "O'brien" (Oracle "O'Brien") | word-break on non-alphanumerics |
 | **F195** | CONNECT BY LEVEL row-gen | `FROM dual CONNECT BY LEVEL <= n` → 1 row (Oracle n) | generate n rows |
 | **F196** | INTERSECT ALL | parse error (only DISTINCT parsed) (Oracle `1`) | parse INTERSECT ALL / MINUS ALL |
+| **F197** | REGEXP case-insensitive flag | match_param `'i'` ignored (`REGEXP_LIKE('abc','ABC','i')` → 0, Oracle 1) | honour the match_param flags |
+| **F198** | GROUP BY () | explicit empty/grand-total grouping → parse error (Oracle grand total) | parse GROUP BY () |
+| **F199** | aggregate-over-aggregate analytic | `SUM(COUNT(*)) OVER ()` → "cannot be evaluated as a scalar" (Oracle `2`) | support an analytic over an aggregate |
+| **F200** | TO_DATE DDD | `TO_DATE('2024-060','YYYY-DDD')` → NULL (Oracle 2024-02-29) | parse the day-of-year format |
+| **F201** | TRUNC(date,'IYYY') | not applied (Oracle 2024-01-01) | apply ISO-year truncation (companion F168) |
 
-> Found by two HR three-way mega-sweeps (67 + 57 queries). Excluded: diffs where
-> Oracle itself errors, boolean-literal casing, float last-digit noise, the
-> empty-string/NULL dialect family, default date/timestamp display, and windowed
-> MEDIAN/KEEP (false positives from nondeterministic FETCH ordering).
+> Found by three HR three-way mega-sweeps (67 + 57 + 44 queries). Excluded:
+> Oracle-also-errors, boolean casing, float last-digit noise, empty-string/NULL
+> dialect, default date/timestamp display, named-capture regex (engine superset),
+> and CROSS-JOIN/PIVOT diffs that would not reproduce minimally.
 
 ---
 
