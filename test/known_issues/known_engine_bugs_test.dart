@@ -700,4 +700,63 @@ void main() {
             'clause is a parse error ("Unexpected token after statement: '
             'NESTED"). Used by OE oc_cre.sql. See findings/FINDINGS.md F88.');
   });
+
+  // Oracle built-in function gaps found probing scalar/date/aggregate SQL.
+  // F89/F90 are silent correctness bugs (wrong answers); F91 is a parse gap;
+  // F92 groups missing functions.
+  group('open bugs (round 19 — Oracle function gaps)', () {
+    test('F89 · INSTR ignores its start-position and occurrence arguments',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // 'a' at positions 1 and 4; searching from position 2 must return 4.
+      await expectScalar(db, "SELECT INSTR('abcabc', 'a', 2) FROM t", 4);
+    },
+        skip: 'KNOWN ENGINE BUG: INSTR ignores its 3rd (start position) and 4th '
+            '(occurrence) arguments — it always returns the first-occurrence '
+            'position. Silent wrong answer. See findings/FINDINGS.md F89.');
+
+    test('F90 · TRUNC ignores its places argument (and crashes on dates)',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      await expectScalar(db, 'SELECT TRUNC(3.14159, 2) FROM t', 3.14);
+    },
+        skip: 'KNOWN ENGINE BUG: TRUNC(n, places) ignores the places argument '
+            '(returns the integer truncation); TRUNC(date) throws an internal '
+            'cast error. Silent wrong answer. See findings/FINDINGS.md F90.');
+
+    test('F91 · LISTAGG ... WITHIN GROUP (...) is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE s (v NUMBER)');
+      await db.execute('INSERT INTO s VALUES (10), (20), (30)');
+      await expectScalar(db,
+          "SELECT LISTAGG(v, ',') WITHIN GROUP (ORDER BY v) FROM s", '10,20,30');
+    },
+        skip: 'KNOWN ENGINE BUG: LISTAGG(expr, sep) WITHIN GROUP (ORDER BY …) '
+            'is a parse error ("Expected BY but got ("). See '
+            'findings/FINDINGS.md F91.');
+
+    test('F92 · common Oracle built-in functions are missing', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // TRANSLATE, ADD_MONTHS, MONTHS_BETWEEN, NEXT_DAY are all unknown.
+      await expectScalar(db, "SELECT TRANSLATE('abc', 'ab', 'xy') FROM t", 'xyc');
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(ADD_MONTHS(DATE '2020-01-31', 1), 'YYYY-MM-DD') FROM t",
+          '2020-02-29');
+      await expectScalar(db,
+          "SELECT MONTHS_BETWEEN(DATE '2020-03-01', DATE '2020-01-01') FROM t", 2);
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(NEXT_DAY(DATE '2020-01-01', 'MONDAY'), 'YYYY-MM-DD') FROM t",
+          '2020-01-06');
+    },
+        skip: 'KNOWN ENGINE BUG: TRANSLATE, ADD_MONTHS, MONTHS_BETWEEN, and '
+            'NEXT_DAY are unknown functions. See findings/FINDINGS.md F92.');
+  });
 }

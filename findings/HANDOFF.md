@@ -1,16 +1,18 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **3 open bugs (F86–F88)** —
-object-relational DDL gaps found probing the real OE schema (`oc_cre.sql`). Each
+For the engine author working in `dart-db-server`. **7 open bugs (F86–F92)** —
+OE object-relational DDL (F86–F88) and an Oracle function sweep (F89–F92). Each
 has a minimal repro and a skipped regression test that turns green when fixed.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 88 found, 85 fixed & verified, 3 open.**
+**Status: 92 found, 85 fixed & verified, 7 open.**
 
-## Current open bugs (F86–F88)
+## Current open bugs
+
+### OE object-relational DDL (F86–F88)
 
 | # | Bug | Repro → error | Fix |
 | --- | --- | --- | --- |
@@ -19,9 +21,19 @@ has a minimal repro and a skipped regression test that turns green when fixed.
 | **F88** | nested-table storage | `… ) NESTED TABLE items STORE AS items_nt` → `Unexpected token after statement: NESTED` | accept the `NESTED TABLE <col> STORE AS <name>` storage clause |
 
 > All three are used by OE `oc_cre.sql`: object tables (`OF category_typ`), REF
-> columns (`product_ref REF …`, `customer_ref REF …`), and nested-table storage.
-> OE depends on SQL*Plus `@` includes + `&` substitution, so it is probed
-> construct-by-construct rather than loaded whole.
+> columns (`product_ref REF …`), and nested-table storage.
+
+### Oracle function gaps (F89–F92)
+
+| # | Bug | Repro → wrong/err | Fix |
+| --- | --- | --- | --- |
+| **F89** | INSTR args ignored | `INSTR('abcabc','a',2)` → 1 (should be 4) | honor the 3rd (start) and 4th (occurrence) arguments |
+| **F90** | TRUNC places/date | `TRUNC(3.14159,2)` → 3 (should be 3.14); `TRUNC(date)` throws | honor the places arg; support `TRUNC(date[,fmt])` |
+| **F91** | LISTAGG parse | `LISTAGG(v, ',') WITHIN GROUP (ORDER BY v)` → `Expected BY but got "("` | parse the `WITHIN GROUP (ORDER BY …)` clause |
+| **F92** | missing functions | `TRANSLATE` / `ADD_MONTHS` / `MONTHS_BETWEEN` / `NEXT_DAY` → unknown function | add these built-ins |
+
+> **F89 and F90 are silent correctness bugs** (wrong answers, not errors) — the
+> highest priority. `ROUND(n, places)` already works; only `TRUNC` is wrong.
 
 ---
 

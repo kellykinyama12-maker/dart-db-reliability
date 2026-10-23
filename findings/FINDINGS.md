@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**88 bugs found; F1–F85 fixed & verified; F86–F88 open.** With a correct
+**92 bugs found; F1–F85 fixed & verified; F86–F92 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
@@ -39,6 +39,18 @@ more, still open:
   `product_ref REF product_information_typ`.
 - **F88** (open) — the `NESTED TABLE <col> STORE AS <name>` storage clause is a
   parse error (`Unexpected token after statement: NESTED`).
+
+A scalar/aggregate function sweep surfaced four more, still open:
+- **F89** (open, correctness) — `INSTR` ignores its 3rd (start position) and
+  4th (occurrence) arguments; it always returns the first-occurrence position
+  (`INSTR('abcabc','a',2)` → 1 instead of 4). Silent wrong answer.
+- **F90** (open, correctness) — `TRUNC(n, places)` ignores the places argument
+  (`TRUNC(3.14159,2)` → 3), and `TRUNC(date)` throws an internal cast error.
+- **F91** (open) — `LISTAGG(expr, sep) WITHIN GROUP (ORDER BY …)` is a parse
+  error (`Expected BY but got (`).
+- **F92** (open) — `TRANSLATE`, `ADD_MONTHS`, `MONTHS_BETWEEN`, and `NEXT_DAY`
+  are unknown functions. (`ROUND(n, places)`, `REPLACE`, `REGEXP_REPLACE/SUBSTR`,
+  `ASCII`, `SOUNDEX`, `DECODE`, `NVL2`, `GREATEST/LEAST`, `LAST_DAY` all work.)
 
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**
