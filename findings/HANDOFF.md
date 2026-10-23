@@ -1,15 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **5 open bugs** — one
-timestamp-interval bug (F119) and a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch
-(F120–F123), all adjudicated against real Oracle 23ai. F85–F118 were fixed async
-and are active regression guards.
+For the engine author working in `dart-db-server`. **11 open bugs** — a
+timestamp-interval bug (F119), a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch
+(F120–F123), and a stragglers batch (F124–F129), all adjudicated against real
+Oracle 23ai. F85–F118 were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 123 found, 118 fixed & verified, 5 open.**
+**Status: 129 found, 118 fixed & verified, 11 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -52,6 +52,20 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 > Already clean: PL/SQL exception handling, WHILE loops, cursor FOR loops,
 > CREATE FUNCTION + call, CURRENT_TIMESTAMP.
+
+### Stragglers — real-Oracle-adjudicated (F124–F129)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F124** | q-quote literals | `q'[it's a test]'` → parse error | parse `q'[…]'`/`q'{…}'` alternative quoting |
+| **F125** | RETURNING INTO | `INSERT … RETURNING v INTO x` → parse error | parse the RETURNING INTO clause |
+| **F126** | UNPIVOT | `FROM s UNPIVOT (val FOR col IN (a,b))` → parse error | support UNPIVOT (PIVOT already works) |
+| **F127** | PL/SQL collections/records | `TYPE … IS TABLE OF`/`IS RECORD`, BULK COLLECT, FORALL, %ROWTYPE fields | support PL/SQL composite types |
+| **F128** | ROWNUM in UPDATE | `UPDATE t SET v = ROWNUM` → rejected | allow ROWNUM outside a projection |
+| **F129** | advanced clauses | `MODEL` / `MATCH_RECOGNIZE` / `PIVOT XML` / flashback `VERSIONS` | rare/advanced; low priority |
+
+> F124–F128 are common real-world SQL/PL-SQL; **F129 is rare/advanced** and can
+> wait. Already clean: `INSERT … SELECT`, PIVOT.
 
 ---
 

@@ -1068,4 +1068,81 @@ void main() {
             'WITH"); TZ functions like FROM_TZ are also missing. See '
             'findings/FINDINGS.md F123.');
   });
+
+  // Oracle "straggler" gaps found vs real Oracle 23ai: q-quote literals,
+  // RETURNING INTO, UNPIVOT, PL/SQL collections/records, ROWNUM in UPDATE, and
+  // advanced query clauses. (INSERT … SELECT, PIVOT already work.)
+  group('open bugs (round 29 — Oracle stragglers, real-Oracle-adjudicated)',
+      () {
+    test('F124 · q-quote string literals are not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      await expectScalar(db, "SELECT q'[it's a test]' FROM d", "it's a test");
+    },
+        skip: 'KNOWN ENGINE BUG: the Oracle alternative-quoting literal '
+            "(q'[...]', q'{...}', etc.) is a parse error (\"Unexpected "
+            'character "["). See findings/FINDINGS.md F124.');
+
+    test('F125 · RETURNING ... INTO is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await expectOk(db,
+          'DECLARE x NUMBER; BEGIN INSERT INTO t VALUES (1, 99) '
+          'RETURNING v INTO x; END;');
+    },
+        skip: 'KNOWN ENGINE BUG: the DML RETURNING ... INTO clause is a parse '
+            'error ("Unexpected token after statement: INTO"). See '
+            'findings/FINDINGS.md F125.');
+
+    test('F126 · UNPIVOT is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE s (id NUMBER, a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO s VALUES (1, 10, 20)');
+      // PIVOT works; UNPIVOT (its inverse) does not.
+      await expectOk(db,
+          'SELECT * FROM s UNPIVOT (val FOR col IN (a, b))');
+    },
+        skip: 'KNOWN ENGINE BUG: UNPIVOT is a parse error ("Expected ) but got '
+            '("). See findings/FINDINGS.md F126.');
+
+    test('F127 · PL/SQL collection / record types are not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE src (n NUMBER)');
+      await db.execute('INSERT INTO src VALUES (5), (7)');
+      // TYPE … IS TABLE OF / RECORD, BULK COLLECT, FORALL, %ROWTYPE field access.
+      await expectOk(db,
+          'DECLARE TYPE nt IS TABLE OF NUMBER; a nt; '
+          'BEGIN SELECT n BULK COLLECT INTO a FROM src; END;');
+    },
+        skip: 'KNOWN ENGINE BUG: PL/SQL collection/record types (TYPE … IS '
+            'TABLE OF / IS RECORD), BULK COLLECT, FORALL, and %ROWTYPE field '
+            'access are unsupported ("Expected identifier but got IS"). See '
+            'findings/FINDINGS.md F127.');
+
+    test('F128 · ROWNUM in UPDATE ... SET is rejected', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 0), (2, 0)');
+      // Oracle assigns ROWNUM 1,2; the engine maps ROWNUM to ROW_NUMBER() and
+      // rejects it outside a projection.
+      await expectOk(db, 'UPDATE t SET v = ROWNUM');
+    },
+        skip: 'KNOWN ENGINE BUG: ROWNUM in UPDATE ... SET is rejected ("Window '
+            'function ROW_NUMBER() ... is only valid in a query projection"). '
+            'See findings/FINDINGS.md F128.');
+
+    test('F129 · advanced query clauses are unsupported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE s (y NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO s VALUES (2020, 100)');
+      // MODEL (also MATCH_RECOGNIZE, PIVOT XML, flashback VERSIONS BETWEEN).
+      await expectOk(db,
+          'SELECT y, v FROM s MODEL DIMENSION BY (y) MEASURES (v) '
+          'RULES (v[2021] = v[2020] * 2)');
+    },
+        skip: 'KNOWN ENGINE BUG: advanced query clauses — MODEL, '
+            'MATCH_RECOGNIZE, PIVOT XML, and flashback VERSIONS BETWEEN — are '
+            'unsupported (rare/advanced). See findings/FINDINGS.md F129.');
+  });
 }
