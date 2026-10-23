@@ -9,7 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**148 bugs found; 142 fixed & verified; 6 open (F143–F148).**
+**149 bugs found; 148 fixed & verified; 1 open (F149).**
+
+> **F149 (open) — `JSON_VALUE` over a BLOB column returns NULL** (confirmed vs
+> real Oracle 23ai). JSON_VALUE works over a VARCHAR2 JSON column but returns
+> NULL over a BLOB that holds JSON (the way CO stores `product_details` via
+> UTL_RAW.CAST_TO_RAW). The payload round-trips through UTL_RAW.CAST_TO_VARCHAR2,
+> so it is valid — JSON_VALUE just does not decode BLOB/RAW before parsing.
+> Oracle returns the value. Surfaced by the real CO three-way gate.
+>
+> **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
+> IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
+> 9-digit FF; F147 object constructor; F148 qualified object attribute
+> navigation. The real **customer_orders** schema now loads fully into both the
+> engine and real Oracle, and a 19-query three-way gate is green.
 
 > **F143 (open) — `MEDIAN` carries a binary floating-point residual.** F142 made
 > `SUM` exact-decimal, but `MEDIAN` still averages the two middle NUMBER values

@@ -92,6 +92,30 @@ const _shBattery = <String>[
   'SELECT ROUND(SUM(prod_list_price - prod_min_price), 2) FROM products',
 ];
 
+// Real customer_orders (CO) battery. Excludes JSON_VALUE over the BLOB
+// product_details column (F149 — engine returns NULL, Oracle returns the value).
+const _coBattery = <String>[
+  'SELECT COUNT(*) FROM customers',
+  'SELECT COUNT(*) FROM products',
+  'SELECT COUNT(*) FROM orders',
+  'SELECT COUNT(*) FROM order_items',
+  'SELECT COUNT(*) FROM inventory',
+  'SELECT COUNT(DISTINCT order_status) FROM orders',
+  'SELECT ROUND(SUM(unit_price * quantity), 2) FROM order_items',
+  'SELECT ROUND(AVG(unit_price), 2) FROM order_items',
+  'SELECT MAX(quantity) FROM order_items',
+  'SELECT COUNT(*) FROM orders o JOIN order_items i ON o.order_id = i.order_id',
+  "SELECT COUNT(*) FROM orders WHERE order_status = 'COMPLETE'",
+  'SELECT MAX(c) FROM (SELECT COUNT(*) c FROM order_items GROUP BY order_id)',
+  'SELECT COUNT(DISTINCT product_id) FROM order_items',
+  'SELECT SUM(product_inventory) FROM inventory',
+  'SELECT ROUND(AVG(unit_price), 2) FROM products',
+  "SELECT TO_CHAR(MIN(order_tms), 'YYYY-MM-DD') FROM orders",
+  "SELECT TO_CHAR(MAX(order_tms), 'YYYY-MM-DD') FROM orders",
+  'SELECT COUNT(*) FROM (SELECT customer_id, COUNT(*) FROM orders GROUP BY customer_id HAVING COUNT(*) > 1)',
+  'SELECT MAX(rk) FROM (SELECT RANK() OVER (ORDER BY COUNT(*) DESC) rk FROM orders GROUP BY store_id)',
+];
+
 void main() {
   test('HR real-data analytics match real Oracle 23ai', () async {
     final create = _f('human_resources/hr_create.sql');
@@ -208,4 +232,63 @@ void main() {
         .run(1521, [for (final q in _shBattery) {'sql': q, 'query': true}]);
     await _diff(db, _shBattery, oraRes);
   }, timeout: const Timeout(Duration(seconds: 90)));
+
+  test('CO (customer_orders) real-data analytics match real Oracle 23ai',
+      () async {
+    final create = _f('customer_orders/co_create.sql');
+    final populate = _f('customer_orders/co_populate.sql');
+    if (create == null || populate == null) {
+      markTestSkipped('Oracle CO dataset not present.');
+      return;
+    }
+    final bridge = await Oci8Bridge.probe();
+    if (bridge == null) {
+      markTestSkipped('oci8 / real Oracle unavailable.');
+      return;
+    }
+    final createUnits = splitOracleScript(create.readAsStringSync());
+    final populateUnits = splitOracleScript(populate.readAsStringSync());
+
+    final db = await Database.open(null);
+    for (final u in createUnits) {
+      try {
+        await db.execute(u);
+      } catch (_) {}
+    }
+    for (final u in populateUnits) {
+      try {
+        await db.execute(u);
+      } catch (_) {}
+    }
+
+    const coDrop = [
+      'DROP VIEW product_reviews',
+      'DROP VIEW product_orders',
+      'DROP TABLE order_items CASCADE CONSTRAINTS',
+      'DROP TABLE inventory CASCADE CONSTRAINTS',
+      'DROP TABLE shipments CASCADE CONSTRAINTS',
+      'DROP TABLE orders CASCADE CONSTRAINTS',
+      'DROP TABLE products CASCADE CONSTRAINTS',
+      'DROP TABLE stores CASCADE CONSTRAINTS',
+      'DROP TABLE customers CASCADE CONSTRAINTS',
+    ];
+    final loadStmts = <Map<String, Object?>>[
+      for (final d in coDrop)
+        {
+          'sql':
+              "BEGIN EXECUTE IMMEDIATE '$d'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+          'query': false
+        },
+      for (final u in createUnits) {'sql': u, 'query': false},
+      for (final u in populateUnits) {'sql': u, 'query': false},
+      {'sql': 'COMMIT', 'query': false},
+    ];
+    final loadRes = await bridge.run(1521, loadStmts);
+    expect(loadRes.where((r) => !r.ok && r.error != null).length, 0,
+        reason: 'real-Oracle CO load had failures');
+
+    final oraRes = await bridge
+        .run(1521, [for (final q in _coBattery) {'sql': q, 'query': true}]);
+    await _diff(db, _coBattery, oraRes);
+  }, timeout: const Timeout(Duration(seconds: 120)));
 }

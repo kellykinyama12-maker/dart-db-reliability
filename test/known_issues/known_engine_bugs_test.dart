@@ -1252,10 +1252,9 @@ void main() {
     });
   });
 
-  // Found by the strengthened SH gate: MEDIAN still carries binary residual
-  // (F142 fixed SUM, not MEDIAN). Real SH products MEDIAN = 31.99.
-  group('open bugs (round 36 — MEDIAN precision, real-Oracle-adjudicated)', () {
-    test('F143 · MEDIAN carries binary floating-point residual', () async {
+  // Was: MEDIAN carried a binary residual (F142 fixed SUM only). Fixed & verified.
+  group('formerly-open bug F143 (fixed & verified; MEDIAN precision)', () {
+    test('F143 · MEDIAN is exact decimal (no binary residual)', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v NUMBER(8,2))');
       await db.execute('INSERT INTO t VALUES (1.01), (1.02)');
@@ -1267,19 +1266,13 @@ void main() {
       final raw = r.rows.first.first;
       expect(raw.toString(), '1.015',
           reason: 'MEDIAN must be exact decimal like Oracle NUMBER, not binary');
-    },
-        skip: 'KNOWN ENGINE BUG: MEDIAN averages the two middle values in '
-            'binary floating point instead of exact decimal — '
-            'MEDIAN(1.01,1.02) returns 1.0150000000000001; real SH '
-            'MEDIAN(prod_list_price) returns 31.990000000000002 vs Oracle '
-            '31.99. F142 fixed SUM; MEDIAN remains. See findings/FINDINGS.md F143.');
+    });
   });
 
-  // Found finishing the real customer_orders (CO) load three-way (F140 UTL_RAW
-  // and F141 JSON landed, which unblocked reaching these). All three confirmed
-  // against real Oracle 23ai (Oracle accepts; engine rejects).
-  group('open bugs (round 37 — CO load blockers, real-Oracle-adjudicated)', () {
-    test('F144 · IS JSON check constraint breaks INSERT', () async {
+  // Found finishing the real customer_orders (CO) load three-way. All fixed &
+  // verified against real Oracle 23ai.
+  group('formerly-open bugs F144–F146 (fixed & verified; CO load blockers)', () {
+    test('F144 · IS JSON check constraint allows a valid INSERT', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE p (id NUMBER PRIMARY KEY, details BLOB)');
       await db.execute(
@@ -1290,30 +1283,21 @@ void main() {
           db,
           "INSERT INTO p (id, details) VALUES "
           "(1, UTL_RAW.CAST_TO_RAW('{\"colour\":\"white\"}'))");
-    },
-        skip: 'KNOWN ENGINE BUG: an IS JSON check constraint makes INSERT fail '
-            'with "Unknown column: json" — the check is evaluated as if "json" '
-            'were a column. Without the check the same insert succeeds. Real '
-            'Oracle accepts it. Blocks the real CO products load. '
-            'See findings/FINDINGS.md F144.');
+    });
 
-    test('F145 · JSON_TABLE in a view is a parse error', () async {
+    test('F145 · JSON_TABLE in a view works', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE p2 (id NUMBER, details BLOB)');
       // Oracle creates this product_reviews-style view (lateral JSON_TABLE +
-      // window); the engine throws "Unexpected token after statement: (".
+      // window); the engine now parses it too.
       await expectOk(db, '''CREATE OR REPLACE VIEW pr AS
         SELECT p.id, r.rating,
           ROUND(AVG(r.rating) OVER (PARTITION BY p.id), 2) avg_rating
         FROM p2 p,
           JSON_TABLE(p.details, '\$' COLUMNS (rating NUMBER PATH '\$.rating')) r''');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_TABLE in a CREATE VIEW (lateral join + '
-            'window) is a parse error ("Unexpected token after statement: ("). '
-            'Real Oracle creates the view. Blocks the real CO product_reviews '
-            'view. See findings/FINDINGS.md F145.');
+    });
 
-    test('F146 · TO_TIMESTAMP with 9-digit FF returns NULL', () async {
+    test('F146 · TO_TIMESTAMP parses 9-digit FF fractional seconds', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE o (id NUMBER, ts TIMESTAMP NOT NULL)');
       // Oracle parses the 9-digit fractional seconds; the engine returns NULL,
@@ -1322,19 +1306,13 @@ void main() {
           db,
           "INSERT INTO o VALUES (1, TO_TIMESTAMP("
           "'05-MAR-2019 09.24.19.123456789','DD-MON-YYYY HH24.MI.SS.FF'))");
-    },
-        skip: 'KNOWN ENGINE BUG: TO_TIMESTAMP with a 9-digit FF fractional-'
-            'seconds format returns NULL instead of the timestamp, so a NOT '
-            'NULL column rejects the row. Real Oracle parses it '
-            '(2019-03-05 09:24:19.123456789). Blocks the real CO orders load. '
-            'See findings/FINDINGS.md F146.');
+    });
   });
 
-  // Found probing the real order_entry (OE) object-relational schema: the engine
-  // ACCEPTS CREATE TYPE ... AS OBJECT / VARRAY / object columns, but the object
-  // DML/query semantics are missing. Both confirmed against real Oracle 23ai.
-  group('open bugs (round 38 — OE object types, real-Oracle-adjudicated)', () {
-    test('F147 · object-type constructor is not registered', () async {
+  // Found probing the real order_entry (OE) object-relational schema. Both
+  // fixed & verified against real Oracle 23ai.
+  group('formerly-open bugs F147–F148 (fixed & verified; OE object types)', () {
+    test('F147 · object-type constructor is registered', () async {
       final db = await openEngine();
       await db.execute(
           'CREATE TYPE addr_typ AS OBJECT (street VARCHAR2(40), city VARCHAR2(30))');
@@ -1344,14 +1322,9 @@ void main() {
       // succeeded.
       await expectOk(
           db, "INSERT INTO c VALUES (1, addr_typ('1 Main St','Austin'))");
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE TYPE ... AS OBJECT succeeds but the '
-            'default object constructor is not registered — INSERT using '
-            'addr_typ(...) fails with "Unknown function: ADDR_TYP". Real Oracle '
-            'inserts the row. Blocks the real OE object-relational load. '
-            'See findings/FINDINGS.md F147.');
+    });
 
-    test('F148 · qualified object-attribute navigation is a parse error',
+    test('F148 · qualified object-attribute navigation works',
         () async {
       final db = await openEngine();
       await db.execute(
@@ -1360,10 +1333,28 @@ void main() {
       // Oracle navigates object attributes via a table alias (c.addr.city); the
       // engine throws "Unexpected token after statement: ." at parse time.
       await expectOk(db, 'SELECT c.addr.city FROM c c');
+    });
+  });
+
+  // Found by the real customer_orders three-way gate: JSON_VALUE works over a
+  // VARCHAR2 JSON column but returns NULL over a BLOB that holds JSON (the way
+  // CO stores product_details). Confirmed against real Oracle 23ai.
+  group('open bugs (round 39 — JSON over BLOB, real-Oracle-adjudicated)', () {
+    test('F149 · JSON_VALUE over a BLOB column returns NULL', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE jb (id NUMBER, details BLOB)');
+      await db.execute(
+          "INSERT INTO jb VALUES (1, UTL_RAW.CAST_TO_RAW('{\"colour\":\"white\"}'))");
+      // The BLOB holds valid JSON text (UTL_RAW.CAST_TO_VARCHAR2 round-trips it);
+      // Oracle's JSON_VALUE decodes the BLOB and returns "white".
+      await expectScalar(
+          db, "SELECT JSON_VALUE(details, '\$.colour') FROM jb", 'white');
     },
-        skip: 'KNOWN ENGINE BUG: table-alias-qualified object attribute '
-            'navigation (SELECT c.addr.city FROM c c) is a parse error '
-            '("Unexpected token after statement: ."). Real Oracle returns the '
-            'attribute. See findings/FINDINGS.md F148.');
+        skip: 'KNOWN ENGINE BUG: JSON_VALUE over a BLOB column that holds JSON '
+            'returns NULL (it works over VARCHAR2). The BLOB round-trips via '
+            'UTL_RAW.CAST_TO_VARCHAR2, so the payload is valid — JSON_VALUE just '
+            'does not decode BLOB/RAW before parsing. Real Oracle returns '
+            '"white". Surfaced by the real CO products data (product_details is '
+            'a JSON BLOB). See findings/FINDINGS.md F149.');
   });
 }

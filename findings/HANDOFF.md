@@ -1,15 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F143–F148)**
-— the entire Oracle backlog through F142 is fixed and verified; strengthening
-the SH gate, finishing the real **customer_orders** load, and probing the
-**order_entry** object-relational schema surfaced six remaining gaps.
-Real HR + SH data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **1 open bug (F149)** — the
+entire Oracle backlog through F148 is fixed and verified; the new
+**customer_orders** real-data three-way gate is green except F149 (JSON_VALUE
+over a BLOB). Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F143–F148 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; only F149 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 148 found, 142 fixed & verified, 6 open (F143–F148).**
+**Status: 149 found, 148 fixed & verified, 1 open (F149).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,6 +33,21 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 `lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
+
+### JSON_VALUE over a BLOB — real-Oracle-adjudicated (F149)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F149** | JSON over BLOB | `JSON_VALUE(blob_col,'$.k')` → NULL when the BLOB holds JSON (works over VARCHAR2); Oracle returns the value | decode BLOB/RAW to text before JSON parsing |
+
+> Found by the new **customer_orders real-data three-way gate**
+> (`oracle_realdata_parity_test.dart`, 19 queries all green). CO stores
+> `product_details` as a JSON BLOB (via UTL_RAW.CAST_TO_RAW); the payload
+> round-trips through `UTL_RAW.CAST_TO_VARCHAR2`, so it is valid JSON —
+> `JSON_VALUE` just does not decode the BLOB. The single query excluded from the
+> green gate.
+
+---
 
 ### MEDIAN decimal precision — real-Oracle-adjudicated (F143)
 
