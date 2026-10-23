@@ -9,20 +9,27 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**78 bugs found; F1–F78 fixed & verified; 0 open.** Loading the real Oracle HR
-**data** (`hr_populate.sql`) drove the last wave of fixes (F75–F78): the schema
-now loads *and* its rows load — 100 employees with `TO_DATE` hire-dates, 26
-departments, 19 jobs, 4 regions — through the circular-FK disable/load/enable
-flow:
-- **F75** *(fixed & verified)* — `TO_DATE(text, fmt)` is supported.
-- **F76** *(fixed & verified)* — `ALTER TABLE ENABLE/DISABLE CONSTRAINT` (the
-  circular-FK deferred-load flow).
-- **F77** *(fixed & verified)* — `ALTER SESSION SET ...` is accepted.
-- **F78** *(fixed & verified)* — `COMMIT` with no active transaction is a no-op.
+**84 bugs found; F1–F78 fixed & verified; F79–F84 open.** With a correct
+Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
+**data** now loads completely — all 107 employees, 27 departments, 25 countries,
+23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
+deferred flow, and anonymous PL/SQL blocks. Pushing the loader onto the SH
+schema/data and OE surfaced six more Oracle DDL gaps:
+- **F79** — a schema-qualified table reference in a FK (`REFERENCES
+  schema.table`) is a parse error.
+- **F80** — `ALTER TABLE ... MODIFY` (constraint `DISABLE/ENABLE` or a column)
+  is a parse error; used heavily in the SH bulk-load (31 statements).
+- **F81** — `CREATE BITMAP INDEX` is not supported (treat as a regular index).
+- **F82** — a trailing storage clause on `CREATE INDEX` (`NOLOGGING`, `LOCAL`)
+  is a parse error.
+- **F83** — `CREATE DIMENSION` (Oracle OLAP) is not supported.
+- **F84** — the PL/SQL named-argument syntax (`arg => value`, e.g.
+  `dbms_stats.gather_schema_stats`) is a parse error.
 
-> **Oracle parity gates GREEN:** HR schema + SH schema + HR **data**
-> (`oracle_hr_data_parity_test.dart`, loads real rows). All auto-skip only when
-> the dataset is absent. Anonymous PL/SQL blocks execute.
+> **Parity gates GREEN:** HR schema, SH schema, and HR **data** (full dataset,
+> `oracle_hr_data_parity_test.dart`). SH *fact* data (sales/costs/customers)
+> loads via SQL*Loader CSVs — out of the harness's SQL scope; its lookup tables
+> (products/channels/countries) load via INSERTs.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

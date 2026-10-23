@@ -52,14 +52,15 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 78 found, 78 fixed & verified, 0 open.**
-  F1–F78 are all closed; the suite runs live with nothing skipped. The real
-  Oracle HR schema **and data** load (100 employees via `TO_DATE` + deferred
-  FKs), and the SH schema loads. The Oracle wire path is clean three-way vs
-  real `oci8`; MySQL wire and robustness are clean.
-- **Oracle parity gates:** HR schema, SH schema, and HR **data**
-  (`oracle_hr_parity_test.dart`, `oracle_sh_parity_test.dart`,
-  `oracle_hr_data_parity_test.dart`) all run live/green; auto-skip if absent.
+- **Bug status (2026-10-23): 84 found, 78 fixed & verified, 6 open.**
+  F1–F78 are closed. **Open (F79–F84):** Oracle SH/OLAP DDL — schema-qualified
+  FK refs, `ALTER TABLE MODIFY`, `CREATE BITMAP INDEX`, `CREATE INDEX` storage
+  clauses, `CREATE DIMENSION`, and PL/SQL named-arg `=>`. The real HR schema +
+  **full data** load (107 employees via `TO_DATE` + deferred FKs). The Oracle
+  wire path is clean three-way vs real `oci8`; MySQL wire and robustness clean.
+- **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
+  run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
+  `lib/src/oracle_script.dart`.
 - **Oracle triple-threat match** (`test/wire/oracle_triple_threat_test.dart`,
   per `../dart-db-server/doc/oracle-triple-threat-testing.md`, thin client
   dropped): every case is adjudicated by three Oracle participants — Gun A the

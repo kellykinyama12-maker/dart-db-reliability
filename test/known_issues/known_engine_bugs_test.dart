@@ -595,4 +595,73 @@ void main() {
       await expectOk(db, 'COMMIT');
     });
   });
+
+  // Gaps found loading the real Oracle SH schema/data and OE: bulk-load and
+  // OLAP DDL. (SH fact tables load via SQL*Loader CSVs, out of harness scope.)
+  group('open bugs (round 16 — Oracle SH / OLAP DDL)', () {
+    test('F79 · schema-qualified table reference in a FK is not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE p (id NUMBER PRIMARY KEY)');
+      await db.execute('CREATE TABLE c (pid NUMBER)');
+      // Oracle qualifies FK targets by owner: REFERENCES schema.table (col).
+      await expectOk(db,
+          'ALTER TABLE c ADD (CONSTRAINT fk FOREIGN KEY (pid) REFERENCES hr.p (id))');
+    },
+        skip: 'KNOWN ENGINE BUG: a schema-qualified table reference in a FK '
+            '(REFERENCES schema.table) is a parse error ("Expected ) but got '
+            '."). See findings/FINDINGS.md F79.');
+
+    test('F80 · ALTER TABLE ... MODIFY is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, CONSTRAINT pk PRIMARY KEY (id))');
+      // Oracle bulk-load pattern: MODIFY CONSTRAINT ... DISABLE/ENABLE; also
+      // MODIFY (col type) for column changes.
+      await expectOk(db, 'ALTER TABLE t MODIFY CONSTRAINT pk DISABLE NOVALIDATE');
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE t MODIFY (CONSTRAINT ... DISABLE/'
+            'ENABLE, or column) is a parse error ("Expected ADD but got '
+            'MODIFY"). Used heavily in the SH bulk-load. See '
+            'findings/FINDINGS.md F80.');
+
+    test('F81 · CREATE BITMAP INDEX is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, g NUMBER)');
+      // Can be accepted as a regular index.
+      await expectOk(db, 'CREATE BITMAP INDEX ix ON t (g)');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE BITMAP INDEX is not supported '
+            '("Expected TABLE, INDEX, VIEW or TRIGGER"). Treat as a regular '
+            'index. See findings/FINDINGS.md F81.');
+
+    test('F82 · CREATE INDEX trailing storage clause (NOLOGGING) not accepted',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, g NUMBER)');
+      await expectOk(db, 'CREATE INDEX ix ON t (g) NOLOGGING');
+    },
+        skip: 'KNOWN ENGINE BUG: a trailing storage clause on CREATE INDEX '
+            '(e.g. NOLOGGING, LOCAL) is a parse error ("Unexpected token after '
+            'statement: NOLOGGING"). Should be accepted/ignored. See '
+            'findings/FINDINGS.md F82.');
+
+    test('F83 · CREATE DIMENSION is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, city VARCHAR2(10))');
+      await expectOk(db, 'CREATE DIMENSION d LEVEL c IS (t.id)');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE DIMENSION (Oracle OLAP) is not supported '
+            '("Expected TABLE, INDEX, VIEW or TRIGGER"). Accept/ignore. See '
+            'findings/FINDINGS.md F83.');
+
+    test('F84 · PL/SQL named-argument (=>) syntax is not parsed', () async {
+      final db = await openEngine();
+      // Oracle scripts call packages with named args; dbms_stats is a no-op.
+      await expectOk(db,
+          "BEGIN dbms_stats.gather_schema_stats('SH', cascade => TRUE); END;");
+    },
+        skip: 'KNOWN ENGINE BUG: the PL/SQL named-argument syntax (arg => value) '
+            'is a parse error ("Unexpected token >"); dbms_stats-style package '
+            'calls should also be accepted (no-op). See findings/FINDINGS.md F84.');
+  });
 }

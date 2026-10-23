@@ -1,16 +1,32 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the Oracle
-data-load batch (F75–F78) is fixed and verified. The full suite runs live with
-nothing skipped; the real Oracle HR schema **and its data** now load.
+For the engine author working in `dart-db-server`. **6 open bugs (F79–F84)** —
+Oracle SH/OLAP DDL gaps found loading the real SH schema/data and OE. Each has
+a minimal repro and a skipped regression test that turns green when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 78 found, 78 fixed & verified, 0 open.**
+**Status: 84 found, 78 fixed & verified, 6 open.** The real HR schema **and full
+data** load (107 employees); these six finish SH/OE schema parity.
 
-> **Not yet filed (observations):** schema-qualified FK references
-> (`REFERENCES schema.table`) parse-error. (`COMMIT`-no-tx is now F78, fixed.)
+## Current open bugs (F79–F84)
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F80** | ALTER TABLE MODIFY | `ALTER TABLE t MODIFY CONSTRAINT pk DISABLE NOVALIDATE` → `Expected ADD but got MODIFY` | support MODIFY (constraint state + column); 31× in SH bulk-load |
+| **F81** | CREATE BITMAP INDEX | `CREATE BITMAP INDEX ix ON t (g)` → `Expected TABLE, INDEX, VIEW or TRIGGER` | treat as a regular index |
+| **F82** | CREATE INDEX storage clause | `CREATE INDEX ix ON t (g) NOLOGGING` → `Unexpected token after statement: NOLOGGING` | accept/ignore trailing `NOLOGGING`/`LOCAL` |
+| **F79** | schema-qualified FK ref | `… REFERENCES hr.p (id)` → `Expected ) but got "."` | parse+resolve `schema.table` |
+| **F83** | CREATE DIMENSION | `CREATE DIMENSION d LEVEL c IS (t.id)` → unsupported | accept/ignore (OLAP) |
+| **F84** | PL/SQL named-arg `=>` | `dbms_stats.gather_schema_stats('SH', cascade => TRUE)` → `Unexpected token >` | parse `arg => value`; accept dbms_stats no-op |
+
+> **F80** is the highest value (the SH bulk-load constraint-toggling pattern).
+> F81/F82/F83 are accept/parse-and-ignore. SH *fact* data loads via SQL*Loader
+> CSVs (out of scope); the lookup tables load via INSERTs.
+
+---
 
 ## Resolved batch (F75–F78) — ✅ fixed 2026-10-23 (Oracle data load)
 

@@ -5,6 +5,7 @@ export 'src/diff_oracle.dart';
 export 'src/engine.dart';
 export 'src/normalize.dart';
 export 'src/oci8_bridge.dart';
+export 'src/oracle_script.dart';
 export 'src/sample_data.dart';
 export 'src/sql_fuzzer.dart';
 export 'src/workload.dart';
