@@ -2403,4 +2403,58 @@ void main() {
             'over real orders returns 1950 instead of 7. Real Oracle returns 7. '
             'See findings/FINDINGS.md F248.');
   });
+
+  // Found by a grab-bag NLS/misc three-way sweep (confirmed vs real Oracle 23ai).
+  group('open bugs (round 62 — NLS / comparison, real-Oracle-adjudicated)', () {
+    test('F249 · NLS_NUMERIC_CHARACTERS parameter in TO_CHAR', () async {
+      final db = await openEngine();
+      // The 3rd arg swaps the group/decimal characters (dot group, comma decimal).
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(1234.56,'FM9G999D99','NLS_NUMERIC_CHARACTERS='',.''') FROM dual",
+          '1.234,56');
+    },
+        skip: 'KNOWN ENGINE BUG: the NLS_NUMERIC_CHARACTERS parameter (3rd arg) '
+            'of TO_CHAR is ignored \u2014 it uses the default separators (1,234.56) '
+            'instead of 1.234,56. See findings/FINDINGS.md F249.');
+
+    test('F250 · = ANY (value list)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v VARCHAR2(8))');
+      await db.execute("INSERT INTO t VALUES ('King'), ('Kochhar'), ('X')");
+      // = ANY over an expression list is equivalent to IN: 2 matches.
+      await expectScalar(
+          db, "SELECT COUNT(*) FROM t WHERE v = ANY ('King', 'Kochhar')", 2);
+    },
+        skip: 'KNOWN ENGINE BUG: "= ANY (value-list)" (a non-subquery list) is a '
+            'parse error ("Expected SELECT but got ..."). Real Oracle treats it '
+            'like IN (2 matches). See findings/FINDINGS.md F250.');
+
+    test('F251 · row/tuple = (subquery)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 10), (2, 20)');
+      // The tuple equals the single-row subquery for one row.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM t WHERE (a, b) = (SELECT 1, 10 FROM dual)',
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: a row/tuple comparison against a subquery '
+            '((a,b) = (SELECT \u2026)) never matches \u2014 returns 0 instead of 1. '
+            '(F179 fixed the tuple IN-list form.) See findings/FINDINGS.md F251.');
+
+    test('F252 · EXTRACT field from an INTERVAL literal', () async {
+      final db = await openEngine();
+      // 2 years 6 months — the YEAR field is 2.
+      await expectScalar(
+          db,
+          "SELECT EXTRACT(YEAR FROM INTERVAL '2-6' YEAR TO MONTH) FROM dual",
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM an INTERVAL literal) returns '
+            'NULL \u2014 EXTRACT(YEAR FROM INTERVAL \'2-6\' YEAR TO MONTH) returns NULL '
+            'instead of 2. (F223 covered interval columns.) '
+            'See findings/FINDINGS.md F252.');
+  });
 }
