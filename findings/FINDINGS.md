@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**95 bugs found; F1–F85 fixed & verified; F86–F95 open.** With a correct
+**99 bugs found; F1–F85 fixed & verified; F86–F99 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
@@ -67,6 +67,24 @@ open:
 > rejected by the engine (`Expected = but got "."`) but **accepted by real
 > Oracle** (verified via gvenzl/oracle-free 23ai: qualified SET → 99, unqualified
 > SET → 77). Unqualified `SET v = s.v` works in the engine.
+
+A **three-way** scalar sweep (engine vs SQLite vs real Oracle 23ai) surfaced
+four more universal bugs — each wrong in *both* references or crashing, so not
+dialect differences:
+- **F96** (open, correctness) — `MOD(-10, 3)` returns 2; both SQLite and Oracle
+  return -1 (result follows the dividend sign).
+- **F97** (open, correctness) — `GREATEST(1,NULL,3)`→3 and `LEAST(1,NULL,3)`→1;
+  both SQLite and Oracle return NULL when any argument is NULL.
+- **F98** (open, crash) — the 2-argument `REPLACE(s, sub)` throws an internal
+  Dart `RangeError` instead of removing the substring (Oracle → `acac`).
+- **F99** (open) — the ANSI `TRIM(chars FROM string)` form (and LEADING/
+  TRAILING/BOTH) is a parse error; Oracle → `ab`.
+
+> **Oracle-only dialect/feature differences (NOT filed):** empty-string IS NULL
+> (`LENGTH('')`, `NVL('',…)`, `''` concatenation, `'' IS NULL` — the D7 stance),
+> `SUBSTR(s,0,n)` treating 0 as 1 (engine matches SQLite), `DATE` literal +/-
+> arithmetic, `TO_NUMBER` with a format model, and `REMAINDER`. These diverge
+> from Oracle but match SQLite or are documented dialect choices.
 
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**

@@ -822,4 +822,55 @@ void main() {
             'gvenzl/oracle-free 23ai). Unqualified SET works. See '
             'findings/FINDINGS.md F95.');
   });
+
+  // Scalar-semantics bugs adjudicated THREE-WAY (engine vs SQLite vs real
+  // Oracle 23ai): each is wrong in BOTH references or crashes, so these are
+  // universal bugs, not dialect differences.
+  group('open bugs (round 22 — scalar semantics, three-way adjudicated)', () {
+    test('F96 · MOD with a negative dividend returns the wrong sign', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // SQLite (-10 % 3) and Oracle MOD(-10,3) both give -1; engine gives 2.
+      await expectScalar(db, 'SELECT MOD(-10, 3) FROM t', -1);
+    },
+        skip: 'KNOWN ENGINE BUG: MOD(-10, 3) returns 2 but both SQLite and real '
+            'Oracle return -1 (result follows the dividend sign). Silent wrong '
+            'answer. See findings/FINDINGS.md F96.');
+
+    test('F97 · GREATEST/LEAST ignore NULL arguments', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Both SQLite max()/min() and Oracle GREATEST/LEAST return NULL when any
+      // argument is NULL; the engine returns the max/min of the non-nulls.
+      await expectScalar(db, 'SELECT GREATEST(1, NULL, 3) FROM t', null);
+      await expectScalar(db, 'SELECT LEAST(1, NULL, 3) FROM t', null);
+    },
+        skip: 'KNOWN ENGINE BUG: GREATEST(1,NULL,3) returns 3 and LEAST(1,NULL,3) '
+            'returns 1, but both SQLite and real Oracle return NULL when any arg '
+            'is NULL. Silent wrong answer. See findings/FINDINGS.md F97.');
+
+    test('F98 · 2-argument REPLACE throws an internal RangeError', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Oracle REPLACE(s, sub) removes sub; the engine throws a Dart RangeError.
+      await expectScalar(db, "SELECT REPLACE('abcabc', 'b') FROM t", 'acac');
+    },
+        skip: 'KNOWN ENGINE BUG: the 2-argument REPLACE(s, sub) throws an '
+            'internal RangeError instead of removing the substring (real Oracle '
+            'returns "acac"). See findings/FINDINGS.md F98.');
+
+    test('F99 · ANSI TRIM(chars FROM string) syntax is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // ANSI/Oracle/MySQL: TRIM([LEADING|TRAILING|BOTH] c FROM s).
+      await expectScalar(db, "SELECT TRIM('_' FROM '_ab_') FROM t", 'ab');
+    },
+        skip: 'KNOWN ENGINE BUG: the ANSI TRIM(chars FROM string) form (and '
+            'LEADING/TRAILING/BOTH) is a parse error ("Expected ) but got '
+            '"FROM"). Real Oracle returns "ab". See findings/FINDINGS.md F99.');
+  });
 }

@@ -1,16 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **10 open bugs (F86–F95)** —
+For the engine author working in `dart-db-server`. **14 open bugs (F86–F99)** —
 OE object-relational DDL (F86–F88), an Oracle function sweep (F89–F92), an
-advanced-SQL sweep (F93–F94), and a real-Oracle-adjudicated MERGE gap (F95).
-Each has a minimal repro and a skipped regression test that turns green when
-fixed.
+advanced-SQL sweep (F93–F94), a real-Oracle-adjudicated MERGE gap (F95), and a
+three-way scalar sweep vs SQLite + real Oracle (F96–F99). Each has a minimal
+repro and a skipped regression test that turns green when fixed.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 95 found, 85 fixed & verified, 10 open.**
+**Status: 99 found, 85 fixed & verified, 14 open.**
 
 ## Current open bugs
 
@@ -57,6 +57,22 @@ fixed.
 > `SET t.v = s.v` succeeds there (result 99), as does unqualified `SET v = s.v`
 > (77). The engine accepts only the unqualified form. Not a dialect difference —
 > a real gap.
+
+### Scalar semantics — three-way adjudicated (F96–F99)
+
+Each is wrong in **both** SQLite and real Oracle (or crashes), so universal —
+not a dialect difference.
+
+| # | Bug | engine → SQLite / Oracle | Fix |
+| --- | --- | --- | --- |
+| **F96** | MOD negative sign | `MOD(-10,3)` → 2, both refs → -1 | result should follow the dividend sign |
+| **F97** | GREATEST/LEAST NULL | `GREATEST(1,NULL,3)` → 3, both refs → NULL | return NULL when any arg is NULL |
+| **F98** | 2-arg REPLACE crash | `REPLACE('abcabc','b')` → Dart RangeError, Oracle → `acac` | treat the 2-arg form as removing the substring |
+| **F99** | ANSI TRIM FROM | `TRIM('_' FROM '_ab_')` → parse error, Oracle → `ab` | parse `TRIM([LEADING|TRAILING|BOTH] c FROM s)` |
+
+> **F96 and F97 are silent correctness bugs** (wrong answers); **F98** is an
+> internal crash. These were caught by a new three-way differential (engine vs
+> SQLite vs real Oracle), which I can re-run to adjudicate future ambiguities.
 
 ---
 
