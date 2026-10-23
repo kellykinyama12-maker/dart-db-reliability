@@ -1329,4 +1329,41 @@ void main() {
             '(2019-03-05 09:24:19.123456789). Blocks the real CO orders load. '
             'See findings/FINDINGS.md F146.');
   });
+
+  // Found probing the real order_entry (OE) object-relational schema: the engine
+  // ACCEPTS CREATE TYPE ... AS OBJECT / VARRAY / object columns, but the object
+  // DML/query semantics are missing. Both confirmed against real Oracle 23ai.
+  group('open bugs (round 38 — OE object types, real-Oracle-adjudicated)', () {
+    test('F147 · object-type constructor is not registered', () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE TYPE addr_typ AS OBJECT (street VARCHAR2(40), city VARCHAR2(30))');
+      await db.execute('CREATE TABLE c (id NUMBER, addr addr_typ)');
+      // Oracle registers a default constructor for the object type; the engine
+      // throws "Unknown function: ADDR_TYP" even though the CREATE TYPE above
+      // succeeded.
+      await expectOk(
+          db, "INSERT INTO c VALUES (1, addr_typ('1 Main St','Austin'))");
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE TYPE ... AS OBJECT succeeds but the '
+            'default object constructor is not registered — INSERT using '
+            'addr_typ(...) fails with "Unknown function: ADDR_TYP". Real Oracle '
+            'inserts the row. Blocks the real OE object-relational load. '
+            'See findings/FINDINGS.md F147.');
+
+    test('F148 · qualified object-attribute navigation is a parse error',
+        () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE TYPE addr_typ AS OBJECT (street VARCHAR2(40), city VARCHAR2(30))');
+      await db.execute('CREATE TABLE c (id NUMBER, addr addr_typ)');
+      // Oracle navigates object attributes via a table alias (c.addr.city); the
+      // engine throws "Unexpected token after statement: ." at parse time.
+      await expectOk(db, 'SELECT c.addr.city FROM c c');
+    },
+        skip: 'KNOWN ENGINE BUG: table-alias-qualified object attribute '
+            'navigation (SELECT c.addr.city FROM c c) is a parse error '
+            '("Unexpected token after statement: ."). Real Oracle returns the '
+            'attribute. See findings/FINDINGS.md F148.');
+  });
 }

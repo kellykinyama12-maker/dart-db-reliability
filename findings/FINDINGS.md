@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**146 bugs found; 142 fixed & verified; 4 open (F143–F146).**
+**148 bugs found; 142 fixed & verified; 6 open (F143–F148).**
 
 > **F143 (open) — `MEDIAN` carries a binary floating-point residual.** F142 made
 > `SUM` exact-decimal, but `MEDIAN` still averages the two middle NUMBER values
@@ -28,6 +28,15 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 > seconds format returns NULL, so a NOT NULL column rejects the row (Oracle
 > parses `2019-03-05 09:24:19.123456789`) — blocks the CO orders load (cascading
 > FK failures into order_items/inventory).
+>
+> **F147–F148 (open) — order_entry object-type semantics** (confirmed vs real
+> Oracle 23ai). The engine parses `CREATE TYPE … AS OBJECT`/`VARRAY`/`TABLE OF`
+> and object/`XMLType` columns, but: **F147** the default object constructor is
+> not registered (`INSERT … addr_typ('…','…')` → "Unknown function: ADDR_TYP";
+> Oracle inserts the row); **F148** table-alias-qualified attribute navigation
+> (`SELECT c.addr.city FROM c c`) is a parse error (Oracle returns the value).
+> OE's `@&`-include/`DEFINE` SQL*Plus loader + SQL*Loader `.ctl`/`.dat`/`.dmp`
+> data remain out of scope (like product_media).
 
 > **Dataset coverage (honest):** HR fully loaded + 25-query three-way gate. SH
 > lookup data three-way gate (19 queries incl. exact-decimal SUM; raw MEDIAN

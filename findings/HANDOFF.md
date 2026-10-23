@@ -1,15 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **4 open bugs (F143–F146)**
+For the engine author working in `dart-db-server`. **6 open bugs (F143–F148)**
 — the entire Oracle backlog through F142 is fixed and verified; strengthening
-the SH gate and finishing the real **customer_orders** load surfaced four
-remaining gaps (one decimal-precision, three CO load blockers).
+the SH gate, finishing the real **customer_orders** load, and probing the
+**order_entry** object-relational schema surfaced six remaining gaps.
 Real HR + SH data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F143–F146 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F143–F148 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 146 found, 142 fixed & verified, 4 open (F143–F146).**
+**Status: 148 found, 142 fixed & verified, 6 open (F143–F148).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -62,6 +62,20 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 > by F145, and **orders/order_items/inventory** by F146 (orders rows get a NULL
 > timestamp, cascading FK failures). Fixing these three should let the whole CO
 > schema load for a full three-way gate.
+
+### order_entry object types — real-Oracle-adjudicated (F147–F148)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F147** | object constructor | `CREATE TYPE … AS OBJECT` succeeds, but `INSERT … addr_typ('…','…')` → "Unknown function: ADDR_TYP" (Oracle inserts) | register the default object-type constructor |
+| **F148** | attribute navigation | `SELECT c.addr.city FROM c c` → parse error (Oracle returns the attribute) | parse table-alias-qualified object attribute paths |
+
+> Found probing the real **order_entry** (OE) object-relational schema. The
+> engine already parses `CREATE TYPE … AS OBJECT` / `VARRAY` / `TABLE OF` and
+> object/`XMLType` columns, but the object DML/query semantics are missing. OE
+> also uses `@&`-include + `DEFINE &1` SQL*Plus substitution and SQL*Loader
+> `.ctl`/`.dat` + a `.dmp` for data — those loader mechanics remain out of scope
+> (like product_media). F147–F148 are the SQL-level object-type gaps worth fixing.
 
 ---
 
