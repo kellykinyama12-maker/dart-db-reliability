@@ -9,19 +9,18 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**217 bugs found; 214 fixed & verified; 3 open (F215–F217).**
+**234 bugs found; 223 fixed & verified; 11 open (F224–F234).**
 
-> **Open (confirmed vs real Oracle 23ai):** F215 row-level triggers don't fire
-> (BEFORE UPDATE / AFTER INSERT bodies, PL/SQL IF/RAISE); F216 INSTEAD OF
-> triggers on views unsupported; F217 `DEFAULT <seq>.NEXTVAL` column default
-> rejected.
+> **Open (confirmed vs real Oracle 23ai):** F224 multi-column UPDATE subquery;
+> F225 MATCH_RECOGNIZE; F226 recursive WITH CYCLE/SEARCH; F227 TABLE() unnest;
+> F228 PIVOT XML; F229 LATERAL; F230 CROSS/OUTER APPLY; F231 SYS_CONTEXT/USERENV;
+> F232 XMLTABLE PASSING; F233 JSON dot-notation; F234 default NULLS ordering
+> (engine uses SQLite NULL-smallest; Oracle NULL-greatest).
 >
-> From two **DML/DDL-effects** three-way sweeps — 29/33 cases matched real Oracle
-> (MERGE, constraints, IDENTITY, sequences+CURRVAL, correlated DML, conditional
-> INSERT ALL, virtual columns). The savepoint/rollback diff was a bridge
-> auto-commit artifact, not an engine bug.
->
-> **Drained:** F214 (INSERT ALL multi-table insert) — fixed & verified.
+> Surfaced by complex-query, data-type-fidelity, and advanced-SQL three-way
+> sweeps. Drained this session: F215–F223 (triggers, INSTEAD OF, DEFAULT seq,
+> LAG/LEAD, GROUPING, PIVOT, CHAR padding, || NULL, EXTRACT interval) — all
+> fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

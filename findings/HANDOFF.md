@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **3 open bugs** (F215–F217)
-— everything else through F214 is fixed and verified. Two DML/DDL-effects
-three-way sweeps surfaced these. Real HR + SH + CO data load and match real
-Oracle 23ai.
+For the engine author working in `dart-db-server`. **11 open bugs** (F224–F234)
+— everything else through F223 is fixed and verified. Complex-query, data-type,
+and advanced-SQL three-way sweeps surfaced these. Real HR + SH + CO data load
+and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F215–F217 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F224–F234 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 217 found, 214 fixed & verified, 3 open (F215–F217).**
+**Status: 234 found, 223 fixed & verified, 11 open (F224–F234).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,20 +34,25 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### DML/DDL effects — real-Oracle-adjudicated (F215–F217)
+### Complex-query / data-type / advanced-SQL — real-Oracle-adjudicated (F224–F234)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F215** | row-level triggers | BEFORE UPDATE FOR EACH ROW parses but never fires; AFTER INSERT with `:NEW.col` body is a parse error; PL/SQL IF/RAISE in a trigger unsupported | execute row-level triggers + their PL/SQL bodies |
-| **F216** | INSTEAD OF trigger | view insert → "No such table" (view not insertable; trigger body parse error) (Oracle redirects, base v=50) | support INSTEAD OF triggers on views |
-| **F217** | DEFAULT seq.NEXTVAL | `DEFAULT <seq>.NEXTVAL` rejected at CREATE TABLE ("DEFAULT must be a literal") (Oracle id=1) | allow a sequence NEXTVAL as a column default |
+| **F224** | multi-column UPDATE | `SET (a,b) = (SELECT …)` → parse error (Oracle a+b=12) | parse the column-list = subquery UPDATE |
+| **F225** | MATCH_RECOGNIZE | parse error (Oracle 1) | row pattern matching |
+| **F226** | recursive WITH CYCLE/SEARCH | parse error (Oracle 4/3) | parse the CYCLE and SEARCH clauses |
+| **F227** | TABLE() collection | `TABLE(coll)` unnest + COLUMN_VALUE → parse error (Oracle 3) | collection unnesting |
+| **F228** | PIVOT XML | parse error (Oracle 2) | PIVOT XML |
+| **F229** | LATERAL | inline view parse error (Oracle 106) | LATERAL inline views |
+| **F230** | CROSS/OUTER APPLY | parse error (Oracle 2/3) | APPLY join |
+| **F231** | SYS_CONTEXT/USERENV | missing (Oracle 1) | session-context functions |
+| **F232** | XMLTABLE PASSING | parse error (Oracle 2) | XMLTABLE with a PASSING clause |
+| **F233** | JSON dot-notation | `jt.col.key.string()` → parse error (Oracle `x`) | simplified JSON access |
+| **F234** | NULLS ordering default | ORDER BY DESC returns 2, not NULL — engine uses SQLite NULL ordering (NULL smallest), Oracle NULL greatest | default NULLS LAST (ASC) / FIRST (DESC) |
 
-> Found by two DML/DDL-effects three-way sweeps — **29/33 cases matched real
-> Oracle** (MERGE incl. delete-clause, CHECK multi-col, UNIQUE, FK ON DELETE
-> CASCADE/SET NULL, IDENTITY ALWAYS/BY DEFAULT, sequences incl. CURRVAL,
-> correlated/subquery UPDATE+DELETE, conditional INSERT ALL, virtual columns).
-> The savepoint/rollback diff was a harness artifact (the oci8 bridge auto-
-> commits each statement), not an engine bug.
+> Found by complex-composite-query, data-type-fidelity, and two advanced-SQL
+> three-way sweeps. F234 (NULLS ordering) is the most impactful — it changes
+> ORDER BY results whenever NULLs are present.
 
 ---
 
