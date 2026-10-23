@@ -644,4 +644,23 @@ void main() {
           "BEGIN dbms_stats.gather_schema_stats('SH', cascade => TRUE); END;");
     });
   });
+
+  // Gap found loading the real Oracle SH schema: the fact materialized views
+  // are indexed by the populate script, but CREATE INDEX on a materialized
+  // view is rejected even though the MV is queryable.
+  group('open bugs (round 17 — materialized view indexing)', () {
+    test('F85 · CREATE INDEX on a materialized view is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE base (id NUMBER, amt NUMBER)');
+      await db.execute('INSERT INTO base VALUES (1, 10), (2, 20)');
+      await db.execute('CREATE MATERIALIZED VIEW mv ENABLE QUERY REWRITE AS '
+          'SELECT id, SUM(amt) AS s FROM base GROUP BY id');
+      // The MV is queryable via SELECT, so it should also be indexable.
+      await expectOk(db, 'CREATE INDEX ix ON mv (id)');
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE INDEX / CREATE BITMAP INDEX on a '
+            'materialized view fails ("Bad state: No such table: mv") even '
+            'though the MV is queryable via SELECT. See findings/FINDINGS.md '
+            'F85.');
+  });
 }

@@ -9,12 +9,12 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**84 bugs found; all 84 fixed & verified; 0 open.** With a correct
+**85 bugs found; F1–F84 fixed & verified; F85 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
 deferred flow, and anonymous PL/SQL blocks. Pushing the loader onto the SH
-schema/data and OE surfaced six more Oracle DDL gaps, now all closed:
+schema/data and OE surfaced six Oracle DDL gaps, now all closed:
 - **F79** — a schema-qualified table reference in a FK (`REFERENCES
   schema.table`) now parses.
 - **F80** — `ALTER TABLE ... MODIFY` (constraint `DISABLE/ENABLE` or a column)
@@ -26,10 +26,16 @@ schema/data and OE surfaced six more Oracle DDL gaps, now all closed:
 - **F84** — the PL/SQL named-argument syntax (`arg => value`, e.g.
   `dbms_stats.gather_schema_stats`) now parses.
 
-> **Parity gates GREEN:** HR schema, SH schema, and HR **data** (full dataset,
-> `oracle_hr_data_parity_test.dart`). SH *fact* data (sales/costs/customers)
-> loads via SQL*Loader CSVs — out of the harness's SQL scope; its lookup tables
-> (products/channels/countries) load via INSERTs.
+Loading the SH **lookup data** then surfaced one more, still open:
+- **F85** (open) — `CREATE INDEX` / `CREATE BITMAP INDEX` on a materialized
+  view fails ("No such table") even though the MV is queryable via `SELECT`.
+  The SH populate indexes its fact MVs this way.
+
+> **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
+> `oracle_hr_data_parity_test.dart`), and SH **lookup data**
+> (`oracle_sh_data_parity_test.dart` — channels=5, countries=35, products=72).
+> SH *fact* data (sales/costs/customers/times) loads via SQL*Loader CSVs — out
+> of the harness's SQL scope.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION

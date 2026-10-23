@@ -1,13 +1,26 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **0 open bugs** — the Oracle
-SH/OLAP DDL batch (F79–F84) is fixed and verified. The full suite runs live with
-nothing skipped; the real HR schema and data, and the SH schema, load.
+For the engine author working in `dart-db-server`. **1 open bug (F85)** — found
+loading the real SH lookup data: `CREATE INDEX` on a materialized view is
+rejected. It has a minimal repro and a skipped regression test that turns green
+when fixed.
 
-- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
+- **Verify:** `dart test --run-skipped --timeout 25s` (all in
+  `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 84 found, 84 fixed & verified, 0 open.**
+**Status: 85 found, 84 fixed & verified, 1 open.**
+
+## Current open bug (F85)
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F85** | CREATE INDEX on a materialized view | `CREATE MATERIALIZED VIEW mv AS SELECT …; CREATE INDEX ix ON mv (id)` → `Bad state: No such table: mv` | register the MV as an indexable relation (it is already queryable via `SELECT`) |
+
+> The SH populate indexes its fact materialized views (`CREATE BITMAP INDEX … ON
+> fweek_pscat_sales_mv`). The MV is queryable via `SELECT` but not indexable.
+
+---
 
 ## Resolved batch (F79–F84) — ✅ fixed 2026-10-23 (Oracle SH / OLAP DDL)
 
@@ -24,7 +37,8 @@ nothing skipped; the real HR schema and data, and the SH schema, load.
 | **F84** | PL/SQL named-arg `=>` | `dbms_stats.gather_schema_stats('SH', cascade => TRUE)` parses |
 
 > SH *fact* data loads via SQL*Loader CSVs (out of harness scope); the lookup
-> tables load via INSERTs.
+> tables (channels=5, countries=35, products=72) load via INSERTs —
+> `oracle_sh_data_parity_test.dart`.
 
 ---
 
