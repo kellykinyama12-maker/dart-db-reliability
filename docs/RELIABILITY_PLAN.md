@@ -52,11 +52,10 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 215 found, 213 fixed & verified, 2 open (F214
-  INSERT ALL; F215 row-level trigger not firing).** The author drained F143–F213
-  (bar the 2 open). Pivoted from scalar-function sweeps to a DML/DDL-effects
-  sweep — 16/18 cases already matched real Oracle (MERGE, constraints, IDENTITY,
-  sequences, triggers excepted).
+- **Bug status (2026-10-23): 217 found, 214 fixed & verified, 3 open (F215
+  row-level triggers; F216 INSTEAD OF triggers; F217 DEFAULT seq.NEXTVAL).** The
+  author drained F143–F214 (bar the 3 open). DML/DDL-effects sweeps — 29/33
+  cases matched real Oracle; triggers are the main remaining hole.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.

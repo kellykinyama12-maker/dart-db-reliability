@@ -9,17 +9,19 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**215 bugs found; 213 fixed & verified; 2 open (F214, F215).**
+**217 bugs found; 214 fixed & verified; 3 open (F215–F217).**
 
-> **Open (confirmed vs real Oracle 23ai):** F214 INSERT ALL (multi-table insert)
-> fails and inserts nothing; F215 a BEFORE UPDATE FOR EACH ROW trigger parses
-> but never fires.
+> **Open (confirmed vs real Oracle 23ai):** F215 row-level triggers don't fire
+> (BEFORE UPDATE / AFTER INSERT bodies, PL/SQL IF/RAISE); F216 INSTEAD OF
+> triggers on views unsupported; F217 `DEFAULT <seq>.NEXTVAL` column default
+> rejected.
 >
-> Surfaced by a new **DML/DDL-effects** three-way sweep (16/18 cases already
-> matched real Oracle — MERGE, constraints, IDENTITY, sequences, DEFAULT,
-> correlated UPDATE, type enforcement, virtual columns all correct).
+> From two **DML/DDL-effects** three-way sweeps — 29/33 cases matched real Oracle
+> (MERGE, constraints, IDENTITY, sequences+CURRVAL, correlated DML, conditional
+> INSERT ALL, virtual columns). The savepoint/rollback diff was a bridge
+> auto-commit artifact, not an engine bug.
 >
-> **Drained:** F212 (TO_CLOB), F213 (NLS case functions) — fixed & verified.
+> **Drained:** F214 (INSERT ALL multi-table insert) — fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

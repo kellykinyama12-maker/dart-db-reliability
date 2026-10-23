@@ -1938,8 +1938,8 @@ void main() {
   // Found by a DML/DDL-effects three-way sweep (16/18 cases already matched real
   // Oracle 23ai: MERGE update/insert/delete, CHECK/UNIQUE/FK-cascade, IDENTITY,
   // sequences, DEFAULT, correlated UPDATE, number-scale, varchar-length, virtual
-  // columns). These two are genuine gaps.
-  group('open bugs (round 52 — DML/DDL effects, real-Oracle-adjudicated)', () {
+  // columns). F214 fixed; triggers (F215/F216) and DEFAULT seq (F217) open.
+  group('DML/DDL effects (round 52 — F214 fixed; F215-F217 open)', () {
     test('F214 · INSERT ALL (multi-table insert)', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE ia (id NUMBER, v NUMBER)');
@@ -1948,10 +1948,7 @@ void main() {
           'INSERT ALL INTO ia (id, v) VALUES (1, 10) '
           'INTO ia (id, v) VALUES (2, 20) SELECT * FROM dual');
       await expectScalar(db, 'SELECT COUNT(*) FROM ia', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: INSERT ALL (multi-table insert) fails with '
-            '"No such table or view: dual" and inserts nothing. Real Oracle '
-            'inserts 2 rows. See findings/FINDINGS.md F214.');
+    });
 
     test('F215 · BEFORE UPDATE row-level trigger fires', () async {
       final db = await openEngine();
@@ -1964,9 +1961,41 @@ void main() {
       // The trigger should have incremented upd to 1.
       await expectScalar(db, 'SELECT upd FROM tg WHERE id = 1', 1);
     },
-        skip: 'KNOWN ENGINE BUG: a BEFORE UPDATE ... FOR EACH ROW trigger is '
-            'parsed (CREATE TRIGGER succeeds) but never fires — upd stays 0 '
-            'after the UPDATE instead of becoming 1. Real Oracle fires it. '
-            'See findings/FINDINGS.md F215.');
+        skip: 'KNOWN ENGINE BUG: row-level triggers are broadly non-functional. '
+            'A BEFORE UPDATE ... FOR EACH ROW trigger is parsed (CREATE TRIGGER '
+            'succeeds) but never fires — upd stays 0 instead of 1. Related '
+            'facets: an AFTER INSERT body that INSERTs using :NEW.col is a parse '
+            'error, and PL/SQL IF / RAISE_APPLICATION_ERROR in a trigger body is '
+            'unsupported. Real Oracle fires them. See findings/FINDINGS.md F215.');
+
+    test('F216 · INSTEAD OF trigger on a view', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE iob (id NUMBER, v NUMBER)');
+      await db.execute('CREATE VIEW iov AS SELECT id, v FROM iob');
+      await db.execute(
+          'CREATE OR REPLACE TRIGGER iov_ii INSTEAD OF INSERT ON iov '
+          'FOR EACH ROW BEGIN INSERT INTO iob VALUES (:NEW.id, :NEW.v * 10); END;');
+      // The INSTEAD OF trigger redirects the view insert into the base table.
+      await db.execute('INSERT INTO iov VALUES (1, 5)');
+      await expectScalar(db, 'SELECT v FROM iob WHERE id = 1', 50);
+    },
+        skip: 'KNOWN ENGINE BUG: INSTEAD OF triggers on a view are unsupported — '
+            'the CREATE TRIGGER body (:NEW.col) is a parse error and the view '
+            'is not insertable ("No such table: iov"). Real Oracle redirects the '
+            'insert via the trigger (base row v = 50). See findings/FINDINGS.md F216.');
+
+    test('F217 · DEFAULT <sequence>.NEXTVAL column default', () async {
+      final db = await openEngine();
+      await db.execute('CREATE SEQUENCE ns2 START WITH 1');
+      // A sequence NEXTVAL as a column DEFAULT (common surrogate-key pattern).
+      await db.execute(
+          'CREATE TABLE nn (id NUMBER DEFAULT ns2.NEXTVAL NOT NULL, v NUMBER)');
+      await db.execute('INSERT INTO nn (v) VALUES (10)');
+      await expectScalar(db, 'SELECT id FROM nn', 1);
+    },
+        skip: 'KNOWN ENGINE BUG: a column DEFAULT of <sequence>.NEXTVAL is '
+            'rejected at CREATE TABLE ("DEFAULT must be a literal") — only '
+            'literal defaults are allowed. Real Oracle assigns the next sequence '
+            'value (id = 1). See findings/FINDINGS.md F217.');
   });
 }

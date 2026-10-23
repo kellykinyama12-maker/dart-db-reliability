@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **2 open bugs** (F214, F215)
-— everything else through F213 is fixed and verified. A DML/DDL-effects
-three-way sweep surfaced these. Real HR + SH + CO data load and match real
+For the engine author working in `dart-db-server`. **3 open bugs** (F215–F217)
+— everything else through F214 is fixed and verified. Two DML/DDL-effects
+three-way sweeps surfaced these. Real HR + SH + CO data load and match real
 Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F214, F215 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F215–F217 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 215 found, 213 fixed & verified, 2 open (F214, F215).**
+**Status: 217 found, 214 fixed & verified, 3 open (F215–F217).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,17 +34,20 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### DML/DDL effects — real-Oracle-adjudicated (F214, F215)
+### DML/DDL effects — real-Oracle-adjudicated (F215–F217)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F214** | INSERT ALL | multi-table `INSERT ALL … SELECT * FROM dual` fails ("No such table or view: dual"), inserts 0 (Oracle 2) | support the multi-table INSERT ALL |
-| **F215** | row-level trigger | `BEFORE UPDATE … FOR EACH ROW` parses but never fires — `:NEW` assignment ignored (Oracle fires it) | execute row-level triggers |
+| **F215** | row-level triggers | BEFORE UPDATE FOR EACH ROW parses but never fires; AFTER INSERT with `:NEW.col` body is a parse error; PL/SQL IF/RAISE in a trigger unsupported | execute row-level triggers + their PL/SQL bodies |
+| **F216** | INSTEAD OF trigger | view insert → "No such table" (view not insertable; trigger body parse error) (Oracle redirects, base v=50) | support INSTEAD OF triggers on views |
+| **F217** | DEFAULT seq.NEXTVAL | `DEFAULT <seq>.NEXTVAL` rejected at CREATE TABLE ("DEFAULT must be a literal") (Oracle id=1) | allow a sequence NEXTVAL as a column default |
 
-> Found by a DML/DDL-effects three-way sweep — **16/18 cases already matched real
-> Oracle**: MERGE update/insert/delete, CHECK/UNIQUE/FK ON DELETE CASCADE,
-> IDENTITY columns, sequences, column DEFAULT, correlated UPDATE, DELETE with
-> subquery, NUMBER(p,s) scale, VARCHAR2 length, virtual columns, CASE UPDATE.
+> Found by two DML/DDL-effects three-way sweeps — **29/33 cases matched real
+> Oracle** (MERGE incl. delete-clause, CHECK multi-col, UNIQUE, FK ON DELETE
+> CASCADE/SET NULL, IDENTITY ALWAYS/BY DEFAULT, sequences incl. CURRVAL,
+> correlated/subquery UPDATE+DELETE, conditional INSERT ALL, virtual columns).
+> The savepoint/rollback diff was a harness artifact (the oci8 bridge auto-
+> commits each statement), not an engine bug.
 
 ---
 
