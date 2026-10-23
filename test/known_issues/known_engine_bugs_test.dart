@@ -2165,4 +2165,62 @@ void main() {
             'Real Oracle returns 2 (CROSS) / 3 (OUTER, id=2 keeps a NULL row). '
             'See findings/FINDINGS.md F230.');
   });
+
+  // Found by a second advanced-features three-way sweep (confirmed vs real
+  // Oracle 23ai).
+  group('open bugs (round 56 — advanced SQL II, real-Oracle-adjudicated)', () {
+    test('F231 · SYS_CONTEXT / USERENV', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN SYS_CONTEXT('USERENV','SESSION_USER') IS NOT NULL "
+          "THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: SYS_CONTEXT and USERENV (session-context '
+            'functions) are missing ("Unknown function"). Real Oracle returns 1. '
+            'See findings/FINDINGS.md F231.');
+
+    test('F232 · XMLTABLE with PASSING', () async {
+      final db = await openEngine();
+      // Shred an XML document into rows.
+      await expectScalar(
+          db,
+          "SELECT COUNT(*) FROM XMLTABLE('/a/b' PASSING "
+          "XMLTYPE('<a><b>1</b><b>2</b></a>') COLUMNS v NUMBER PATH '.')",
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: XMLTABLE with a PASSING clause is a parse error '
+            '("Expected ) but got PASSING"). Real Oracle returns 2. '
+            'See findings/FINDINGS.md F232.');
+
+    test('F233 · JSON dot-notation column access', () async {
+      final db = await openEngine();
+      // Oracle 19c+ simplified JSON access: col.key.string().
+      await expectScalar(
+          db,
+          "SELECT jt.doc.name.string() FROM "
+          "(SELECT JSON('{\"name\":\"x\"}') doc FROM dual) jt",
+          'x');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON dot-notation column access '
+            '(jt.doc.name.string()) is a parse error. Real Oracle returns "x". '
+            'See findings/FINDINGS.md F233.');
+
+    test('F234 · default NULLS ordering matches Oracle', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (NULL), (2)');
+      // Oracle sorts NULLs LAST for ASC and FIRST for DESC (NULL = greatest);
+      // so DESC's first row is NULL. The engine uses SQLite ordering (NULL
+      // smallest) and returns 2.
+      await expectScalar(
+          db, 'SELECT v FROM t ORDER BY v DESC FETCH FIRST 1 ROW ONLY', null);
+    },
+        skip: 'KNOWN ENGINE BUG: default NULLS ordering is the opposite of '
+            'Oracle — the engine treats NULL as the smallest value (NULLS FIRST '
+            'for ASC, LAST for DESC) like SQLite, whereas Oracle treats NULL as '
+            'the greatest (NULLS LAST for ASC, FIRST for DESC). ORDER BY v DESC '
+            'returns 2 instead of NULL. See findings/FINDINGS.md F234.');
+  });
 }
