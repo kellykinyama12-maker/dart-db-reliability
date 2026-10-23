@@ -1430,32 +1430,22 @@ void main() {
     });
   });
 
-  // Found by a third HR three-way feature sweep (TO_CHAR format models, string,
-  // analytic, CAST — 17/40 matched real Oracle 23ai). All confirmed vs Oracle.
-  group('open bugs (round 42 — feature sweep III, real-Oracle-adjudicated)', () {
+  // Found by a third HR three-way feature sweep. F160–F163 and F166 fixed &
+  // verified; F164 (LEAD/LAG IGNORE NULLS) and F165 (CAST enforcement) still open.
+  group('CO feature sweep III (round 42 — F160-163/166 fixed; F164-165 open)', () {
     test('F160 · TO_CHAR(number) format elements RN/EEEE/PR/L/V', () async {
       final db = await openEngine();
-      // 'RN' is the Roman numeral; the engine returns the decimal unchanged.
+      // 'RN' is the Roman numeral.
       await expectScalar(db, "SELECT TO_CHAR(2024,'FMRN') FROM dual", 'MMXXIV');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, fmt) ignores several format '
-            'elements and returns the decimal unchanged — RN (Roman: 2024 -> '
-            'MMXXIV), EEEE (scientific), PR (angle brackets for negatives: '
-            '-5 -> <5>), L (local currency: -> \$), V (scaling: 999V99 x100). '
-            'Companion to F106/F151. See findings/FINDINGS.md F160.');
+    });
 
     test('F161 · TO_CHAR(date) format elements D/CC/YEAR/RRRR + quoted text',
         () async {
       final db = await openEngine();
-      // 'CC' is the century (21 for 2024); the engine returns the date unchanged.
+      // 'CC' is the century (21 for 2024).
       await expectScalar(
           db, "SELECT TO_CHAR(DATE '2024-07-20','CC') FROM dual", '21');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) ignores several elements and '
-            'returns the date unchanged — D (day-of-week), CC (century -> 21), '
-            'YEAR (spelled out), RRRR (year). It also leaves the double quotes '
-            'in quoted literal text (YYYY"x"MM -> 2024"x"07, Oracle 2024x07). '
-            'Companion to F155. See findings/FINDINGS.md F161.');
+    });
 
     test('F162 · REGEXP_SUBSTR subexpression parameter', () async {
       final db = await openEngine();
@@ -1464,11 +1454,7 @@ void main() {
           db,
           "SELECT REGEXP_SUBSTR('abc123def','([a-z]+)([0-9]+)',1,1,NULL,2) FROM dual",
           '123');
-    },
-        skip: 'KNOWN ENGINE BUG: REGEXP_SUBSTR ignores its subexpression (6th) '
-            'argument — it returns the whole match ("abc123") instead of capture '
-            'group 2 ("123"). Real Oracle returns "123". '
-            'See findings/FINDINGS.md F162.');
+    });
 
     test('F163 · LISTAGG default separator is empty', () async {
       final db = await openEngine();
@@ -1477,10 +1463,7 @@ void main() {
       // With no separator argument Oracle concatenates with nothing.
       await expectScalar(
           db, 'SELECT LISTAGG(s) WITHIN GROUP (ORDER BY s) FROM t', 'abc');
-    },
-        skip: 'KNOWN ENGINE BUG: LISTAGG with no separator argument defaults to '
-            'a comma ("a,b,c") instead of an empty separator. Real Oracle '
-            'concatenates with nothing ("abc"). See findings/FINDINGS.md F163.');
+    });
 
     test('F164 · LEAD/LAG IGNORE NULLS', () async {
       final db = await openEngine();
@@ -1515,10 +1498,99 @@ void main() {
       await db.execute('CREATE TABLE t (d NUMBER)');
       await db.execute('INSERT INTO t VALUES (10), (10), (20), (30)');
       await expectScalar(db, 'SELECT APPROX_COUNT_DISTINCT(d) FROM t', 3);
+    });
+  });
+
+  // Found by a fourth HR three-way feature sweep (INTERVAL, hierarchical, date
+  // TRUNC/ROUND, KEEP, XML — confirmed vs real Oracle 23ai).
+  group('open bugs (round 43 — feature sweep IV, real-Oracle-adjudicated)', () {
+    test('F167 · EXTRACT from an INTERVAL value', () async {
+      final db = await openEngine();
+      // 2 days 03:04:05 — the hour field is 3.
+      await expectScalar(
+          db,
+          "SELECT EXTRACT(HOUR FROM INTERVAL '2 03:04:05' DAY TO SECOND) FROM dual",
+          3);
     },
-        skip: 'KNOWN ENGINE BUG: several built-ins are missing ("Unknown '
-            'function") — NLSSORT, ASCIISTR, UNISTR, GROUP_ID, and '
-            'APPROX_COUNT_DISTINCT (which returns the approximate distinct count, '
-            '3 here). See findings/FINDINGS.md F166.');
+        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM interval) returns 0 — the '
+            'interval internals are mishandled. Related: NUMTOYMINTERVAL(18, '
+            '\'MONTH\') returns 540 instead of an interval, and TO_DSINTERVAL is '
+            'missing. Real Oracle returns 3. See findings/FINDINGS.md F167.');
+
+    test('F168 · TRUNC(date, \'IW\') starts the ISO week on Monday', () async {
+      final db = await openEngine();
+      // 2024-07-20 is a Saturday; the ISO week starts Monday 2024-07-15.
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(TRUNC(DATE '2024-07-20','IW'),'YYYY-MM-DD') FROM dual",
+          '2024-07-15');
+    },
+        skip: 'KNOWN ENGINE BUG: TRUNC(date, \'IW\') is off by one — it returns '
+            'the Sunday (2024-07-14) instead of the ISO-week Monday (2024-07-15). '
+            'Also ROUND(date, \'DAY\'/\'YYYY\') is not applied (companion to '
+            'F150). See findings/FINDINGS.md F168.');
+
+    test('F169 · LEVEL in the CONNECT BY predicate', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER)');
+      await db.execute('INSERT INTO emp VALUES (1, NULL), (2, 1), (3, 2)');
+      // AND LEVEL <= 2 limits the walk to two levels: 2 rows.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM emp START WITH mgr IS NULL '
+          'CONNECT BY PRIOR id = mgr AND LEVEL <= 2',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: LEVEL used inside the CONNECT BY predicate '
+            '(AND LEVEL <= 2) is ignored — the walk returns all 3 rows instead '
+            'of 2. Real Oracle honours it. See findings/FINDINGS.md F169.');
+
+    test('F170 · CONNECT_BY_ISCYCLE / NOCYCLE', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER)');
+      await db.execute('INSERT INTO emp VALUES (1, NULL), (2, 1), (3, 2)');
+      await expectScalar(
+          db,
+          'SELECT MAX(CONNECT_BY_ISCYCLE) FROM emp START WITH mgr IS NULL '
+          'CONNECT BY NOCYCLE PRIOR id = mgr',
+          0);
+    },
+        skip: 'KNOWN ENGINE BUG: the CONNECT_BY_ISCYCLE pseudocolumn (and the '
+            'NOCYCLE keyword) are unsupported ("Unknown column: '
+            'CONNECT_BY_ISCYCLE"). Real Oracle returns 0 for an acyclic tree. '
+            'See findings/FINDINGS.md F170.');
+
+    test('F171 · KEEP (DENSE_RANK FIRST) NULL ordering', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE k (g NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO k VALUES (NULL, 99), (1, 10), (1, 30)');
+      // ORDER BY g ascending: NULLs sort LAST, so FIRST is g=1 -> MAX(v)=30.
+      await expectScalar(
+          db, 'SELECT MAX(v) KEEP (DENSE_RANK FIRST ORDER BY g) FROM k', 30);
+    },
+        skip: 'KNOWN ENGINE BUG: KEEP (DENSE_RANK FIRST ORDER BY k) sorts NULLs '
+            'FIRST instead of last, so it picks the NULL-key group — MAX(v) '
+            'returns 99 instead of 30. Real Oracle returns 30. '
+            'See findings/FINDINGS.md F171.');
+
+    test('F172 · XMLELEMENT + object method call', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db, "SELECT XMLELEMENT(\"e\", 'hi').getStringVal() FROM dual",
+          '<e>hi</e>');
+    },
+        skip: 'KNOWN ENGINE BUG: XMLELEMENT (and the .getStringVal()/'
+            '.getClobVal() object method-call syntax) is a parse error. Real '
+            'Oracle returns <e>hi</e>. See findings/FINDINGS.md F172.');
+
+    test('F173 · LNNVL built-in', () async {
+      final db = await openEngine();
+      // LNNVL returns TRUE when the condition is false/unknown.
+      await expectScalar(
+          db, "SELECT CASE WHEN LNNVL(1=2) THEN 'y' ELSE 'n' END FROM dual", 'y');
+    },
+        skip: 'KNOWN ENGINE BUG: the LNNVL built-in is missing ("Unknown '
+            'function: LNNVL"). It returns TRUE when its condition is false or '
+            'unknown. See findings/FINDINGS.md F173.');
   });
 }

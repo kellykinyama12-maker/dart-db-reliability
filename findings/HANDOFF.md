@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **7 open bugs (F160–F166)**
-— the Oracle backlog through F159 is fixed and verified. A third broad HR
-three-way feature sweep surfaced these TO_CHAR format-model / string / analytic
-/ CAST gaps. Real HR + SH + CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **9 open bugs** (F164, F165,
+F167–F173) — the Oracle backlog through F163/F166 is fixed and verified. A
+fourth broad HR three-way feature sweep (INTERVAL, hierarchical, date, KEEP,
+XML) surfaced F167–F173. Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F160–F166 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; the 9 open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 166 found, 159 fixed & verified, 7 open (F160–F166).**
+**Status: 173 found, 164 fixed & verified, 9 open (F164–F165, F167–F173).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,27 +34,33 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR feature sweep III — real-Oracle-adjudicated (F160–F166)
+### HR feature sweep IV — real-Oracle-adjudicated (F167–F173)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F160** | TO_CHAR(number) RN/EEEE/PR/L/V | returns the decimal unchanged (Oracle `MMXXIV`, scientific, `<5>`, `$`, x100) | apply the Roman/scientific/angle/currency/scaling number-format elements |
-| **F161** | TO_CHAR(date) D/CC/YEAR/RRRR + quotes | returns the date unchanged; leaves `"x"` quotes (`2024"x"07`) | apply the elements and strip quoted-literal delimiters |
-| **F162** | REGEXP_SUBSTR subexpr | ignores the 6th (subexpression) arg — returns the whole match (Oracle capture group 2) | honour the subexpression argument |
-| **F163** | LISTAGG default sep | defaults to `,` with no separator arg (Oracle: empty) | default to an empty separator |
+| **F167** | EXTRACT from INTERVAL | `EXTRACT(HOUR FROM INTERVAL '2 03:04:05' DAY TO SECOND)` → `0` (Oracle `3`); `NUMTOYMINTERVAL(18,'MONTH')` → `540`; `TO_DSINTERVAL` missing | keep interval values as intervals, not numbers |
+| **F168** | TRUNC(date,'IW') | returns the Sunday `2024-07-14` (Oracle Monday `2024-07-15`); also ROUND(date,'DAY'/'YYYY') not applied | start the ISO week on Monday; apply ROUND day/year |
+| **F169** | LEVEL in CONNECT BY | `AND LEVEL <= 2` is ignored (returns 3 rows, Oracle 2) | honour LEVEL in the CONNECT BY predicate |
+| **F170** | CONNECT_BY_ISCYCLE | pseudocolumn + NOCYCLE unsupported (Oracle `0`) | add CONNECT_BY_ISCYCLE and NOCYCLE |
+| **F171** | KEEP NULL ordering | `KEEP (DENSE_RANK FIRST ORDER BY k)` sorts NULLs first → `99` (Oracle `30`) | sort NULLs last (ascending) in the KEEP order |
+| **F172** | XMLELEMENT | `XMLELEMENT("e",'hi').getStringVal()` → parse error (Oracle `<e>hi</e>`) | support XML generation + object method calls |
+| **F173** | LNNVL | unknown function (Oracle `TRUE`) | add the LNNVL built-in |
+
+> Found by a fourth 36-query HR three-way feature sweep. Not filed: UNION NULL
+> distinct (could not reproduce minimally), INTERVAL month-overflow (Oracle
+> raises ORA-01839; engine rolls over), COLLECT (Oracle also errors), and the
+> boolean-literal casing `true`/`TRUE`.
+
+### Still open from sweep III (F164–F165)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
 | **F164** | LEAD/LAG IGNORE NULLS | `LEAD(v) IGNORE NULLS` → parse error | parse the IGNORE NULLS clause on LEAD/LAG |
 | **F165** | CAST enforcement | `CAST(123.456 AS NUMBER(5,1))` stays `123.456`; `CAST('abc' AS VARCHAR2(2))` stays `abc` | round/truncate to the target type (companion to F110/F113) |
-| **F166** | missing funcs | NLSSORT, ASCIISTR, UNISTR, GROUP_ID, APPROX_COUNT_DISTINCT → unknown function | add the built-ins |
-
-> Found by a third 40-query HR three-way feature sweep (17 already matched real
-> Oracle, incl. TRIM BOTH/LEADING, SUBSTR neg, INSTR neg, RATIO_TO_REPORT,
-> GROUPING, CAST-as-DATE strictness, TO_CHAR S/PR basics, FM0000, Month/DY).
-> Not filed: REPLACE empty-string -> NULL (pervasive empty-string dialect) and
-> CAST('2024-07-20' AS DATE) (Oracle is merely stricter there).
 
 ---
 
-### HR feature sweep II — fixed & verified (F155–F159)
+### HR feature sweep III — fixed & verified (F160–F163, F166)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |

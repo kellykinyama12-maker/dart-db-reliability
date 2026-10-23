@@ -9,19 +9,19 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**166 bugs found; 159 fixed & verified; 7 open (F160–F166).**
+**173 bugs found; 164 fixed & verified; 9 open (F164–F165, F167–F173).**
 
-> **F160–F166 (open) — HR feature sweep III** (confirmed vs real Oracle 23ai).
-> F160 `TO_CHAR(number)` ignores RN/EEEE/PR/L/V elements; F161 `TO_CHAR(date)`
-> ignores D/CC/YEAR/RRRR and leaves quoted-literal quotes; F162 `REGEXP_SUBSTR`
-> ignores its subexpression arg; F163 `LISTAGG` with no separator defaults to a
-> comma (Oracle: empty); F164 `LEAD/LAG IGNORE NULLS` is a parse error; F165
-> `CAST` does not round/truncate to the target type; F166 NLSSORT / ASCIISTR /
-> UNISTR / GROUP_ID / APPROX_COUNT_DISTINCT are missing.
+> **F167–F173 (open) — HR feature sweep IV** (confirmed vs real Oracle 23ai).
+> F167 EXTRACT from an INTERVAL returns 0 (interval values treated as numbers;
+> NUMTOYMINTERVAL → 540, TO_DSINTERVAL missing); F168 TRUNC(date,'IW') off by one
+> (Sunday vs Monday); F169 LEVEL inside the CONNECT BY predicate is ignored; F170
+> CONNECT_BY_ISCYCLE/NOCYCLE unsupported; F171 KEEP (DENSE_RANK FIRST) sorts NULLs
+> first; F172 XMLELEMENT + object method-call parse error; F173 LNNVL missing.
 >
-> **F150–F159 fixed & verified:** the two prior HR feature sweeps are drained
-> (ROUND date fmt, TO_CHAR hex, JSON_OBJECT VALUE, REMAINDER, STATS_MODE,
-> TO_CHAR WW/IW/J/DDD, JSON_EXISTS, JSON_VALUE RETURNING, VSIZE/DUMP).
+> **F164–F165 still open** from sweep III (LEAD/LAG IGNORE NULLS; CAST does not
+> round/truncate). **F160–F163, F166 fixed & verified** (TO_CHAR number/date
+> format elements, REGEXP_SUBSTR subexpr, LISTAGG default separator, and the
+> NLSSORT/ASCIISTR/UNISTR/GROUP_ID/APPROX_COUNT_DISTINCT built-ins).
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
