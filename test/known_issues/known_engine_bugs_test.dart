@@ -2086,4 +2086,94 @@ void main() {
             'got ("). Real Oracle updates both columns (a+b = 12). '
             'See findings/FINDINGS.md F224.');
   });
+
+  // Found by an advanced-SQL-features three-way sweep (all parse errors on the
+  // engine; real Oracle 23ai returns values). F129 flagged some of these as
+  // "rare/advanced" — here are concrete repros.
+  group('open bugs (round 55 — advanced SQL, real-Oracle-adjudicated)', () {
+    test('F225 · MATCH_RECOGNIZE', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE mr (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO mr VALUES (1, 5), (2, 5)');
+      // One contiguous match of the A+ pattern over both rows.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM mr MATCH_RECOGNIZE (ORDER BY id '
+          'MEASURES COUNT(*) AS c PATTERN (A+) DEFINE A AS v > 0)',
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: MATCH_RECOGNIZE (row pattern matching) is a '
+            'parse error. Real Oracle returns 1. See findings/FINDINGS.md F225.');
+
+    test('F226 · recursive WITH CYCLE / SEARCH clauses', () async {
+      final db = await openEngine();
+      // The CYCLE clause on a recursive WITH is a parse error.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM (WITH r(n) AS (SELECT 1 FROM dual UNION ALL '
+          'SELECT n+1 FROM r WHERE n < 4) CYCLE n SET cyc TO 1 DEFAULT 0 '
+          'SELECT n FROM r)',
+          4);
+    },
+        skip: 'KNOWN ENGINE BUG: the CYCLE and SEARCH clauses on a recursive '
+            'WITH are parse errors ("Expected SELECT/… after WITH"). The plain '
+            'recursion works. Real Oracle returns 4 (CYCLE) / 3 (SEARCH ord). '
+            'See findings/FINDINGS.md F226.');
+
+    test('F227 · TABLE() collection unnesting', () async {
+      final db = await openEngine();
+      // Unnest a built-in collection into rows.
+      await expectScalar(
+          db, 'SELECT COUNT(*) FROM TABLE(SYS.ODCINUMBERLIST(10, 20, 30))', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: TABLE(collection) unnesting (and the '
+            'COLUMN_VALUE pseudo-column) is a parse error ("Expected identifier '
+            'but got TABLE"). Real Oracle returns 3. See findings/FINDINGS.md F227.');
+
+    test('F228 · PIVOT XML', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE px (g NUMBER, j VARCHAR2(2))');
+      await db.execute("INSERT INTO px VALUES (1, 'a'), (2, 'b')");
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM (SELECT * FROM (SELECT g, j FROM px) '
+          'PIVOT XML (COUNT(*) FOR j IN (ANY)))',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: PIVOT XML is a parse error ("Expected ( but got '
+            'XML"). Real Oracle returns 2. See findings/FINDINGS.md F228.');
+
+    test('F229 · LATERAL inline view', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE la (id NUMBER)');
+      await db.execute('INSERT INTO la VALUES (1), (2)');
+      await db.execute('CREATE TABLE lb (aid NUMBER)');
+      await db.execute('INSERT INTO lb VALUES (1), (1)');
+      // id=1 joins two lb rows, id=2 joins none: 2 rows.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM la, LATERAL (SELECT 1 x FROM lb '
+          'WHERE lb.aid = la.id)',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: LATERAL inline views are a parse error. Real '
+            'Oracle returns 2. See findings/FINDINGS.md F229.');
+
+    test('F230 · CROSS APPLY / OUTER APPLY', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE la (id NUMBER)');
+      await db.execute('INSERT INTO la VALUES (1), (2)');
+      await db.execute('CREATE TABLE lb (aid NUMBER)');
+      await db.execute('INSERT INTO lb VALUES (1), (1)');
+      // CROSS APPLY keeps only matching rows: 2 (id=1 x2).
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM la CROSS APPLY (SELECT 1 x FROM lb '
+          'WHERE lb.aid = la.id)',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: CROSS APPLY and OUTER APPLY are parse errors. '
+            'Real Oracle returns 2 (CROSS) / 3 (OUTER, id=2 keeps a NULL row). '
+            'See findings/FINDINGS.md F230.');
+  });
 }
