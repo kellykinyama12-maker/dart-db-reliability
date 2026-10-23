@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **4 open bugs** (F169, F174,
-F175, F176) — the Oracle backlog through F173 is otherwise fixed and verified. A
-fifth broad HR three-way feature sweep surfaced F174–F176. Real HR + SH + CO
-data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **6 open bugs** (F177–F182)
+— the Oracle backlog through F176 is fixed and verified. A sixth broad HR
+three-way feature sweep (timezone, CUBE/ROLLUP, tuple IN, decimal ROUND, inline
+PL/SQL) surfaced these. Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; the 4 open bugs skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F177–F182 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 176 found, 172 fixed & verified, 4 open (F169, F174–F176).**
+**Status: 182 found, 176 fixed & verified, 6 open (F177–F182).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,20 +34,21 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR feature sweep V — real-Oracle-adjudicated (F174–F176 + F169)
+### HR feature sweep VI — real-Oracle-adjudicated (F177–F182)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F169** | LEVEL in CONNECT BY | `AND LEVEL <= 2` is ignored (returns 3 rows, Oracle 2) | honour LEVEL in the CONNECT BY predicate |
-| **F174** | TO_NUMBER format model | `TO_NUMBER('1,234.56','9,999.99')` / `TO_NUMBER('$1,234','L9,999')` → NULL (Oracle `1234.56` / `1234`) | apply the number format model |
-| **F175** | TO_CHAR lowercase fm | `TO_CHAR(date,'fmDay…')` keeps "fm" literally (Oracle trims padding) | make the fm/FM fill-mode modifier case-insensitive |
-| **F176** | FETCH n PERCENT | `FETCH FIRST 50 PERCENT ROWS ONLY` → parse error (Oracle returns 5 of 10) | parse the PERCENT row-limit clause |
+| **F177** | timezone timestamps | `FROM_TZ(…) AT TIME ZONE` → parse error; `EXTRACT(TIMEZONE_HOUR…)` → NULL; `SYS_EXTRACT_UTC` missing (Oracle `17:00`) | support TZ timestamps + AT TIME ZONE |
+| **F178** | CUBE / ROLLUP row count | `GROUP BY CUBE(a,b)` over 3 rows → 10 (Oracle 8); ROLLUP → 8 (Oracle 6) | collapse the grouping sets correctly |
+| **F179** | row/tuple IN-list | `(a,b) IN ((..),(..))` → 0 matches (Oracle 2) | match tuple IN-lists |
+| **F180** | ROUND decimal | `ROUND(1.005,2)` → `1.00` (Oracle `1.01`) | round the exact decimal, not the binary double (companion F131/F142) |
+| **F181** | NANVL | unknown function; `BINARY_DOUBLE_NAN` also unknown (Oracle `5`) | add NANVL + the BINARY_DOUBLE_NAN literal |
+| **F182** | inline WITH FUNCTION | `WITH FUNCTION dbl… SELECT dbl(21)` → parse error (Oracle `42`) | parse the inline PL/SQL WITH FUNCTION |
 
-> Found by a fifth 41-query HR three-way feature sweep. Not filed (one pervasive
-> Oracle empty-string/NULL dialect choice): `LENGTH('')`, `'a'||NULL||'b'`,
-> `SUBSTR('abcde',2,-1)`, and the default date display format — the engine uses
-> SQL-standard semantics there. Also not filed: `WITH TIES` after a WHERE
-> (Oracle also rejects it).
+> Found by a sixth 34-query HR three-way feature sweep (recursive WITH, named
+> windows, ROW_NUMBER, INTERSECT, ANY/EXISTS, REGEXP backrefs, LISTAGG OVERFLOW,
+> ADD_MONTHS clamp, TRUNC timestamp already matched). Not filed: nested
+> WITH FUNCTION (Oracle also raises ORA-32034).
 
 ---
 

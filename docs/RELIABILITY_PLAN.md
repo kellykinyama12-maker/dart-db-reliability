@@ -52,10 +52,10 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 176 found, 172 fixed & verified, 4 open (F169
-  LEVEL in CONNECT BY; F174 TO_NUMBER format model; F175 TO_CHAR lowercase fm;
-  F176 FETCH n PERCENT).** The author drained F143–F173 (bar F169); five broad
-  HR feature sweeps surfaced F150–F176.
+- **Bug status (2026-10-23): 182 found, 176 fixed & verified, 6 open (F177
+  timezone timestamps; F178 CUBE/ROLLUP row count; F179 tuple IN-list; F180
+  ROUND decimal; F181 NANVL; F182 inline WITH FUNCTION).** The author drained
+  F143–F176; six broad HR feature sweeps surfaced F150–F182.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.

@@ -1526,10 +1526,7 @@ void main() {
           'SELECT COUNT(*) FROM emp START WITH mgr IS NULL '
           'CONNECT BY PRIOR id = mgr AND LEVEL <= 2',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: LEVEL used inside the CONNECT BY predicate '
-            '(AND LEVEL <= 2) is ignored — the walk returns all 3 rows instead '
-            'of 2. Real Oracle honours it. See findings/FINDINGS.md F169.');
+    });
 
     test('F170 · CONNECT_BY_ISCYCLE / NOCYCLE', () async {
       final db = await openEngine();
@@ -1566,19 +1563,15 @@ void main() {
     });
   });
 
-  // Found by a fifth HR three-way feature sweep (string/number/date/fetch —
-  // confirmed vs real Oracle 23ai).
-  group('open bugs (round 44 — feature sweep V, real-Oracle-adjudicated)', () {
+  // Found by a fifth HR three-way feature sweep (string/number/date/fetch).
+  // All fixed & verified against real Oracle 23ai.
+  group('formerly-open bugs F174–F176 (fixed & verified; feature sweep V)', () {
     test('F174 · TO_NUMBER with a format model', () async {
       final db = await openEngine();
       // The group-separator format parses the grouped literal.
       await expectScalar(
           db, "SELECT TO_NUMBER('1,234.56', '9,999.99') FROM dual", 1234.56);
-    },
-        skip: 'KNOWN ENGINE BUG: TO_NUMBER with a format model returns NULL — '
-            'TO_NUMBER(\'1,234.56\',\'9,999.99\') and TO_NUMBER(\'\$1,234\','
-            '\'L9,999\') both yield NULL. Real Oracle parses them (1234.56 / '
-            '1234). Companion to F106/F160. See findings/FINDINGS.md F174.');
+    });
 
     test('F175 · TO_CHAR lowercase fm modifier', () async {
       final db = await openEngine();
@@ -1587,11 +1580,7 @@ void main() {
           db,
           "SELECT TO_CHAR(DATE '2024-07-20', 'fmDay, Month DD, YYYY') FROM dual",
           'Saturday, July 20, 2024');
-    },
-        skip: 'KNOWN ENGINE BUG: the TO_CHAR fill-mode modifier is case-'
-            'sensitive — lowercase "fm" is kept literally ("fmSaturday, ...") '
-            'instead of trimming padding. Real Oracle treats fm/FM alike. '
-            'See findings/FINDINGS.md F175.');
+    });
 
     test('F176 · FETCH FIRST n PERCENT ROWS ONLY', () async {
       final db = await openEngine();
@@ -1605,9 +1594,82 @@ void main() {
           'SELECT COUNT(*) FROM '
           '(SELECT v FROM t ORDER BY v FETCH FIRST 50 PERCENT ROWS ONLY)',
           5);
+    });
+  });
+
+  // Found by a sixth HR three-way feature sweep (TZ, CUBE/ROLLUP, tuple IN,
+  // decimal ROUND, inline PL/SQL — confirmed vs real Oracle 23ai).
+  group('open bugs (round 45 — feature sweep VI, real-Oracle-adjudicated)', () {
+    test('F177 · FROM_TZ + AT TIME ZONE', () async {
+      final db = await openEngine();
+      // 12:00 UTC shown AT TIME ZONE +05:00 is 17:00.
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(FROM_TZ(TIMESTAMP '2024-01-01 12:00:00','+00:00') "
+          "AT TIME ZONE '+05:00','HH24:MI') FROM dual",
+          '17:00');
     },
-        skip: 'KNOWN ENGINE BUG: FETCH FIRST n PERCENT ROWS ONLY is a parse '
-            'error ("Expected ) but got PERCENT"). Real Oracle returns CEIL of '
-            'n percent of the row count (5 of 10). See findings/FINDINGS.md F176.');
+        skip: 'KNOWN ENGINE BUG: timezone timestamp support is incomplete — '
+            'AT TIME ZONE is a parse error, EXTRACT(TIMEZONE_HOUR FROM ts) '
+            'returns NULL, and SYS_EXTRACT_UTC is missing. Real Oracle returns '
+            '17:00. See findings/FINDINGS.md F177.');
+
+    test('F178 · GROUP BY CUBE/ROLLUP row count', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 10), (1, 20), (2, 10)');
+      // CUBE(a,b): 3 base groups + 2 (a) + 2 (b) + 1 () = 8 rows.
+      await expectScalar(
+          db, 'SELECT COUNT(*) FROM (SELECT a, b FROM t GROUP BY CUBE(a, b))',
+          8);
+    },
+        skip: 'KNOWN ENGINE BUG: GROUP BY CUBE / ROLLUP produce the wrong number '
+            'of result rows — CUBE(a,b) over 3 rows returns 10 (Oracle 8) and '
+            'ROLLUP(a,b) returns 8 (Oracle 6); they do not collapse the grouping '
+            'sets correctly. See findings/FINDINGS.md F178.');
+
+    test('F179 · row/tuple IN-list', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE u (a NUMBER, b VARCHAR2(5))');
+      await db.execute("INSERT INTO u VALUES (90, 'x'), (60, 'y'), (1, 'z')");
+      // Two of the three rows match the tuple IN-list.
+      await expectScalar(
+          db, "SELECT COUNT(*) FROM u WHERE (a, b) IN ((90, 'x'), (60, 'y'))",
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: a row/tuple IN-list ((a,b) IN ((..),(..))) '
+            'never matches — it returns 0 instead of 2. Real Oracle matches '
+            'the tuples. See findings/FINDINGS.md F179.');
+
+    test('F180 · ROUND is exact-decimal (half-up)', () async {
+      final db = await openEngine();
+      // 1.005 rounds up to 1.01 on exact decimal; binary gives 1.00.
+      await expectScalar(db, 'SELECT ROUND(1.005, 2) FROM dual', 1.01);
+    },
+        skip: 'KNOWN ENGINE BUG: ROUND(1.005, 2) returns 1.00 instead of 1.01 — '
+            'it rounds the binary double (1.005 is slightly under) rather than '
+            'the exact decimal. Companion to F131/F142. Real Oracle returns 1.01. '
+            'See findings/FINDINGS.md F180.');
+
+    test('F181 · NANVL built-in', () async {
+      final db = await openEngine();
+      // NANVL returns the first arg when it is not NaN.
+      await expectScalar(db, 'SELECT NANVL(5, -1) FROM dual', 5);
+    },
+        skip: 'KNOWN ENGINE BUG: the NANVL built-in is missing ("Unknown '
+            'function: NANVL"); BINARY_DOUBLE_NAN is also unknown. Real Oracle '
+            'returns 5. See findings/FINDINGS.md F181.');
+
+    test('F182 · inline WITH FUNCTION (PL/SQL)', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          'WITH FUNCTION dbl(x NUMBER) RETURN NUMBER IS BEGIN RETURN x*2; END; '
+          'SELECT dbl(21) v FROM dual',
+          42);
+    },
+        skip: 'KNOWN ENGINE BUG: the inline WITH FUNCTION (PL/SQL in the WITH '
+            'clause) is a parse error ("Expected AS but got dbl"). Real Oracle '
+            'returns 42. See findings/FINDINGS.md F182.');
   });
 }

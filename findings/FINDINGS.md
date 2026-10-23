@@ -9,16 +9,17 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**176 bugs found; 172 fixed & verified; 4 open (F169, F174–F176).**
+**182 bugs found; 176 fixed & verified; 6 open (F177–F182).**
 
-> **Open (confirmed vs real Oracle 23ai):** F169 LEVEL inside the CONNECT BY
-> predicate is ignored; F174 TO_NUMBER with a format model returns NULL; F175
-> the TO_CHAR `fm` fill-mode modifier is case-sensitive (lowercase kept
-> literally); F176 FETCH FIRST n PERCENT ROWS ONLY is a parse error.
+> **Open (confirmed vs real Oracle 23ai):** F177 timezone timestamps (AT TIME
+> ZONE parse error, EXTRACT(TIMEZONE_HOUR) NULL, SYS_EXTRACT_UTC missing); F178
+> GROUP BY CUBE/ROLLUP produce the wrong number of result rows; F179 a row/tuple
+> IN-list never matches (returns 0); F180 ROUND(1.005,2) returns 1.00 not 1.01
+> (binary vs exact decimal); F181 NANVL (and BINARY_DOUBLE_NAN) missing; F182
+> the inline WITH FUNCTION (PL/SQL) is a parse error.
 >
-> **Drained this round:** F164 (LEAD/LAG IGNORE NULLS), F165 (CAST enforcement),
-> F167 (EXTRACT from INTERVAL), F168 (TRUNC IW), F170 (CONNECT_BY_ISCYCLE), F171
-> (KEEP NULL ordering), F172 (XMLELEMENT), F173 (LNNVL) — all fixed & verified.
+> **Drained:** F169 (LEVEL in CONNECT BY), F174 (TO_NUMBER format model), F175
+> (TO_CHAR lowercase fm), F176 (FETCH n PERCENT) — all fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
