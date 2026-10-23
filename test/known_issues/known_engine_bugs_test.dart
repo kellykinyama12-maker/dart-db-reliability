@@ -2213,4 +2213,44 @@ void main() {
             'the greatest (NULLS LAST for ASC, FIRST for DESC). ORDER BY v DESC '
             'returns 2 instead of NULL. See findings/FINDINGS.md F234.');
   });
+
+  // Found by an ALTER/DDL-effects three-way sweep (12/17 already matched real
+  // Oracle 23ai: ADD single col, DROP COLUMN, RENAME col/table, ADD PK/CHECK/FK,
+  // SET UNUSED, CTAS, COMMENT, unique index). These are genuine gaps.
+  group('open bugs (round 57 — ALTER TABLE, real-Oracle-adjudicated)', () {
+    test('F235 · ALTER TABLE ADD (multiple columns)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER)');
+      await db.execute('ALTER TABLE t ADD (a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 2, 3)');
+      await expectScalar(db, 'SELECT a FROM t', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE ADD (a, b) adds only the first '
+            'column — a 3-column insert then fails ("Expected 1 values, got 3"). '
+            'Real Oracle adds both (a = 2). See findings/FINDINGS.md F235.');
+
+    test('F236 · ALTER TABLE MODIFY applies the change', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v VARCHAR2(3))');
+      await db.execute('ALTER TABLE t MODIFY (v VARCHAR2(10))');
+      await db.execute("INSERT INTO t VALUES ('abcdef')");
+      await expectScalar(db, 'SELECT LENGTH(v) FROM t', 6);
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE MODIFY does not apply the change — '
+            'widening VARCHAR2(3)->(10) still rejects a 6-char value (ORA-12899), '
+            'and MODIFY of DEFAULT and NOT NULL are ignored too. Real Oracle '
+            'widens it (LENGTH = 6). See findings/FINDINGS.md F236.');
+
+    test('F237 · ALTER TABLE DROP CONSTRAINT removes it', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER CONSTRAINT t_ck CHECK (v > 0))');
+      await db.execute('ALTER TABLE t DROP CONSTRAINT t_ck');
+      // With the check dropped, a negative value is allowed.
+      await db.execute('INSERT INTO t VALUES (-5)');
+      await expectScalar(db, 'SELECT v FROM t', -5);
+    },
+        skip: 'KNOWN ENGINE BUG: ALTER TABLE DROP CONSTRAINT does not remove the '
+            'constraint — the CHECK is still enforced after dropping it, so the '
+            'insert is rejected. Real Oracle allows -5. See findings/FINDINGS.md F237.');
+  });
 }
