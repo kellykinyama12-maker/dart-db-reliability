@@ -52,11 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 159 found, 149 fixed & verified, 10 open (F150
-  ROUND(date,fmt); F151 TO_CHAR hex; F152 JSON_OBJECT VALUE; F153 REMAINDER;
-  F154 STATS_MODE; F155 TO_CHAR(date) WW/IW/J; F156 TO_CHAR(date,'DDD') wrong;
-  F157 JSON_EXISTS; F158 JSON_VALUE RETURNING; F159 VSIZE/DUMP).** The author
-  drained F143–F149; two broad HR feature sweeps surfaced F150–F159.
+- **Bug status (2026-10-23): 166 found, 159 fixed & verified, 7 open (F160
+  TO_CHAR(number) RN/EEEE/PR/L/V; F161 TO_CHAR(date) D/CC/YEAR/RRRR+quotes;
+  F162 REGEXP_SUBSTR subexpr; F163 LISTAGG default sep; F164 LEAD/LAG IGNORE
+  NULLS; F165 CAST enforcement; F166 missing funcs).** The author drained
+  F143–F159; three broad HR feature sweeps surfaced F150–F166.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.

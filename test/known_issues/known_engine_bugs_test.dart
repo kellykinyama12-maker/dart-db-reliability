@@ -1353,10 +1353,9 @@ void main() {
     });
   });
 
-  // Found by a broad HR three-way feature sweep (37/42 matched real Oracle 23ai).
-  // All five confirmed against real Oracle (Oracle gives the value; engine
-  // errors or returns a wrong result).
-  group('open bugs (round 40 — feature sweep, real-Oracle-adjudicated)', () {
+  // Found by a broad HR three-way feature sweep. All fixed & verified against
+  // real Oracle 23ai.
+  group('formerly-open bugs F150–F154 (fixed & verified; feature sweep)', () {
     test('F150 · ROUND(date, fmt) applies the date rounding model', () async {
       final db = await openEngine();
       // Oracle rounds to the nearest month start (day >= 16 rounds up).
@@ -1364,78 +1363,50 @@ void main() {
           db,
           "SELECT TO_CHAR(ROUND(DATE '2024-07-20','MONTH'),'YYYY-MM-DD') FROM dual",
           '2024-08-01');
-    },
-        skip: 'KNOWN ENGINE BUG: ROUND(date, fmt) does not apply the date '
-            'rounding model — ROUND(DATE 2024-07-20, \'MONTH\') returns "2024" '
-            'instead of the nearest month start (2024-08-01; 2024-07-01 for '
-            'day < 16). Companion to F137 (TRUNC date fmt). '
-            'See findings/FINDINGS.md F150.');
+    });
 
     test('F151 · TO_CHAR(number, hex fmt) applies the X format', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT TO_CHAR(255,'FMXXX') FROM dual", 'FF');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, \'X\'/\'XXX\') ignores the hex '
-            'format model and returns the decimal digits unchanged (255). Real '
-            'Oracle returns "FF". Companion to F106 (number format model). '
-            'See findings/FINDINGS.md F151.');
+    });
 
     test('F152 · JSON_OBJECT with KEY ... VALUE syntax', () async {
       final db = await openEngine();
       await expectScalar(
           db, "SELECT JSON_OBJECT('k' VALUE 1) FROM dual", '{"k":1}');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_OBJECT with the KEY ... VALUE syntax '
-            '(JSON_OBJECT(\'k\' VALUE 1)) is a parse error ("Expected ) but got '
-            'VALUE"). Real Oracle returns {"k":1}. See findings/FINDINGS.md F152.');
+    });
 
     test('F153 · REMAINDER built-in', () async {
       final db = await openEngine();
       // REMAINDER uses ROUND (not FLOOR like MOD): REMAINDER(17,6) = -1.
       await expectScalar(db, 'SELECT REMAINDER(17, 6) FROM dual', -1);
-    },
-        skip: 'KNOWN ENGINE BUG: the REMAINDER built-in is missing ("Unknown '
-            'function: REMAINDER"). It differs from MOD (rounds the quotient '
-            'instead of flooring) — REMAINDER(17,6) = -1 where MOD(17,6) = 5. '
-            'Real Oracle returns -1. See findings/FINDINGS.md F153.');
+    });
 
     test('F154 · STATS_MODE aggregate', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (d NUMBER)');
       await db.execute('INSERT INTO t VALUES (50), (50), (60), (90)');
       await expectScalar(db, 'SELECT STATS_MODE(d) FROM t', 50);
-    },
-        skip: 'KNOWN ENGINE BUG: the STATS_MODE aggregate is missing ("Unknown '
-            'function: STATS_MODE"). It returns the most frequent value. Real '
-            'Oracle returns 50. See findings/FINDINGS.md F154.');
+    });
   });
 
-  // Found by a second HR three-way feature sweep (windowing frames, more
-  // string/date/number/JSON — 29/39 matched real Oracle 23ai). All confirmed
-  // against real Oracle.
-  group('open bugs (round 41 — feature sweep II, real-Oracle-adjudicated)', () {
+  // Found by a second HR three-way feature sweep. All fixed & verified against
+  // real Oracle 23ai.
+  group('formerly-open bugs F155–F159 (fixed & verified; feature sweep II)', () {
     test('F155 · TO_CHAR(date) week/Julian format elements', () async {
       final db = await openEngine();
-      // 'WW' is the week of the year (29 for 2024-07-20); the engine returns
-      // the date unchanged, as it does for 'IW' and 'J' too.
+      // 'WW' is the week of the year (29 for 2024-07-20); also IW and J now work.
       await expectScalar(
           db, "SELECT TO_CHAR(DATE '2024-07-20','WW') FROM dual", '29');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) with the WW / IW / J format '
-            'elements returns the date unchanged (the element is not applied). '
-            'Real Oracle returns the week-of-year (29), ISO week (29), and '
-            'Julian day (2460512). See findings/FINDINGS.md F155.');
+    });
 
     test('F156 · TO_CHAR(date, \'DDD\') returns the right day-of-year',
         () async {
       final db = await openEngine();
-      // Day-of-year for Jan 1 is 001; the engine returns "012".
+      // Day-of-year for Jan 1 is 001.
       await expectScalar(
           db, "SELECT TO_CHAR(DATE '2024-01-01','DDD') FROM dual", '001');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, \'DDD\') returns the wrong '
-            'day-of-year — Jan 1 2024 returns "012" (Oracle "001") and Jul 20 '
-            'returns 207 (Oracle 202). See findings/FINDINGS.md F156.');
+    });
 
     test('F157 · JSON_EXISTS predicate', () async {
       final db = await openEngine();
@@ -1443,10 +1414,7 @@ void main() {
           db,
           "SELECT CASE WHEN JSON_EXISTS('{\"a\":1}', '\$.a') THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_EXISTS is missing ("Unknown function: '
-            'JSON_EXISTS"). Real Oracle evaluates the path and returns true. '
-            'See findings/FINDINGS.md F157.');
+    });
 
     test('F158 · JSON_VALUE RETURNING clause', () async {
       final db = await openEngine();
@@ -1454,18 +1422,103 @@ void main() {
           db,
           "SELECT JSON_VALUE('{\"n\":12.5}', '\$.n' RETURNING NUMBER) FROM dual",
           12.5);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_VALUE with a RETURNING clause '
-            '(\'\$.n\' RETURNING NUMBER) is a parse error ("Expected ) but got '
-            'RETURNING"). Real Oracle returns 12.5. See findings/FINDINGS.md F158.');
+    });
 
     test('F159 · VSIZE / DUMP datatype-introspection functions', () async {
       final db = await openEngine();
       await expectScalar(db, 'SELECT VSIZE(123) FROM dual', 3);
+    });
+  });
+
+  // Found by a third HR three-way feature sweep (TO_CHAR format models, string,
+  // analytic, CAST — 17/40 matched real Oracle 23ai). All confirmed vs Oracle.
+  group('open bugs (round 42 — feature sweep III, real-Oracle-adjudicated)', () {
+    test('F160 · TO_CHAR(number) format elements RN/EEEE/PR/L/V', () async {
+      final db = await openEngine();
+      // 'RN' is the Roman numeral; the engine returns the decimal unchanged.
+      await expectScalar(db, "SELECT TO_CHAR(2024,'FMRN') FROM dual", 'MMXXIV');
     },
-        skip: 'KNOWN ENGINE BUG: the datatype-introspection functions VSIZE and '
-            'DUMP are missing ("Unknown function"). Real Oracle returns the '
-            'internal storage size (VSIZE(123) = 3) and a DUMP description. '
-            'See findings/FINDINGS.md F159.');
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, fmt) ignores several format '
+            'elements and returns the decimal unchanged — RN (Roman: 2024 -> '
+            'MMXXIV), EEEE (scientific), PR (angle brackets for negatives: '
+            '-5 -> <5>), L (local currency: -> \$), V (scaling: 999V99 x100). '
+            'Companion to F106/F151. See findings/FINDINGS.md F160.');
+
+    test('F161 · TO_CHAR(date) format elements D/CC/YEAR/RRRR + quoted text',
+        () async {
+      final db = await openEngine();
+      // 'CC' is the century (21 for 2024); the engine returns the date unchanged.
+      await expectScalar(
+          db, "SELECT TO_CHAR(DATE '2024-07-20','CC') FROM dual", '21');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) ignores several elements and '
+            'returns the date unchanged — D (day-of-week), CC (century -> 21), '
+            'YEAR (spelled out), RRRR (year). It also leaves the double quotes '
+            'in quoted literal text (YYYY"x"MM -> 2024"x"07, Oracle 2024x07). '
+            'Companion to F155. See findings/FINDINGS.md F161.');
+
+    test('F162 · REGEXP_SUBSTR subexpression parameter', () async {
+      final db = await openEngine();
+      // The 6th arg selects capture group 2 ("123"); the engine ignores it.
+      await expectScalar(
+          db,
+          "SELECT REGEXP_SUBSTR('abc123def','([a-z]+)([0-9]+)',1,1,NULL,2) FROM dual",
+          '123');
+    },
+        skip: 'KNOWN ENGINE BUG: REGEXP_SUBSTR ignores its subexpression (6th) '
+            'argument — it returns the whole match ("abc123") instead of capture '
+            'group 2 ("123"). Real Oracle returns "123". '
+            'See findings/FINDINGS.md F162.');
+
+    test('F163 · LISTAGG default separator is empty', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (s VARCHAR2(10))');
+      await db.execute("INSERT INTO t VALUES ('a'), ('b'), ('c')");
+      // With no separator argument Oracle concatenates with nothing.
+      await expectScalar(
+          db, 'SELECT LISTAGG(s) WITHIN GROUP (ORDER BY s) FROM t', 'abc');
+    },
+        skip: 'KNOWN ENGINE BUG: LISTAGG with no separator argument defaults to '
+            'a comma ("a,b,c") instead of an empty separator. Real Oracle '
+            'concatenates with nothing ("abc"). See findings/FINDINGS.md F163.');
+
+    test('F164 · LEAD/LAG IGNORE NULLS', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 10), (2, NULL), (3, 30)');
+      // IGNORE NULLS skips the NULL row: LEAD from id 1 returns 30.
+      await expectScalar(
+          db,
+          'SELECT LEAD(v) IGNORE NULLS OVER (ORDER BY id) FROM t '
+          'FETCH FIRST 1 ROW ONLY',
+          30);
+    },
+        skip: 'KNOWN ENGINE BUG: the IGNORE NULLS clause on LEAD/LAG is a parse '
+            'error ("Expected ) but got IGNORE"). Real Oracle skips NULL rows. '
+            'See findings/FINDINGS.md F164.');
+
+    test('F165 · CAST to NUMBER(p,s)/VARCHAR2(n) enforces precision/length',
+        () async {
+      final db = await openEngine();
+      // CAST to NUMBER(5,1) rounds to the declared scale.
+      await expectScalar(
+          db, 'SELECT CAST(123.456 AS NUMBER(5,1)) FROM dual', 123.5);
+    },
+        skip: 'KNOWN ENGINE BUG: CAST does not enforce the target type — '
+            'CAST(123.456 AS NUMBER(5,1)) stays 123.456 (Oracle rounds to 123.5) '
+            'and CAST(\'abc\' AS VARCHAR2(2)) stays "abc" (Oracle truncates to '
+            '"ab"). Companion to F110/F113. See findings/FINDINGS.md F165.');
+
+    test('F166 · missing funcs NLSSORT/ASCIISTR/UNISTR/GROUP_ID/APPROX_COUNT_DISTINCT',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (d NUMBER)');
+      await db.execute('INSERT INTO t VALUES (10), (10), (20), (30)');
+      await expectScalar(db, 'SELECT APPROX_COUNT_DISTINCT(d) FROM t', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: several built-ins are missing ("Unknown '
+            'function") — NLSSORT, ASCIISTR, UNISTR, GROUP_ID, and '
+            'APPROX_COUNT_DISTINCT (which returns the approximate distinct count, '
+            '3 here). See findings/FINDINGS.md F166.');
   });
 }

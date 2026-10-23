@@ -9,20 +9,19 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**159 bugs found; 149 fixed & verified; 10 open (F150–F159).**
+**166 bugs found; 159 fixed & verified; 7 open (F160–F166).**
 
-> **F150–F154 (open) — HR feature sweep.** F150 `ROUND(date, fmt)` ignores the
-> date rounding model; F151 `TO_CHAR(number,'X')` hex ignored; F152 `JSON_OBJECT`
-> `KEY … VALUE` parse error; F153 `REMAINDER` missing; F154 `STATS_MODE` missing.
+> **F160–F166 (open) — HR feature sweep III** (confirmed vs real Oracle 23ai).
+> F160 `TO_CHAR(number)` ignores RN/EEEE/PR/L/V elements; F161 `TO_CHAR(date)`
+> ignores D/CC/YEAR/RRRR and leaves quoted-literal quotes; F162 `REGEXP_SUBSTR`
+> ignores its subexpression arg; F163 `LISTAGG` with no separator defaults to a
+> comma (Oracle: empty); F164 `LEAD/LAG IGNORE NULLS` is a parse error; F165
+> `CAST` does not round/truncate to the target type; F166 NLSSORT / ASCIISTR /
+> UNISTR / GROUP_ID / APPROX_COUNT_DISTINCT are missing.
 >
-> **F155–F159 (open) — HR feature sweep II.** F155 `TO_CHAR(date)` WW/IW/J format
-> elements return the date unchanged; F156 `TO_CHAR(date,'DDD')` wrong day-of-year
-> (Jan 1 → `012`, Jul 20 → `207` vs `001`/`202`); F157 `JSON_EXISTS` missing;
-> F158 `JSON_VALUE … RETURNING` clause parse error; F159 `VSIZE`/`DUMP` missing.
-> All ten confirmed vs real Oracle 23ai.
->
-> **F149 fixed & verified:** JSON_VALUE now decodes a BLOB holding JSON; the CO
-> three-way gate re-includes that query and stays green.
+> **F150–F159 fixed & verified:** the two prior HR feature sweeps are drained
+> (ROUND date fmt, TO_CHAR hex, JSON_OBJECT VALUE, REMAINDER, STATS_MODE,
+> TO_CHAR WW/IW/J/DDD, JSON_EXISTS, JSON_VALUE RETURNING, VSIZE/DUMP).
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

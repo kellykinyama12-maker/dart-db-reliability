@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **10 open bugs (F150–F159)**
-— the Oracle backlog through F149 is fixed and verified. Two broad HR three-way
-feature sweeps surfaced these function/format gaps. Real HR + SH + CO data load
-and match real Oracle 23ai (CO gate now includes JSON_VALUE over a BLOB).
+For the engine author working in `dart-db-server`. **7 open bugs (F160–F166)**
+— the Oracle backlog through F159 is fixed and verified. A third broad HR
+three-way feature sweep surfaced these TO_CHAR format-model / string / analytic
+/ CAST gaps. Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F150–F159 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F160–F166 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 159 found, 149 fixed & verified, 10 open (F150–F159).**
+**Status: 166 found, 159 fixed & verified, 7 open (F160–F166).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,7 +34,27 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR feature sweep II — real-Oracle-adjudicated (F155–F159)
+### HR feature sweep III — real-Oracle-adjudicated (F160–F166)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F160** | TO_CHAR(number) RN/EEEE/PR/L/V | returns the decimal unchanged (Oracle `MMXXIV`, scientific, `<5>`, `$`, x100) | apply the Roman/scientific/angle/currency/scaling number-format elements |
+| **F161** | TO_CHAR(date) D/CC/YEAR/RRRR + quotes | returns the date unchanged; leaves `"x"` quotes (`2024"x"07`) | apply the elements and strip quoted-literal delimiters |
+| **F162** | REGEXP_SUBSTR subexpr | ignores the 6th (subexpression) arg — returns the whole match (Oracle capture group 2) | honour the subexpression argument |
+| **F163** | LISTAGG default sep | defaults to `,` with no separator arg (Oracle: empty) | default to an empty separator |
+| **F164** | LEAD/LAG IGNORE NULLS | `LEAD(v) IGNORE NULLS` → parse error | parse the IGNORE NULLS clause on LEAD/LAG |
+| **F165** | CAST enforcement | `CAST(123.456 AS NUMBER(5,1))` stays `123.456`; `CAST('abc' AS VARCHAR2(2))` stays `abc` | round/truncate to the target type (companion to F110/F113) |
+| **F166** | missing funcs | NLSSORT, ASCIISTR, UNISTR, GROUP_ID, APPROX_COUNT_DISTINCT → unknown function | add the built-ins |
+
+> Found by a third 40-query HR three-way feature sweep (17 already matched real
+> Oracle, incl. TRIM BOTH/LEADING, SUBSTR neg, INSTR neg, RATIO_TO_REPORT,
+> GROUPING, CAST-as-DATE strictness, TO_CHAR S/PR basics, FM0000, Month/DY).
+> Not filed: REPLACE empty-string -> NULL (pervasive empty-string dialect) and
+> CAST('2024-07-20' AS DATE) (Oracle is merely stricter there).
+
+---
+
+### HR feature sweep II — fixed & verified (F155–F159)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
