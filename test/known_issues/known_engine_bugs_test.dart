@@ -1150,48 +1150,67 @@ void main() {
   // all match.)
   group('open bugs (round 32 — data-type fidelity II, real-Oracle-adjudicated)',
       () {
-    test('F133 · HEXTORAW / RAW hex handling is missing', () async {
+    test('F133 · HEXTORAW / RAW hex handling is supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
       await expectScalar(db, "SELECT RAWTOHEX(HEXTORAW('DEADBEEF')) FROM d",
           'DEADBEEF');
-    },
-        skip: 'KNOWN ENGINE BUG: HEXTORAW is an unknown function (RAW/BLOB hex '
-            'round-trip). Real Oracle returns "DEADBEEF". See '
-            'findings/FINDINGS.md F133.');
+    });
 
-    test('F134 · TO_CHAR fractional-seconds format (FF) is not applied',
+    test('F134 · TO_CHAR fractional-seconds format (FF) is applied',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (ts TIMESTAMP(3))');
       await db.execute("INSERT INTO t VALUES (TIMESTAMP '2021-06-15 13:45:30.123')");
-      // Oracle 'FF3' returns just the fraction '123'; the engine returns the
-      // whole timestamp string.
+      // Oracle 'FF3' returns just the fraction '123'.
       await expectScalar(db, "SELECT TO_CHAR(ts, 'FF3') FROM t", '123');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(timestamp, \'FF[n]\') (fractional '
-            'seconds) is not applied — it returns the full value instead of the '
-            'fraction. See findings/FINDINGS.md F134.');
+    });
 
-    test('F135 · INTERVAL column types are not parsed', () async {
+    test('F135 · INTERVAL column types are parsed', () async {
       final db = await openEngine();
       // INTERVAL DAY TO SECOND / YEAR TO MONTH as a column type.
       await expectOk(db, 'CREATE TABLE t (v INTERVAL DAY TO SECOND)');
-    },
-        skip: 'KNOWN ENGINE BUG: INTERVAL DAY TO SECOND / YEAR TO MONTH column '
-            'types are a parse error ("Expected ) but got DAY"). INTERVAL '
-            'literals in expressions work. See findings/FINDINGS.md F135.');
+    });
 
-    test('F136 · NUMBER(p, -s) negative scale is not parsed', () async {
+    test('F136 · NUMBER(p, -s) negative scale is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v NUMBER(5,-2))');
       await db.execute('INSERT INTO t VALUES (12345)');
       // Oracle rounds to the negative scale: 12345 -> 12300.
       await expectScalar(db, 'SELECT v FROM t', 12300);
+    });
+  });
+
+  // Found running a big diverse HR sample-schema analytic battery three-way vs
+  // real Oracle 23ai (27/30 clean). TRUNC(date, fmt) and quantified-subquery
+  // comparisons.
+  group('open bugs (round 33 — date-trunc format + quantified subquery, real-Oracle-adjudicated)',
+      () {
+    test('F137 · TRUNC(date, format) does not truncate to the unit', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      // Oracle truncates to the month start (2021-06-01); the engine returns
+      // the unchanged date.
+      await expectScalar(db,
+          "SELECT TO_CHAR(TRUNC(TO_DATE('2021-06-15','YYYY-MM-DD'),'MM'),'YYYY-MM-DD') FROM d",
+          '2021-06-01');
     },
-        skip: 'KNOWN ENGINE BUG: NUMBER(p, -s) with a negative scale is a parse '
-            'error ("Expected ) but got 2"); Oracle rounds 12345 into '
-            'NUMBER(5,-2) to 12300. See findings/FINDINGS.md F136.');
+        skip: 'KNOWN ENGINE BUG: TRUNC(date, fmt) with a format model (MM/YYYY/'
+            'etc.) does not truncate — it returns the unchanged date (Oracle '
+            'truncates to the unit start). See findings/FINDINGS.md F137.');
+
+    test('F138 · quantified comparison >= ALL (subquery) is not parsed',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (2), (3)');
+      // Oracle: rows whose x >= every x -> just the max.
+      await expectOk(db, 'SELECT COUNT(*) FROM t WHERE x >= ALL (SELECT x FROM t)');
+    },
+        skip: 'KNOWN ENGINE BUG: a quantified comparison (>= ALL / ANY / SOME '
+            '(subquery)) is a parse error ("Expected ) but got <col>"). See '
+            'findings/FINDINGS.md F138.');
   });
 }

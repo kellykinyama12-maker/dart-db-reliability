@@ -1,15 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **4 open bugs** — a
-data-type-fidelity II batch (F133–F136: RAW/HEXTORAW, TO_CHAR fractional seconds,
-INTERVAL column types, NUMBER negative scale), all adjudicated against real
-Oracle 23ai. F85–F132 were fixed async and are active regression guards.
+For the engine author working in `dart-db-server`. **2 open bugs** — `TRUNC(date,
+fmt)` not truncating (F137) and a quantified `>= ALL (subquery)` comparison
+(F138), both found by the big HR real-data analytic battery vs real Oracle 23ai.
+F85–F136 were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 136 found, 132 fixed & verified, 4 open.**
+**Status: 138 found, 136 fixed & verified, 2 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,6 +34,17 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 `lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
+
+### Date-trunc format + quantified subquery — real-Oracle-adjudicated (F137–F138)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F137** | TRUNC(date, fmt) | `TRUNC(date,'MM')` returns the unchanged date, Oracle → month start | apply the date-trunc format model (MM/YYYY/…) |
+| **F138** | quantified subquery | `x >= ALL (SELECT …)` → parse error | parse `>= ALL`/`ANY`/`SOME (subquery)` |
+
+> Found by a 30-query HR real-data battery (27/30 already matched real Oracle,
+> incl. STDDEV/CORR, FIRST_VALUE, RATIO_TO_REPORT, REGEXP backrefs, TRANSLATE,
+> CUBE, SYS_CONNECT_BY_PATH, PIVOT, KEEP LAST, PERCENTILE_DISC, TO_CHAR FM).
 
 ### Data-type fidelity II — real-Oracle-adjudicated (F133–F136)
 

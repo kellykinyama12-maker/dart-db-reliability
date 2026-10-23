@@ -52,12 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 136 found, 132 fixed & verified, 4 open.**
-  **Open (all vs real Oracle 23ai):** data-type fidelity II (F133 HEXTORAW/RAW,
-  F134 TO_CHAR fractional seconds, F135 INTERVAL column types, F136 NUMBER
-  negative scale). F131 (NUMBER exact decimal) and F132 (CHAR padding) landed.
-  Real-data three-way gates: HR schema+data (25 analytic queries) and SH lookup.
-  MySQL wire clean.
+- **Bug status (2026-10-23): 138 found, 136 fixed & verified, 2 open.**
+  **Open (vs real Oracle 23ai):** F137 (TRUNC(date, fmt) not truncating) and
+  F138 (quantified `>= ALL (subquery)`), both found by a 30-query HR real-data
+  analytic battery (27/30 matched). Real-data three-way gates: HR schema+data
+  and SH lookup. MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.
