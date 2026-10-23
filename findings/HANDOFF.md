@@ -12,6 +12,25 @@ fixed async and are active regression guards.
 
 **Status: 123 found, 109 fixed & verified, 14 open.**
 
+## Reproduce the real-Oracle adjudication
+
+Every F100+ bug was checked against a local **Oracle Database 23ai Free**
+container (gvenzl image). To confirm expected values yourself:
+
+```powershell
+docker start orafree           # container already exists; port 1521 mapped
+# wait ~30s for the PDB to open, then either:
+#  (a) app user (what the harness oci8 bridge uses):
+#      host 127.0.0.1  port 1521  service FREEPDB1  user native  password Secret123
+#  (b) passwordless OS auth inside the container:
+docker exec -i orafree sqlplus -S "/ as sysdba"
+#      then: ALTER SESSION SET CONTAINER=FREEPDB1;
+```
+
+These are throwaway **local test credentials** (Oracle Free dev container), not
+production secrets. The harness runner is `tool/oci8_exec.php`; the bridge is
+`lib/src/oci8_bridge.dart` (defaults: `FREEPDB1` / `native` / `Secret123`).
+
 ## Current open bugs
 
 ### Date/time + regex — real-Oracle-adjudicated (F100–F104)
