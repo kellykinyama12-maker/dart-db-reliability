@@ -1709,12 +1709,7 @@ void main() {
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       await expectOk(db, 'SELECT COUNT(*) FROM t WHERE ROWID IS NOT NULL');
-    },
-        skip: 'KNOWN ENGINE BUG: the Oracle ROWID pseudocolumn is unsupported '
-            '("Unknown column: ROWID"); SESSIONTIMEZONE is too. NOTE: ROWID must '
-            'coexist with the SQLite integer `rowid` alias (F57) — do not break '
-            'one to add the other; disambiguate by dialect. '
-            'See findings/FINDINGS.md F189.');
+    });
 
     test('F190 · missing scalar functions (NCHR/COMPOSE/NEW_TIME/…)', () async {
       final db = await openEngine();
@@ -1760,21 +1755,14 @@ void main() {
       // Oracle capitalizes the letter after the apostrophe (O'Brien).
       await expectScalar(
           db, "SELECT INITCAP('o''brien mcleod') FROM dual", "O'Brien Mcleod");
-    },
-        skip: 'KNOWN ENGINE BUG: INITCAP only word-breaks on spaces, not on '
-            'apostrophes/other non-alphanumerics — "o\'\'brien" becomes '
-            '"O\'brien" instead of "O\'Brien". See findings/FINDINGS.md F194.');
+    });
 
     test('F195 · CONNECT BY LEVEL row generator', () async {
       final db = await openEngine();
       // The classic dual row generator should produce 5 rows (1+2+3+4+5=15).
       await expectScalar(
           db, 'SELECT SUM(LEVEL) FROM dual CONNECT BY LEVEL <= 5', 15);
-    },
-        skip: 'KNOWN ENGINE BUG: "SELECT ... FROM dual CONNECT BY LEVEL <= n" '
-            '(the classic row generator) returns only 1 row instead of n — '
-            'SUM(LEVEL) is 1, not 15. Real Oracle generates 5 rows. '
-            'See findings/FINDINGS.md F195.');
+    });
 
     test('F196 · INTERSECT ALL / MINUS ALL', () async {
       final db = await openEngine();
@@ -1782,10 +1770,7 @@ void main() {
           db,
           'SELECT COUNT(*) FROM (SELECT 1 FROM dual INTERSECT ALL SELECT 1 FROM dual)',
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: INTERSECT ALL is a parse error ("Expected '
-            'SELECT but got ALL") — only the DISTINCT form is parsed. Real '
-            'Oracle returns 1. See findings/FINDINGS.md F196.');
+    });
   });
 
   // Found by a third HR three-way mega-sweep (regexp flags, grouping, analytic,
@@ -1798,10 +1783,7 @@ void main() {
           db,
           "SELECT CASE WHEN REGEXP_LIKE('abc', 'ABC', 'i') THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: the REGEXP case-insensitive match_param (\'i\') '
-            'is ignored — REGEXP_LIKE(\'abc\',\'ABC\',\'i\') returns 0. Real '
-            'Oracle matches case-insensitively (1). See findings/FINDINGS.md F197.');
+    });
 
     test('F198 · GROUP BY () empty grouping', () async {
       final db = await openEngine();
@@ -1809,10 +1791,7 @@ void main() {
       await db.execute('INSERT INTO a VALUES (1), (2)');
       // GROUP BY () is a single grand-total group.
       await expectScalar(db, 'SELECT COUNT(*) FROM a GROUP BY ()', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: GROUP BY () (the explicit empty/grand-total '
-            'grouping) is a parse error ("Unexpected token )"). Real Oracle '
-            'returns the grand total (2). See findings/FINDINGS.md F198.');
+    });
 
     test('F199 · aggregate-over-aggregate analytic (SUM(COUNT(*)) OVER ())',
         () async {
@@ -1822,11 +1801,7 @@ void main() {
       // Two groups of 1; the windowed sum of the group counts is 2.
       await expectScalar(
           db, 'SELECT DISTINCT SUM(COUNT(*)) OVER () FROM a GROUP BY x', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: an analytic over an aggregate '
-            '(SUM(COUNT(*)) OVER ()) throws "Aggregate function COUNT() cannot '
-            'be evaluated as a scalar". Real Oracle returns 2. '
-            'See findings/FINDINGS.md F199.');
+    });
 
     test('F200 · TO_DATE with DDD day-of-year', () async {
       final db = await openEngine();
@@ -1835,10 +1810,7 @@ void main() {
           db,
           "SELECT TO_CHAR(TO_DATE('2024-060','YYYY-DDD'),'YYYY-MM-DD') FROM dual",
           '2024-02-29');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_DATE with the DDD (day-of-year) format '
-            'returns NULL. Real Oracle parses it (2024-060 -> 2024-02-29). '
-            'Companion to F156. See findings/FINDINGS.md F200.');
+    });
 
     test('F201 · TRUNC(date, \'IYYY\') ISO year', () async {
       final db = await openEngine();
@@ -1846,9 +1818,96 @@ void main() {
           db,
           "SELECT TO_CHAR(TRUNC(DATE '2024-07-20','IYYY'),'YYYY-MM-DD') FROM dual",
           '2024-01-01');
+    });
+  });
+
+  // Found by a fourth HR three-way mega-sweep (ROWNUM, MOD, composite GROUP BY,
+  // JSON_TABLE, TZ, interval cast — confirmed vs real Oracle 23ai). UNION-NULL
+  // and NUMTODSINTERVAL display diffs were excluded (no minimal repro / display-only).
+  group('open bugs (round 49 — mega-sweep IV, real-Oracle-adjudicated)', () {
+    test('F202 · MOD(n, 0) returns n (no crash)', () async {
+      final db = await openEngine();
+      // Oracle: MOD(n, 0) = n. The engine throws IntegerDivisionByZeroException.
+      await expectScalar(db, 'SELECT MOD(5, 0) FROM dual', 5);
     },
-        skip: 'KNOWN ENGINE BUG: TRUNC(date, \'IYYY\') (ISO year) is not applied '
-            '— returns the date unchanged. Real Oracle returns 2024-01-01. '
-            'Companion to F168. See findings/FINDINGS.md F201.');
+        skip: 'KNOWN ENGINE BUG: MOD(n, 0) crashes the engine with an '
+            'IntegerDivisionByZeroException instead of returning n. Real Oracle '
+            'returns 5. See findings/FINDINGS.md F202.');
+
+    test('F203 · ROLLUP/CUBE in a composite GROUP BY', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE g (a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO g VALUES (1, 10), (1, 20), (2, 30)');
+      // GROUP BY a, ROLLUP(b): per-a (a,b) groups + per-a subtotal = 5 rows.
+      await expectScalar(
+          db, 'SELECT COUNT(*) FROM (SELECT a FROM g GROUP BY a, ROLLUP(b))', 5);
+    },
+        skip: 'KNOWN ENGINE BUG: ROLLUP/CUBE combined with a plain column in a '
+            'composite GROUP BY (GROUP BY a, ROLLUP(b)) throws "Unknown '
+            'function: ROLLUP" — only a standalone ROLLUP/CUBE is parsed. Real '
+            'Oracle returns 5. See findings/FINDINGS.md F203.');
+
+    test('F204 · JSON_TABLE array wildcard \$[*]', () async {
+      final db = await openEngine();
+      // Each array element produces a row: 2 rows.
+      await expectScalar(
+          db,
+          "SELECT COUNT(*) FROM (SELECT * FROM JSON_TABLE("
+          "'[{\"a\":1},{\"a\":2}]', '\$[*]' COLUMNS (a NUMBER PATH '\$.a')))",
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_TABLE with the array wildcard \$[*] '
+            'produces only 1 row instead of one per array element. Real Oracle '
+            'returns 2. See findings/FINDINGS.md F204.');
+
+    test('F205 · COUNT(*) with WHERE ROWNUM <= n', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER)');
+      for (var i = 1; i <= 10; i++) {
+        await db.execute('INSERT INTO t VALUES ($i)');
+      }
+      // ROWNUM limits to 3 rows before aggregation.
+      await expectScalar(db, 'SELECT COUNT(*) FROM t WHERE ROWNUM <= 3', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: "SELECT COUNT(*) FROM t WHERE ROWNUM <= n" '
+            'counts all rows (10) instead of applying ROWNUM before the '
+            'aggregate (3). The ROWNUM filter works in a subquery but not at the '
+            'aggregate level. Real Oracle returns 3. See findings/FINDINGS.md F205.');
+
+    test('F206 · TO_BINARY_FLOAT / TO_BINARY_DOUBLE', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN TO_BINARY_FLOAT('3.14') > 3 THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: TO_BINARY_FLOAT and TO_BINARY_DOUBLE are '
+            'missing ("Unknown function"). Real Oracle converts them. '
+            'See findings/FINDINGS.md F206.');
+
+    test('F207 · EXTRACT(TIMEZONE_MINUTE FROM ts)', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT EXTRACT(TIMEZONE_MINUTE FROM "
+          "TIMESTAMP '2024-01-01 00:00:00 +05:30') FROM dual",
+          30);
+    },
+        skip: 'KNOWN ENGINE BUG: EXTRACT(TIMEZONE_MINUTE FROM ts) returns NULL '
+            '(TIMEZONE_HOUR was fixed; the minute field is not). Real Oracle '
+            'returns 30. Companion to F177. See findings/FINDINGS.md F207.');
+
+    test('F208 · (expr) DAY TO SECOND interval cast', () async {
+      final db = await openEngine();
+      // The day-difference cast to an interval; the day field is 60.
+      await expectScalar(
+          db,
+          "SELECT EXTRACT(DAY FROM "
+          "(DATE '2024-03-01' - DATE '2024-01-01') DAY TO SECOND) FROM dual",
+          60);
+    },
+        skip: 'KNOWN ENGINE BUG: the "(expr) DAY TO SECOND" interval-cast syntax '
+            'is a parse error ("Expected ) but got DAY"). Real Oracle returns 60. '
+            'See findings/FINDINGS.md F208.');
   });
 }

@@ -1,20 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **9 open bugs** (F189, F194–
-F201) — everything else through F196 is fixed and verified. Three broad HR
-three-way mega-sweeps surfaced these. Real HR + SH + CO data load and match
-real Oracle 23ai.
+For the engine author working in `dart-db-server`. **7 open bugs** (F202–F208)
+— everything else through F201 is fixed and verified. A fourth broad HR
+three-way mega-sweep surfaced these. Real HR + SH + CO data load and match real
+Oracle 23ai.
 
-> ⚠️ **ROWID vs `rowid` dialect tension (F189 ↔ F57).** Adding the Oracle
-> `ROWID` pseudocolumn (F189) briefly regressed the SQLite integer `rowid`
-> alias (F57 — `SELECT rowid FROM t` returned `'AAAAAAAAAA'` instead of `5`).
-> The harness caught it. They are mutually exclusive right now; **disambiguate
-> by dialect** so both work — don't break one to add the other.
-
-- **Verify:** `dart test --timeout 30s` (all green; the 9 open bugs skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F202–F208 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 201 found, 192 fixed & verified, 9 open (F189, F194–F201).**
+**Status: 208 found, 201 fixed & verified, 7 open (F202–F208).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -40,24 +34,22 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweeps — real-Oracle-adjudicated (9 open)
+### HR mega-sweep IV — real-Oracle-adjudicated (F202–F208)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F189** | ROWID / SESSIONTIMEZONE | pseudocolumns unsupported (must coexist with SQLite `rowid` — see F57 note) | expose ROWID + SESSIONTIMEZONE, dialect-aware |
-| **F194** | INITCAP apostrophe | `o'brien` → "O'brien" (Oracle "O'Brien") | word-break on non-alphanumerics |
-| **F195** | CONNECT BY LEVEL row-gen | `FROM dual CONNECT BY LEVEL <= n` → 1 row (Oracle n) | generate n rows |
-| **F196** | INTERSECT ALL | parse error (only DISTINCT parsed) (Oracle `1`) | parse INTERSECT ALL / MINUS ALL |
-| **F197** | REGEXP case-insensitive flag | match_param `'i'` ignored (`REGEXP_LIKE('abc','ABC','i')` → 0, Oracle 1) | honour the match_param flags |
-| **F198** | GROUP BY () | explicit empty/grand-total grouping → parse error (Oracle grand total) | parse GROUP BY () |
-| **F199** | aggregate-over-aggregate analytic | `SUM(COUNT(*)) OVER ()` → "cannot be evaluated as a scalar" (Oracle `2`) | support an analytic over an aggregate |
-| **F200** | TO_DATE DDD | `TO_DATE('2024-060','YYYY-DDD')` → NULL (Oracle 2024-02-29) | parse the day-of-year format |
-| **F201** | TRUNC(date,'IYYY') | not applied (Oracle 2024-01-01) | apply ISO-year truncation (companion F168) |
+| **F202** | MOD(n, 0) crash | throws IntegerDivisionByZeroException (Oracle returns n) | MOD(n,0) = n |
+| **F203** | composite ROLLUP/CUBE | `GROUP BY a, ROLLUP(b)` → "Unknown function: ROLLUP" (Oracle `5`) | parse ROLLUP/CUBE mixed with plain grouping columns |
+| **F204** | JSON_TABLE wildcard | `$[*]` yields 1 row instead of one per element (Oracle `2`) | iterate array wildcards |
+| **F205** | COUNT(*) + ROWNUM | `COUNT(*) … WHERE ROWNUM <= n` counts all rows (Oracle `3`) | apply ROWNUM before the aggregate |
+| **F206** | TO_BINARY_FLOAT/DOUBLE | missing ("Unknown function") | add the conversions |
+| **F207** | EXTRACT(TIMEZONE_MINUTE) | returns NULL (TIMEZONE_HOUR works) (Oracle `30`) | extract the minute field (companion F177) |
+| **F208** | (expr) DAY TO SECOND cast | interval-cast syntax → parse error (Oracle `60`) | parse the interval qualifier cast |
 
-> Found by three HR three-way mega-sweeps (67 + 57 + 44 queries). Excluded:
-> Oracle-also-errors, boolean casing, float last-digit noise, empty-string/NULL
-> dialect, default date/timestamp display, named-capture regex (engine superset),
-> and CROSS-JOIN/PIVOT diffs that would not reproduce minimally.
+> Found by a fourth HR three-way mega-sweep (45 queries). Excluded: UNION NULL
+> distinct (still no minimal repro), NUMTODSINTERVAL display-only diff
+> (EXTRACT works), 1/0.0 (Oracle errors), TRANSLATE … USING (niche), boolean
+> casing, and the empty-string/NULL dialect family.
 
 ---
 

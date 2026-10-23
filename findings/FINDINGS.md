@@ -9,19 +9,18 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**201 bugs found; 192 fixed & verified; 9 open (F189, F194–F201).**
+**208 bugs found; 201 fixed & verified; 7 open (F202–F208).**
 
-> **Regression caught:** adding the Oracle `ROWID` pseudocolumn (F189) briefly
-> regressed the SQLite integer `rowid` alias (F57 — the active guard went red,
-> `SELECT rowid FROM t` returned `'AAAAAAAAAA'` instead of `5`). They are
-> mutually exclusive in the current engine; disambiguate by dialect.
+> **Open (confirmed vs real Oracle 23ai):** F202 MOD(n,0) crashes (Oracle n);
+> F203 ROLLUP/CUBE in a composite GROUP BY; F204 JSON_TABLE `$[*]` wildcard
+> yields 1 row; F205 COUNT(*) + WHERE ROWNUM <= n counts all rows; F206
+> TO_BINARY_FLOAT/DOUBLE missing; F207 EXTRACT(TIMEZONE_MINUTE) NULL; F208
+> "(expr) DAY TO SECOND" interval cast parse error.
 >
-> **Open (confirmed vs real Oracle 23ai):** F189 ROWID/SESSIONTIMEZONE; F194
-> INITCAP apostrophe; F195 CONNECT BY LEVEL row generator; F196 INTERSECT ALL;
-> F197 REGEXP case-insensitive flag; F198 GROUP BY (); F199 analytic over an
-> aggregate (SUM(COUNT(*)) OVER ()); F200 TO_DATE DDD; F201 TRUNC(date,'IYYY').
->
-> **Drained:** F183, F184, F186, F188, F191, F192 — all fixed & verified.
+> **Drained:** F189 (ROWID — resolved the F57 conflict), F194 (INITCAP), F195
+> (CONNECT BY LEVEL row-gen), F196 (INTERSECT ALL), F197 (REGEXP i-flag), F198
+> (GROUP BY ()), F199 (analytic over aggregate), F200 (TO_DATE DDD), F201
+> (TRUNC IYYY) — all fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
