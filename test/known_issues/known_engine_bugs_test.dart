@@ -2009,11 +2009,7 @@ void main() {
           'SELECT COUNT(*) FROM (SELECT g FROM t GROUP BY ROLLUP(g) '
           'HAVING GROUPING(g) = 0)',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: GROUPING() returns 0 even for the ROLLUP/CUBE '
-            'superaggregate (grand-total) row — so HAVING GROUPING(g)=0 keeps it '
-            '(3 rows) instead of filtering to the 2 detail groups. Real Oracle '
-            'returns 2. See findings/FINDINGS.md F219.');
+    });
 
     test('F220 · PIVOT row count', () async {
       final db = await openEngine();
@@ -2025,10 +2021,7 @@ void main() {
           'SELECT COUNT(*) FROM (SELECT * FROM (SELECT g, v FROM t) '
           'PIVOT (COUNT(*) FOR g IN (1, 2)))',
           3);
-    },
-        skip: 'KNOWN ENGINE BUG: PIVOT collapses to 1 row instead of grouping by '
-            'the implicit non-pivoted columns — returns 1 where Oracle returns 3. '
-            'See findings/FINDINGS.md F220.');
+    });
   });
 
   // Found by a data-type fidelity three-way sweep (19/22 already matched real
@@ -2053,11 +2046,7 @@ void main() {
       // Oracle || never nulls the result for non-null operands.
       await expectScalar(
           db, "SELECT 'x' || CAST(NULL AS VARCHAR2(5)) || 'y' FROM dual", 'xy');
-    },
-        skip: 'KNOWN ENGINE BUG: the || operator propagates NULL — '
-            '\'x\' || NULL || \'y\' returns NULL instead of "xy". Oracle treats a '
-            'NULL operand as an empty string in concatenation (a cornerstone '
-            'Oracle behavior). See findings/FINDINGS.md F222.');
+    });
 
     test('F223 · EXTRACT field from an INTERVAL column', () async {
       final db = await openEngine();
