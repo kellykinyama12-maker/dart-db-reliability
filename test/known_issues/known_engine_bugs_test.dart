@@ -2034,12 +2034,7 @@ void main() {
       // CHAR comparison blank-pads both sides: 'ab   ' = 'ab' is true.
       await expectScalar(
           db, "SELECT CASE WHEN x = 'ab' THEN 1 ELSE 0 END FROM c", 1);
-    },
-        skip: 'KNOWN ENGINE BUG: CHAR(n) uses non-padded comparison — the value '
-            'is stored blank-padded (LENGTH=5) but `x = \'ab\'` returns 0 '
-            'instead of 1. The same affects CHAR in IN-lists and CHAR=CHAR '
-            'joins. Oracle blank-pads both operands for CHAR comparison. '
-            'See findings/FINDINGS.md F221.');
+    });
 
     test('F222 · concatenation treats NULL as empty string', () async {
       final db = await openEngine();
@@ -2054,12 +2049,7 @@ void main() {
       await db.execute("INSERT INTO i VALUES (INTERVAL '1 02:00:00' DAY TO SECOND)");
       // 1 day 2 hours — the HOUR field is 2.
       await expectScalar(db, 'SELECT EXTRACT(HOUR FROM v) FROM i', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM interval_column) returns the '
-            'wrong field — EXTRACT(HOUR) from INTERVAL \'1 02:00:00\' returns 1 '
-            '(the day) instead of 2; EXTRACT(MONTH) from an INTERVAL YEAR TO '
-            'MONTH column also returns NULL. Real Oracle returns 2 / 6. '
-            'See findings/FINDINGS.md F223.');
+    });
 
     test('F224 · multi-column UPDATE SET (a,b) = (subquery)', () async {
       final db = await openEngine();
