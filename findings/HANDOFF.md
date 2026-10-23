@@ -1,24 +1,18 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **14 open bugs** — the
-advanced-SQL set (F94), a date/time + regex batch (F100–F104), an analytic /
-set-operator / formatting batch (F105–F108), and a DML/DDL batch (F109–F112),
-all adjudicated against real Oracle 23ai. F86–F93 and F95–F99 were fixed async
-and are now active regression guards.
+For the engine author working in `dart-db-server`. **17 open bugs** — a date/time
++ regex batch (F100–F104), an analytic / set-operator / formatting batch
+(F105–F108), a DML/DDL batch (F109–F112), and a type-enforcement + CTE batch
+(F113–F116), all adjudicated against real Oracle 23ai. F86–F99 (except — now
+also — F94) were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 112 found, 98 fixed & verified, 14 open.**
+**Status: 116 found, 99 fixed & verified, 17 open.**
 
 ## Current open bugs
-
-### Advanced Oracle SQL (F94)
-
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F94** | advanced features | `SYS_CONNECT_BY_PATH` / `PIVOT` / `KEEP (DENSE_RANK FIRST …)` → unsupported | add these (advanced) |
 
 ### Date/time + regex — real-Oracle-adjudicated (F100–F104)
 
@@ -61,17 +55,27 @@ and are now active regression guards.
 > clean: sequences (NEXTVAL), virtual columns, column DEFAULT, INSERT ALL,
 > UPDATE, CHECK constraints.
 
+### Type-enforcement + CTE — real-Oracle-adjudicated (F113–F116)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F113** | VARCHAR2 length | stores `'abcdefg'` into `VARCHAR2(3)`, Oracle → ORA-12899 | enforce the declared length |
+| **F114** | NUMBER precision | stores `12345` into `NUMBER(3)`, Oracle → ORA-01438 | enforce the declared precision (companion to F110) |
+| **F115** | recursive WITH keyword | `WITH r AS (… self-ref …)` → `No such table r`; needs `RECURSIVE` | auto-detect recursion (Oracle has no RECURSIVE keyword) |
+| **F116** | WITH in subquery | `FROM (WITH x AS (…) SELECT …)` → parse error | parse a WITH clause inside a derived table |
+
+> **F113/F114 are silent data-integrity bugs.** Already clean: FK ON DELETE
+> CASCADE/SET NULL, CLOB, TIMESTAMP, PL/SQL loops, CREATE FUNCTION + call,
+> NOT NULL, UNIQUE, plain + `WITH RECURSIVE` CTEs.
+
 ---
 
-## Resolved batch (F86–F99 except F94) — ✅ fixed 2026-10-23
+## Resolved batch (F86–F99 + F94) — ✅ fixed 2026-10-23
 
-> **✅ RESOLVED (async).** OE object-relational DDL (F86–F88: object tables, REF
-> columns, NESTED TABLE STORE AS), the Oracle function sweep (F89–F92: INSTR
-> args, TRUNC places/date, LISTAGG WITHIN GROUP, TRANSLATE/ADD_MONTHS/
-> MONTHS_BETWEEN/NEXT_DAY), ORDER BY under ROLLUP (F93), MERGE alias-qualified
-> SET (F95), and the three-way scalar sweep (F96–F99: MOD sign, GREATEST/LEAST
-> NULL, 2-arg REPLACE crash, ANSI TRIM FROM). All verified live and kept as
-> active regression guards. **F94 remains open.**
+> **✅ RESOLVED (async).** OE object-relational DDL (F86–F88), the Oracle function
+> sweep (F89–F92), ORDER BY under ROLLUP (F93), SYS_CONNECT_BY_PATH + PIVOT
+> (F94), MERGE alias-qualified SET (F95), and the three-way scalar sweep
+> (F96–F99). All verified live and kept as active regression guards.
 
 ---
 

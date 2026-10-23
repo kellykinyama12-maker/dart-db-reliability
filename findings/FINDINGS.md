@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**112 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F112 open.**
+**116 bugs found; F1–F99 fixed & verified; F100–F116 open.**
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
@@ -44,6 +44,18 @@ An Oracle DML/DDL effect sweep vs real Oracle then added F109–F112:
 - **F111** (open) — the `MERGE … UPDATE … DELETE WHERE` clause is a parse error.
 - **F112** (open) — `DEFAULT ON NULL <expr>` is a parse error. (Sequences,
   virtual columns, column DEFAULT, INSERT ALL, UPDATE, CHECK all work.)
+
+An Oracle type-enforcement + CTE sweep vs real Oracle then added F113–F116:
+- **F113** (open, data integrity) — `VARCHAR2(n)` length is not enforced (an
+  oversized string is stored, not rejected; Oracle: ORA-12899).
+- **F114** (open, data integrity) — `NUMBER(p)` precision is not enforced
+  (out-of-precision values stored; Oracle: ORA-01438). Companion to F110.
+- **F115** (open) — a recursive `WITH` requires the SQLite-style `RECURSIVE`
+  keyword; Oracle auto-detects recursion, so plain `WITH r AS (…self-ref…)`
+  fails. (`WITH RECURSIVE` works.)
+- **F116** (open) — a `WITH` clause inside a parenthesized subquery / derived
+  table is a parse error. (FK ON DELETE CASCADE/SET NULL, CLOB, TIMESTAMP,
+  PL/SQL loops, CREATE FUNCTION, NOT NULL, UNIQUE all work.)
 
 Original write-up of the now-fixed F86–F99 batch follows for the record.
 

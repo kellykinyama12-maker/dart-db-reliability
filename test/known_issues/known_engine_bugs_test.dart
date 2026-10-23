@@ -747,25 +747,22 @@ void main() {
     });
   });
 
-  // Advanced Oracle SQL gaps found probing grouping/hierarchical/pivot SQL.
-  group('open bugs (round 20 — advanced Oracle SQL)', () {
-    test('F94 · SYS_CONNECT_BY_PATH and PIVOT are unsupported', () async {
+  // Formerly-open advanced Oracle SQL: SYS_CONNECT_BY_PATH and PIVOT.
+  // Fixed & verified.
+  group('formerly-open bug F94 (fixed & verified; SYS_CONNECT_BY_PATH / PIVOT)',
+      () {
+    test('F94 · SYS_CONNECT_BY_PATH and PIVOT are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER, name VARCHAR2(10), dept NUMBER, sal NUMBER)');
       await db.execute("INSERT INTO emp VALUES (1, NULL, 'A', 10, 100)");
       await db.execute("INSERT INTO emp VALUES (2, 1, 'B', 20, 70)");
-      // SYS_CONNECT_BY_PATH in a hierarchical query.
       await expectOk(db,
           "SELECT SYS_CONNECT_BY_PATH(name, '/') FROM emp "
           'START WITH mgr IS NULL CONNECT BY PRIOR id = mgr');
-      // PIVOT.
       await expectOk(db,
           'SELECT * FROM (SELECT dept, sal FROM emp) '
           'PIVOT (SUM(sal) FOR dept IN (10, 20))');
-    },
-        skip: 'KNOWN ENGINE BUG: SYS_CONNECT_BY_PATH and PIVOT are unsupported. '
-            '(KEEP now parses but is ignored — see F105.) See '
-            'findings/FINDINGS.md F94.');
+    });
   });
 
   // Formerly-open: MERGE with an alias-qualified target column in UPDATE SET
@@ -999,5 +996,58 @@ void main() {
         skip: 'KNOWN ENGINE BUG: a column DEFAULT ON NULL <expr> clause is a '
             'parse error ("DEFAULT must be a literal"). See '
             'findings/FINDINGS.md F112.');
+  });
+
+  // Oracle type-enforcement and CTE gaps found by an effect-based differential
+  // vs real Oracle 23ai. (FK ON DELETE CASCADE/SET NULL, CLOB, TIMESTAMP,
+  // PL/SQL loops, CREATE FUNCTION, NOT NULL, UNIQUE all work.)
+  group('open bugs (round 26 — Oracle type-enforcement + CTE, real-Oracle-adjudicated)',
+      () {
+    test('F113 · VARCHAR2(n) length is not enforced', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (s VARCHAR2(3))');
+      // Oracle rejects with ORA-12899; the engine silently stores 7 chars.
+      await expectThrows(db, "INSERT INTO t VALUES ('abcdefg')");
+    },
+        skip: 'KNOWN ENGINE BUG: VARCHAR2(n) length is not enforced — an '
+            'oversized string is stored instead of rejected (Oracle: '
+            'ORA-12899). Silent data-integrity bug. See findings/FINDINGS.md '
+            'F113.');
+
+    test('F114 · NUMBER(p) precision is not enforced', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (n NUMBER(3))');
+      // Oracle rejects with ORA-01438; the engine silently stores 12345.
+      await expectThrows(db, 'INSERT INTO t VALUES (12345)');
+    },
+        skip: 'KNOWN ENGINE BUG: NUMBER(p) precision is not enforced — an '
+            'out-of-precision value is stored instead of rejected (Oracle: '
+            'ORA-01438). Companion to F110. See findings/FINDINGS.md F114.');
+
+    test('F115 · recursive WITH without the RECURSIVE keyword is not resolved',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      // Oracle auto-detects recursion; WITH RECURSIVE works, plain WITH does not.
+      await expectOk(db,
+          'WITH r(n) AS (SELECT 1 FROM d UNION ALL SELECT n+1 FROM r WHERE n < 5) '
+          'SELECT COUNT(*) FROM r');
+    },
+        skip: 'KNOWN ENGINE BUG: a recursive WITH requires the SQLite-style '
+            'RECURSIVE keyword; Oracle auto-detects recursion, so plain '
+            '"WITH r AS (… self-reference …)" fails ("No such table or view: '
+            'r"). See findings/FINDINGS.md F115.');
+
+    test('F116 · a WITH clause inside a subquery is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      await expectOk(db,
+          'SELECT COUNT(*) FROM (WITH x AS (SELECT 1 n FROM d) SELECT n FROM x)');
+    },
+        skip: 'KNOWN ENGINE BUG: a WITH clause inside a parenthesized subquery / '
+            'derived table is a parse error ("Expected SELECT but got WITH"). '
+            'See findings/FINDINGS.md F116.');
   });
 }
