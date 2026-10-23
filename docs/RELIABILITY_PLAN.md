@@ -52,12 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 141 found, 136 fixed & verified, 5 open.**
+- **Bug status (2026-10-23): 142 found, 136 fixed & verified, 6 open.**
   **Open (vs real Oracle 23ai):** F137 (TRUNC date-fmt), F138 (quantified
-  subquery), and CO-schema finds F139 (LISTAGG ON OVERFLOW), F140 (UTL_RAW),
-  F141 (JSON: JSON_VALUE/JSON_TABLE/IS JSON). **Dataset coverage:** HR full +
-  three-way gate; SH schema+lookup (engine gate); CO partial three-way; OE / PM
-  / SH-fact still untouched. MySQL wire clean.
+  subquery), CO finds F139–F141 (LISTAGG ON OVERFLOW / UTL_RAW / JSON), and F142
+  (NUMBER aggregation binary residual). **Dataset coverage:** HR + SH now have
+  real-data three-way gates; CO partial three-way; OE data still to do;
+  product_media out of scope (ORDSYS/binary LOBs). MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.

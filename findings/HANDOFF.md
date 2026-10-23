@@ -1,16 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **5 open bugs** — `TRUNC(date,
-fmt)` (F137), quantified `>= ALL (subquery)` (F138), and three found loading the
-real **CO (customer_orders)** schema: LISTAGG `ON OVERFLOW` (F139), `UTL_RAW`
-(F140), and Oracle **JSON** support (F141). All adjudicated vs real Oracle 23ai.
+For the engine author working in `dart-db-server`. **6 open bugs** — `TRUNC(date,
+fmt)` (F137), quantified `>= ALL (subquery)` (F138), the CO-schema finds LISTAGG
+`ON OVERFLOW` (F139) / `UTL_RAW` (F140) / Oracle **JSON** (F141), and NUMBER
+**aggregation** binary residual (F142). All adjudicated vs real Oracle 23ai.
 F85–F136 were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 141 found, 136 fixed & verified, 5 open.**
+**Status: 142 found, 136 fixed & verified, 6 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -55,6 +55,16 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 > The CO data partially loads on the engine (customers=392, stores=23,
 > shipments=1892); products/orders/order_items/inventory are blocked by F140
 > (UTL_RAW BLOBs) and a `TO_TIMESTAMP('…','DD-MON-YYYY HH24.MI.SS.FF')` variant.
+
+### NUMBER aggregation precision (F142)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F142** | NUMBER agg is binary | `SUM(0.1,0.2)` over NUMBER(8,2) → `0.30000000000000004` (Oracle `0.3`) | exact-decimal aggregation (F131 fixed single-value rounding, not arithmetic) |
+
+> Found by the new **SH real-data three-way gate**
+> (`oracle_sh_realdata_parity_test.dart`, 17 queries): 18/20 matched; raw
+> `SUM`/`MEDIAN` over NUMBER columns carry the binary residual.
 
 > Found by a 30-query HR real-data battery (27/30 already matched real Oracle,
 > incl. STDDEV/CORR, FIRST_VALUE, RATIO_TO_REPORT, REGEXP backrefs, TRANSLATE,

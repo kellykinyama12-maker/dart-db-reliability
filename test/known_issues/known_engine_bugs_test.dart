@@ -1254,4 +1254,23 @@ void main() {
             'unsupported. The CO schema uses them. See findings/FINDINGS.md '
             'F141.');
   });
+
+  // Found by the SH real-data three-way gate: NUMBER aggregation still uses
+  // binary floating point (F131 fixed single-value rounding, not arithmetic).
+  group('open bugs (round 35 — NUMBER aggregation precision, real-Oracle-adjudicated)',
+      () {
+    test('F142 · NUMBER aggregation (SUM) carries binary floating-point error',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER(8,2))');
+      await db.execute('INSERT INTO t VALUES (0.1), (0.2)');
+      // Exact-decimal SUM is 0.3; the engine returns 0.30000000000000004.
+      await expectScalar(db, 'SELECT SUM(v) FROM t', 0.3);
+    },
+        skip: 'KNOWN ENGINE BUG: NUMBER aggregation/arithmetic still uses binary '
+            'floating point — SUM(0.1, 0.2) over NUMBER(8,2) returns '
+            '0.30000000000000004 (Oracle 0.3) and MEDIAN/SUM over real SH '
+            'products carry residuals. F131 fixed single-value rounding, not '
+            'aggregate arithmetic. See findings/FINDINGS.md F142.');
+  });
 }
