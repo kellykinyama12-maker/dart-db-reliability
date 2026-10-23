@@ -52,12 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 84 found, 78 fixed & verified, 6 open.**
-  F1–F78 are closed. **Open (F79–F84):** Oracle SH/OLAP DDL — schema-qualified
-  FK refs, `ALTER TABLE MODIFY`, `CREATE BITMAP INDEX`, `CREATE INDEX` storage
-  clauses, `CREATE DIMENSION`, and PL/SQL named-arg `=>`. The real HR schema +
-  **full data** load (107 employees via `TO_DATE` + deferred FKs). The Oracle
-  wire path is clean three-way vs real `oci8`; MySQL wire and robustness clean.
+- **Bug status (2026-10-23): 84 found, 84 fixed & verified, 0 open.**
+  F1–F84 are closed. The last batch (F79–F84) was Oracle SH/OLAP DDL —
+  schema-qualified FK refs, `ALTER TABLE MODIFY`, `CREATE BITMAP INDEX`,
+  `CREATE INDEX` storage clauses, `CREATE DIMENSION`, and PL/SQL named-arg `=>`.
+  The real HR schema + **full data** load (107 employees via `TO_DATE` +
+  deferred FKs). The Oracle wire path is clean three-way vs real `oci8`; MySQL
+  wire and robustness clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.

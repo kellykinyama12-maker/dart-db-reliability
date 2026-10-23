@@ -1,30 +1,30 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F79–F84)** —
-Oracle SH/OLAP DDL gaps found loading the real SH schema/data and OE. Each has
-a minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the Oracle
+SH/OLAP DDL batch (F79–F84) is fixed and verified. The full suite runs live with
+nothing skipped; the real HR schema and data, and the SH schema, load.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 84 found, 78 fixed & verified, 6 open.** The real HR schema **and full
-data** load (107 employees); these six finish SH/OE schema parity.
+**Status: 84 found, 84 fixed & verified, 0 open.**
 
-## Current open bugs (F79–F84)
+## Resolved batch (F79–F84) — ✅ fixed 2026-10-23 (Oracle SH / OLAP DDL)
 
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F80** | ALTER TABLE MODIFY | `ALTER TABLE t MODIFY CONSTRAINT pk DISABLE NOVALIDATE` → `Expected ADD but got MODIFY` | support MODIFY (constraint state + column); 31× in SH bulk-load |
-| **F81** | CREATE BITMAP INDEX | `CREATE BITMAP INDEX ix ON t (g)` → `Expected TABLE, INDEX, VIEW or TRIGGER` | treat as a regular index |
-| **F82** | CREATE INDEX storage clause | `CREATE INDEX ix ON t (g) NOLOGGING` → `Unexpected token after statement: NOLOGGING` | accept/ignore trailing `NOLOGGING`/`LOCAL` |
-| **F79** | schema-qualified FK ref | `… REFERENCES hr.p (id)` → `Expected ) but got "."` | parse+resolve `schema.table` |
-| **F83** | CREATE DIMENSION | `CREATE DIMENSION d LEVEL c IS (t.id)` → unsupported | accept/ignore (OLAP) |
-| **F84** | PL/SQL named-arg `=>` | `dbms_stats.gather_schema_stats('SH', cascade => TRUE)` → `Unexpected token >` | parse `arg => value`; accept dbms_stats no-op |
+> **✅ RESOLVED.** Verified live; the six skipped repros are now active
+> regression guards in `test/known_issues/known_engine_bugs_test.dart`.
 
-> **F80** is the highest value (the SH bulk-load constraint-toggling pattern).
-> F81/F82/F83 are accept/parse-and-ignore. SH *fact* data loads via SQL*Loader
-> CSVs (out of scope); the lookup tables load via INSERTs.
+| # | Bug | Repro → now |
+| --- | --- | --- |
+| **F79** | schema-qualified FK ref | `… REFERENCES hr.p (id)` now parses |
+| **F80** | ALTER TABLE MODIFY | `ALTER TABLE t MODIFY CONSTRAINT pk DISABLE NOVALIDATE` is supported (31× in SH bulk-load) |
+| **F81** | CREATE BITMAP INDEX | `CREATE BITMAP INDEX ix ON t (g)` accepted as a regular index |
+| **F82** | CREATE INDEX storage clause | trailing `NOLOGGING`/`LOCAL` accepted/ignored |
+| **F83** | CREATE DIMENSION | `CREATE DIMENSION …` accepted (OLAP) |
+| **F84** | PL/SQL named-arg `=>` | `dbms_stats.gather_schema_stats('SH', cascade => TRUE)` parses |
+
+> SH *fact* data loads via SQL*Loader CSVs (out of harness scope); the lookup
+> tables load via INSERTs.
 
 ---
 
