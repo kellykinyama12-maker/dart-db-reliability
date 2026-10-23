@@ -1,16 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **12 open bugs** — a
-timestamp-interval bug (F119), a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch
-(F120–F123), a stragglers batch (F124–F129), and a nested-aggregate bug (F130),
-all adjudicated against real Oracle 23ai. F85–F118 were fixed async and are
-active regression guards.
+For the engine author working in `dart-db-server`. **9 open bugs** — a stragglers
+batch (F124–F129), a nested-aggregate bug (F130), and a data-type-fidelity batch
+(F131–F132), all adjudicated against real Oracle 23ai. F85–F123 were fixed async
+and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 130 found, 118 fixed & verified, 12 open.**
+**Status: 132 found, 123 fixed & verified, 9 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -35,24 +34,6 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 `lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
-
-### Timestamp interval — real-Oracle-adjudicated (F119)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F119** | TIMESTAMP subtraction | `EXTRACT(DAY FROM (ts5 - ts1))` → 24, Oracle → 4 | yield a correct INTERVAL from ts - ts |
-
-### PL/SQL + TIMESTAMP WITH TIME ZONE — real-Oracle-adjudicated (F120–F123)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F120** | PL/SQL packages | `CREATE PACKAGE`/`BODY` + `pk.f` → `Unknown column: pk.f` | support packages + `pkg.func` calls |
-| **F121** | PL/SQL CASE statement | `CASE x WHEN … END CASE;` → parse error | parse the PL/SQL CASE statement |
-| **F122** | %TYPE declarations | `v t.n%TYPE` → parse error | parse `%TYPE`/`%ROWTYPE` anchors |
-| **F123** | TIMESTAMP WITH TIME ZONE | `ts TIMESTAMP WITH TIME ZONE` → parse error; `FROM_TZ` missing | support the TZ timestamp type + TZ functions |
-
-> Already clean: PL/SQL exception handling, WHILE loops, cursor FOR loops,
-> CREATE FUNCTION + call, CURRENT_TIMESTAMP.
 
 ### Stragglers — real-Oracle-adjudicated (F124–F129)
 
@@ -81,9 +62,20 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 > Oracle on real rows (joins, correlated subqueries, windows, CONNECT BY,
 > LISTAGG, ROLLUP, MONTHS_BETWEEN/ADD_MONTHS, MINUS, WIDTH_BUCKET, …).
 
+### Data-type fidelity — real-Oracle-adjudicated (F131–F132)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F131** | NUMBER is binary, not decimal | `0.1 * 3` → `0.30000000000000004` (Oracle `0.3`); `NUMBER(10,2)` rounds `1.005`→`1.00` not `1.01` | store NUMBER as exact decimal |
+| **F132** | CHAR(n) not blank-padded | `CHAR(5)` holding `'ab'` → LENGTH 2, Oracle → 5 (`'ab   '`) | blank-pad CHAR to the declared length |
+
+> **F131 is a financial-precision / data-integrity bug** (NUMBER must be exact
+> decimal). Already clean: `2.675`→`2.68`, big-number clamping, NUMBER division,
+> DATE round-trip, FLOAT.
+
 ---
 
-## Resolved batch (F85–F118 except F119) — ✅ fixed 2026-10-23
+## Resolved batch (F85–F123) — ✅ fixed 2026-10-23
 
 > **✅ RESOLVED (async).** The F86–F99 batch; SYS_CONNECT_BY_PATH + PIVOT (F94);
 > KEEP ordering (F105); MINUS (F107); IDENTITY (F109); NUMBER scale (F110);

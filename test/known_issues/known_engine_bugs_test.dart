@@ -1005,20 +1005,16 @@ void main() {
       await expectScalar(db, 'SELECT ROUND(POWER(27, 1.0/3)) FROM t', 3);
     });
 
-    test('F119 · TIMESTAMP subtraction / EXTRACT from the interval is wrong',
-        () async {
+    test('F119 · TIMESTAMP subtraction yields a correct INTERVAL', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // ts - ts = INTERVAL '4 00:00:00'; EXTRACT(DAY ...) = 4; engine returns 24.
+      // ts - ts = INTERVAL '4 00:00:00'; EXTRACT(DAY ...) = 4.
       await expectScalar(db,
           "SELECT EXTRACT(DAY FROM (TIMESTAMP '2020-01-05 00:00:00' - "
           "TIMESTAMP '2020-01-01 00:00:00')) FROM t",
           4);
-    },
-        skip: 'KNOWN ENGINE BUG: TIMESTAMP - TIMESTAMP does not yield a correct '
-            'INTERVAL — EXTRACT(DAY FROM (ts5 - ts1)) returns 24 instead of 4. '
-            'See findings/FINDINGS.md F119.');
+    });
   });
 
   // Oracle PL/SQL depth and TIMESTAMP WITH TIME ZONE gaps vs real Oracle 23ai.
@@ -1026,7 +1022,7 @@ void main() {
   // CURRENT_TIMESTAMP all work.)
   group('open bugs (round 28 — Oracle PL/SQL + TIMESTAMP WITH TIME ZONE, real-Oracle-adjudicated)',
       () {
-    test('F120 · PL/SQL packages are not supported', () async {
+    test('F120 · PL/SQL packages are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
@@ -1034,39 +1030,26 @@ void main() {
       await db.execute(
           'CREATE PACKAGE BODY pk AS FUNCTION f RETURN NUMBER IS BEGIN RETURN 42; END; END;');
       await expectScalar(db, 'SELECT pk.f FROM d', 42);
-    },
-        skip: 'KNOWN ENGINE BUG: PL/SQL packages (CREATE PACKAGE / PACKAGE BODY '
-            'and pkg.func calls) are unsupported ("Unknown column: pk.f"). See '
-            'findings/FINDINGS.md F120.');
+    });
 
-    test('F121 · PL/SQL CASE statement is not parsed', () async {
+    test('F121 · PL/SQL CASE statement is parsed', () async {
       final db = await openEngine();
       await expectOk(db,
           'DECLARE x NUMBER := 2; BEGIN CASE x WHEN 1 THEN NULL; '
           'WHEN 2 THEN NULL; ELSE NULL; END CASE; END;');
-    },
-        skip: 'KNOWN ENGINE BUG: the PL/SQL CASE … END CASE statement is a parse '
-            'error ("Unexpected token after statement: CASE"). See '
-            'findings/FINDINGS.md F121.');
+    });
 
-    test('F122 · %TYPE anchored declarations are not parsed', () async {
+    test('F122 · %TYPE anchored declarations are parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (n NUMBER)');
       await expectOk(db,
           'DECLARE v t.n%TYPE := 99; BEGIN INSERT INTO t VALUES (v); END;');
-    },
-        skip: 'KNOWN ENGINE BUG: a %TYPE (and %ROWTYPE) anchored declaration is '
-            'a parse error ("Expected identifier but got "."). See '
-            'findings/FINDINGS.md F122.');
+    });
 
-    test('F123 · TIMESTAMP WITH TIME ZONE is not supported', () async {
+    test('F123 · TIMESTAMP WITH TIME ZONE is supported', () async {
       final db = await openEngine();
       await expectOk(db, 'CREATE TABLE t (ts TIMESTAMP WITH TIME ZONE)');
-    },
-        skip: 'KNOWN ENGINE BUG: the TIMESTAMP WITH TIME ZONE (and WITH LOCAL '
-            'TIME ZONE) column type is a parse error ("Expected ) but got '
-            'WITH"); TZ functions like FROM_TZ are also missing. See '
-            'findings/FINDINGS.md F123.');
+    });
   });
 
   // Oracle "straggler" gaps found vs real Oracle 23ai: q-quote literals,
@@ -1162,5 +1145,34 @@ void main() {
             'MAX(MIN(x)) two-level aggregation) throws ("Aggregate function '
             'MIN() cannot be evaluated as a scalar"). See findings/FINDINGS.md '
             'F130.');
+  });
+
+  // Data-type fidelity gaps found vs real Oracle 23ai: NUMBER is a binary
+  // double (not exact decimal) and CHAR(n) is not blank-padded. (DATE
+  // round-trip, big-number clamping, NUMBER division, 2.675→2.68 all match.)
+  group('open bugs (round 31 — data-type fidelity, real-Oracle-adjudicated)',
+      () {
+    test('F131 · NUMBER is binary floating point, not exact decimal', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER(10,2))');
+      await db.execute('INSERT INTO t VALUES (1.005)');
+      // Exact decimal rounds 1.005 to 1.01; the engine's double gives 1.00.
+      await expectScalar(db, 'SELECT v FROM t', 1.01);
+    },
+        skip: 'KNOWN ENGINE BUG: NUMBER is stored as a binary double, not exact '
+            'decimal — NUMBER(10,2) rounds 1.005 to 1.00 (Oracle 1.01) and '
+            '0.1 * 3 yields 0.30000000000000004 (Oracle 0.3). Financial-'
+            'precision bug. See findings/FINDINGS.md F131.');
+
+    test('F132 · CHAR(n) is not blank-padded to the declared length', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v CHAR(5))');
+      await db.execute("INSERT INTO t VALUES ('ab')");
+      // Oracle blank-pads CHAR(5) to 'ab   ' (LENGTH 5); the engine keeps 2.
+      await expectScalar(db, 'SELECT LENGTH(v) FROM t', 5);
+    },
+        skip: 'KNOWN ENGINE BUG: a CHAR(n) fixed-length column is not blank-'
+            'padded to n — CHAR(5) holding \'ab\' has LENGTH 2, not 5 (Oracle '
+            'pads to "ab   "). See findings/FINDINGS.md F132.');
   });
 }
