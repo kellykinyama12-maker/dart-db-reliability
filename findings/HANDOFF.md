@@ -15,21 +15,24 @@ fixed async and are active regression guards.
 ## Reproduce the real-Oracle adjudication
 
 Every F100+ bug was checked against a local **Oracle Database 23ai Free**
-container (gvenzl image). To confirm expected values yourself:
+container (gvenzl image). One command does start + wait + run for you:
 
 ```powershell
-docker start orafree           # container already exists; port 1521 mapped
-# wait ~30s for the PDB to open, then either:
-#  (a) app user (what the harness oci8 bridge uses):
-#      host 127.0.0.1  port 1521  service FREEPDB1  user native  password Secret123
-#  (b) passwordless OS auth inside the container:
-docker exec -i orafree sqlplus -S "/ as sysdba"
-#      then: ALTER SESSION SET CONTAINER=FREEPDB1;
+./tool/ora.ps1 "SELECT TO_CHAR(1234.5,'FM9,999.00') FROM dual"   # -> 1,234.50
+./tool/ora.ps1                                                   # interactive sqlplus
 ```
 
+It starts the `orafree` container, waits for the PDB to open, and runs the SQL
+on `FREEPDB1`. If you prefer to connect manually:
+
+- **App user (what the harness oci8 bridge uses):** `127.0.0.1:1521` · service
+  `FREEPDB1` · user `native` · password `Secret123`.
+- **Passwordless OS auth:** `docker exec -i orafree sqlplus -S "/ as sysdba"`
+  then `ALTER SESSION SET CONTAINER=FREEPDB1;`.
+
 These are throwaway **local test credentials** (Oracle Free dev container), not
-production secrets. The harness runner is `tool/oci8_exec.php`; the bridge is
-`lib/src/oci8_bridge.dart` (defaults: `FREEPDB1` / `native` / `Secret123`).
+production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
+`lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
 
