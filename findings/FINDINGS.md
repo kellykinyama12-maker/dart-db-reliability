@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**94 bugs found; F1–F85 fixed & verified; F86–F94 open.** With a correct
+**95 bugs found; F1–F85 fixed & verified; F86–F95 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
@@ -62,10 +62,11 @@ open:
   `CUBE`, `GROUPING SETS`, `GROUPING()`, `MERGE` with unqualified SET,
   `FETCH FIRST`/`OFFSET`, `NULLS FIRST/LAST`, window `RANGE` frames all work.)
 
-> **Needs real Oracle to adjudicate (not filed):** `MERGE … WHEN MATCHED THEN
-> UPDATE SET t.v = s.v` with an *alias-qualified* target column is rejected
-> (unqualified `SET v = s.v` works and is correct). Whether Oracle accepts the
-> qualified form needs a running instance (Gun 3 was down: ORA-12541).
+> **Adjudicated against real Oracle — confirmed bug (F95):** `MERGE … WHEN
+> MATCHED THEN UPDATE SET t.v = s.v` with an *alias-qualified* target column is
+> rejected by the engine (`Expected = but got "."`) but **accepted by real
+> Oracle** (verified via gvenzl/oracle-free 23ai: qualified SET → 99, unqualified
+> SET → 77). Unqualified `SET v = s.v` works in the engine.
 
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**

@@ -1,15 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **9 open bugs (F86–F94)** —
-OE object-relational DDL (F86–F88), an Oracle function sweep (F89–F92), and an
-advanced-SQL sweep (F93–F94). Each has a minimal repro and a skipped regression
-test that turns green when fixed.
+For the engine author working in `dart-db-server`. **10 open bugs (F86–F95)** —
+OE object-relational DDL (F86–F88), an Oracle function sweep (F89–F92), an
+advanced-SQL sweep (F93–F94), and a real-Oracle-adjudicated MERGE gap (F95).
+Each has a minimal repro and a skipped regression test that turns green when
+fixed.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 94 found, 85 fixed & verified, 9 open.**
+**Status: 95 found, 85 fixed & verified, 10 open.**
 
 ## Current open bugs
 
@@ -46,12 +47,16 @@ test that turns green when fixed.
 > **F93** is an internal inconsistency (plain `GROUP BY` already orders by a
 > non-projected grouping column; only the ROLLUP/CUBE path rejects it).
 
-> **⚠ Needs a running Oracle to adjudicate (NOT filed):** `MERGE … WHEN MATCHED
-> THEN UPDATE SET t.v = s.v` with an alias-qualified target column is rejected
-> (`Expected = but got "."`). Unqualified `SET v = s.v` works and is correct
-> (result 119). Whether real Oracle accepts the qualified form needs Gun 3,
-> which was down (ORA-12541, no listener on 1521). Start the Oracle instance to
-> let the triple-threat decide.
+### MERGE alias-qualified SET target (F95) — real-Oracle-adjudicated
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F95** | MERGE qualified SET | `MERGE INTO tgt t USING src s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.v = s.v` → `Expected = but got "."` | accept an alias-qualified target column in the UPDATE SET |
+
+> **Confirmed against real Oracle** (gvenzl/oracle-free 23ai): the qualified
+> `SET t.v = s.v` succeeds there (result 99), as does unqualified `SET v = s.v`
+> (77). The engine accepts only the unqualified form. Not a dialect difference —
+> a real gap.
 
 ---
 

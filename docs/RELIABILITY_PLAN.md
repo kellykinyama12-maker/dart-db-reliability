@@ -52,12 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 94 found, 85 fixed & verified, 9 open.**
+- **Bug status (2026-10-23): 95 found, 85 fixed & verified, 10 open.**
   F1–F85 are closed. **Open:** OE object-relational DDL (F86–F88), an Oracle
   function sweep (F89 INSTR args, F90 TRUNC places/date — silent correctness;
   F91 LISTAGG `WITHIN GROUP`; F92 missing TRANSLATE/ADD_MONTHS/MONTHS_BETWEEN/
-  NEXT_DAY), and an advanced-SQL sweep (F93 ORDER BY grouping col under ROLLUP;
-  F94 SYS_CONNECT_BY_PATH/PIVOT/KEEP). The real HR schema + **full data** load
+  NEXT_DAY), an advanced-SQL sweep (F93 ORDER BY grouping col under ROLLUP;
+  F94 SYS_CONNECT_BY_PATH/PIVOT/KEEP), and F95 (MERGE alias-qualified SET target,
+  adjudicated against real Oracle 23ai). The real HR schema + **full data** load
   (107 employees) and the SH **lookup data** loads (channels=5, countries=35,
   products=72). The Oracle wire path is clean three-way vs real `oci8`; MySQL
   wire and robustness clean.

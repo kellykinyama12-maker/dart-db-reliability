@@ -797,4 +797,29 @@ void main() {
             '(DENSE_RANK FIRST/LAST) aggregate are unsupported. See '
             'findings/FINDINGS.md F94.');
   });
+
+  // Adjudicated against real Oracle (gvenzl/oracle-free 23ai): both the
+  // qualified and unqualified SET forms succeed there; the engine rejects the
+  // alias-qualified target column.
+  group('open bugs (round 21 — MERGE qualified SET, real-Oracle-adjudicated)',
+      () {
+    test('F95 · MERGE UPDATE SET rejects an alias-qualified target column',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE tgt (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO tgt VALUES (1, 10)');
+      await db.execute('CREATE TABLE src (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO src VALUES (1, 99)');
+      // Real Oracle accepts `SET t.v = s.v` (verified: result 99). The engine
+      // accepts only the unqualified `SET v = s.v`.
+      await expectOk(db,
+          'MERGE INTO tgt t USING src s ON (t.id = s.id) '
+          'WHEN MATCHED THEN UPDATE SET t.v = s.v');
+    },
+        skip: 'KNOWN ENGINE BUG: MERGE ... WHEN MATCHED THEN UPDATE SET t.v = '
+            's.v with an alias-qualified target column is a parse error '
+            '("Expected = but got "."); real Oracle accepts it (adjudicated via '
+            'gvenzl/oracle-free 23ai). Unqualified SET works. See '
+            'findings/FINDINGS.md F95.');
+  });
 }
