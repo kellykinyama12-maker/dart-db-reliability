@@ -9,18 +9,19 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**234 bugs found; 223 fixed & verified; 11 open (F224–F234).**
+**240 bugs found; 223 fixed & verified; 17 open (F224–F240).**
 
-> **Open (confirmed vs real Oracle 23ai):** F224 multi-column UPDATE subquery;
-> F225 MATCH_RECOGNIZE; F226 recursive WITH CYCLE/SEARCH; F227 TABLE() unnest;
-> F228 PIVOT XML; F229 LATERAL; F230 CROSS/OUTER APPLY; F231 SYS_CONTEXT/USERENV;
-> F232 XMLTABLE PASSING; F233 JSON dot-notation; F234 default NULLS ordering
-> (engine uses SQLite NULL-smallest; Oracle NULL-greatest).
+> **Open (confirmed vs real Oracle 23ai):** F224 multi-col UPDATE subquery; F225
+> MATCH_RECOGNIZE; F226 recursive WITH CYCLE/SEARCH; F227 TABLE() unnest; F228
+> PIVOT XML; F229 LATERAL; F230 CROSS/OUTER APPLY; F231 SYS_CONTEXT/USERENV;
+> F232 XMLTABLE PASSING; F233 JSON dot-notation; F234 default NULLS ordering;
+> F235 ALTER ADD multi-col; F236 ALTER MODIFY ignored; F237 ALTER DROP
+> CONSTRAINT ignored; F238 parameterless fn no-parens; F239 DETERMINISTIC;
+> F240 function DEFAULT param.
 >
-> Surfaced by complex-query, data-type-fidelity, and advanced-SQL three-way
-> sweeps. Drained this session: F215–F223 (triggers, INSTEAD OF, DEFAULT seq,
-> LAG/LEAD, GROUPING, PIVOT, CHAR padding, || NULL, EXTRACT interval) — all
-> fixed & verified.
+> Surfaced by complex-query, data-type, advanced-SQL, ALTER TABLE, and PL/SQL-
+> routine three-way sweeps. The engine already handles basic stored routines,
+> packages, anon-block loops, MERGE, constraints, IDENTITY, sequences.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

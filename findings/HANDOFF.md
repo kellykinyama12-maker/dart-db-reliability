@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **11 open bugs** (F224–F234)
+For the engine author working in `dart-db-server`. **17 open bugs** (F224–F240)
 — everything else through F223 is fixed and verified. Complex-query, data-type,
-and advanced-SQL three-way sweeps surfaced these. Real HR + SH + CO data load
-and match real Oracle 23ai.
+advanced-SQL, ALTER TABLE, and PL/SQL-routine three-way sweeps surfaced these.
+Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F224–F234 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F224–F240 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 234 found, 223 fixed & verified, 11 open (F224–F234).**
+**Status: 240 found, 223 fixed & verified, 17 open (F224–F240).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -49,10 +49,17 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 | **F232** | XMLTABLE PASSING | parse error (Oracle 2) | XMLTABLE with a PASSING clause |
 | **F233** | JSON dot-notation | `jt.col.key.string()` → parse error (Oracle `x`) | simplified JSON access |
 | **F234** | NULLS ordering default | ORDER BY DESC returns 2, not NULL — engine uses SQLite NULL ordering (NULL smallest), Oracle NULL greatest | default NULLS LAST (ASC) / FIRST (DESC) |
+| **F235** | ALTER ADD multi-col | `ADD (a, b)` adds only the first column | add all listed columns |
+| **F236** | ALTER MODIFY | size/DEFAULT/NOT NULL changes are ignored | apply MODIFY |
+| **F237** | ALTER DROP CONSTRAINT | the dropped CHECK is still enforced | actually drop it |
+| **F238** | parameterless fn no-parens | `SELECT f0 FROM dual` → "Unknown column" (f0() works) | resolve no-arg function calls |
+| **F239** | DETERMINISTIC clause | `CREATE FUNCTION … DETERMINISTIC` → parse error | parse DETERMINISTIC |
+| **F240** | function DEFAULT param | `FUNCTION(x, y NUMBER DEFAULT 10)` → parse error | parse parameter defaults |
 
-> Found by complex-composite-query, data-type-fidelity, and two advanced-SQL
-> three-way sweeps. F234 (NULLS ordering) is the most impactful — it changes
-> ORDER BY results whenever NULLs are present.
+> Found by complex-query, data-type, advanced-SQL, ALTER TABLE, and PL/SQL-
+> routine three-way sweeps. F234 (NULLS ordering) is the most impactful. The
+> engine already handles basic stored functions/procedures/packages, anon-block
+> loops, MERGE, constraints, IDENTITY, sequences, and virtual columns.
 
 ---
 

@@ -52,12 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 234 found, 223 fixed & verified, 11 open (F224
-  multi-col UPDATE; F225 MATCH_RECOGNIZE; F226 recursive CYCLE/SEARCH; F227
-  TABLE() unnest; F228 PIVOT XML; F229 LATERAL; F230 CROSS/OUTER APPLY; F231
-  SYS_CONTEXT/USERENV; F232 XMLTABLE PASSING; F233 JSON dot-notation; F234 NULLS
-  ordering default).** The author drained F143–F223. Mining complex-query,
-  data-type, and advanced-SQL axes; F234 (NULL ordering) is the most impactful.
+- **Bug status (2026-10-23): 240 found, 223 fixed & verified, 17 open
+  (F224–F240).** Mining complex-query, data-type, advanced-SQL, ALTER TABLE,
+  and PL/SQL-routine axes. Open highlights: F234 NULLS ordering (most
+  impactful), MATCH_RECOGNIZE/LATERAL/APPLY, ALTER MODIFY/DROP CONSTRAINT,
+  function DETERMINISTIC/DEFAULT params.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.
