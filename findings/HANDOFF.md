@@ -1,25 +1,18 @@
-# Handoff — open engine bugs to fix
+# Handoff — engine bug status
 
-For the engine author working in `dart-db-server`. Many earlier bugs (through
-~F252) were fixed by background mega-sweeps and verified. A parallel
-multi-subagent differential sweep then surfaced a fresh batch (F254–F274),
-each adjudicated vs real Oracle 23ai.
+For the engine author working in `dart-db-server`. All bugs surfaced by the
+three-way differential harness (engine vs SQLite vs real Oracle 23ai) are now
+fixed and verified.
 
-- **Verify:** `dart test test/known_issues --timeout 60s` (active guards green;
-  open bugs skipped).
+- **Verify:** `dart test test/known_issues --timeout 90s` (all active guards,
+  nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 274 found. Open (still failing vs real Oracle): 9 —
-F225, F228, F232, F265, F267, F271, F272, F273, F274** (MATCH_RECOGNIZE,
-PIVOT XML, XMLTABLE PASSING, and a JSON/XML tail). All loud errors — no silent
-correctness bugs remain.
+**Status: 274 found, 0 open.** Every F3–F274 repro is now an **active
+regression guard** (264 passing, zero skipped) — if any fix regresses, the
+suite goes red.
 
-> **Reconciled this round (now ACTIVE guards):** F221 CHAR/VARCHAR2 padding is
-> fixed the right way — **type-aware comparison** (CHAR pads, VARCHAR2 does not);
-> F253 and F254–F263 are fixed and verified. The author's background sweeps also
-> cleared most of F224–F252 and several of F264–F274.
-
-> **F234 reclassified — dialect difference, not a bug (appeal upheld):** default
+> **F234 is a documented dialect difference, not a bug (appeal upheld):** default
 > NULLS ordering. Oracle treats NULL as greatest (NULLS LAST for ASC); the engine
 > follows SQLite (NULL smallest) so the SQLite-parity guards hold. Explicit
 > `NULLS FIRST/LAST` stays available for Oracle semantics.

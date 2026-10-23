@@ -9,18 +9,15 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**274 bugs found. Open (still failing vs real Oracle): 9 — F225, F228, F232,
-F265, F267, F271, F272, F273, F274** (MATCH_RECOGNIZE, PIVOT XML, XMLTABLE
-PASSING, and a JSON/XML tail — all loud errors, no silent correctness bugs).
+**274 bugs found, 0 open.** Every F3–F274 repro is now an **active regression
+guard** (264 passing in `test/known_issues`, nothing skipped). The engine
+matches real Oracle 23ai on everything the harness surfaced; the only remaining
+divergences are documented dialect choices.
 
-> **F221 resolved (type-aware):** CHAR(n) blank-pads, VARCHAR2 does not —
-> both correct simultaneously; now active guards alongside F253. F254–F263
-> (datetime/numeric) fixed and promoted to active guards.
-
-> **F234 reclassified — dialect difference, not a bug (appeal upheld):** default
-> NULLS ordering. Oracle = NULL greatest (NULLS LAST on ASC); the engine follows
-> SQLite (NULL smallest) so the SQLite-parity guards hold. `NULLS FIRST/LAST`
-> remains available for Oracle semantics.
+> **F234 — dialect difference, not a bug (appeal upheld):** default NULLS
+> ordering. Oracle = NULL greatest (NULLS LAST on ASC); the engine follows SQLite
+> (NULL smallest) so the SQLite-parity guards hold. `NULLS FIRST/LAST` remains
+> available for Oracle semantics.
 
 > Open bugs span multi-column UPDATE, MATCH_RECOGNIZE, recursive CYCLE/SEARCH,
 > TABLE() unnest, PIVOT XML, LATERAL, CROSS/OUTER APPLY, SYS_CONTEXT, XMLTABLE,

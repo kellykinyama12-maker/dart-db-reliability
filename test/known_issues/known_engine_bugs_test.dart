@@ -1,8 +1,12 @@
 /// Engine-bug regression guards.
 ///
-/// All of F3–F22 were fixed by the engine author and verified (2026-10-22).
-/// These are ACTIVE tests — if any bug regresses, the suite goes red. Nothing
-/// here is skipped. (F1/F2 live in `constraints/`, F15 in `durability/`.)
+/// F3–F274 were all surfaced by three-way differential testing (engine vs
+/// SQLite vs real Oracle 23ai), fixed by the engine author, and verified.
+/// Every test here is now an ACTIVE guard — nothing is skipped, so if any bug
+/// regresses the suite goes red. Group names like "open bugs (round N — …)"
+/// are historical discovery-round labels, not current status. (F1/F2 live in
+/// `constraints/`, F15 in `durability/`. F234 is a documented dialect
+/// difference, not a bug.)
 library;
 
 import 'package:dart_db_reliability/reliability.dart';
@@ -2059,11 +2063,7 @@ void main() {
       await db.execute(
           'UPDATE t SET (a, b) = (SELECT 5, 7 FROM dual) WHERE id = 1');
       await expectScalar(db, 'SELECT a + b FROM t', 12);
-    },
-        skip: 'KNOWN ENGINE BUG: the multi-column UPDATE form '
-            '"SET (a, b) = (SELECT …)" is a parse error ("Expected identifier but '
-            'got ("). Real Oracle updates both columns (a+b = 12). '
-            'See findings/FINDINGS.md F224.');
+    });
   });
 
   // Found by an advanced-SQL-features three-way sweep (all parse errors on the
@@ -2080,9 +2080,7 @@ void main() {
           'SELECT COUNT(*) FROM mr MATCH_RECOGNIZE (ORDER BY id '
           'MEASURES COUNT(*) AS c PATTERN (A+) DEFINE A AS v > 0)',
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: MATCH_RECOGNIZE (row pattern matching) is a '
-            'parse error. Real Oracle returns 1. See findings/FINDINGS.md F225.');
+    });
 
     test('F226 · recursive WITH CYCLE / SEARCH clauses', () async {
       final db = await openEngine();
@@ -2093,21 +2091,14 @@ void main() {
           'SELECT n+1 FROM r WHERE n < 4) CYCLE n SET cyc TO 1 DEFAULT 0 '
           'SELECT n FROM r)',
           4);
-    },
-        skip: 'KNOWN ENGINE BUG: the CYCLE and SEARCH clauses on a recursive '
-            'WITH are parse errors ("Expected SELECT/… after WITH"). The plain '
-            'recursion works. Real Oracle returns 4 (CYCLE) / 3 (SEARCH ord). '
-            'See findings/FINDINGS.md F226.');
+    });
 
     test('F227 · TABLE() collection unnesting', () async {
       final db = await openEngine();
       // Unnest a built-in collection into rows.
       await expectScalar(
           db, 'SELECT COUNT(*) FROM TABLE(SYS.ODCINUMBERLIST(10, 20, 30))', 3);
-    },
-        skip: 'KNOWN ENGINE BUG: TABLE(collection) unnesting (and the '
-            'COLUMN_VALUE pseudo-column) is a parse error ("Expected identifier '
-            'but got TABLE"). Real Oracle returns 3. See findings/FINDINGS.md F227.');
+    });
 
     test('F228 · PIVOT XML', () async {
       final db = await openEngine();
@@ -2118,9 +2109,7 @@ void main() {
           'SELECT COUNT(*) FROM (SELECT * FROM (SELECT g, j FROM px) '
           'PIVOT XML (COUNT(*) FOR j IN (ANY)))',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: PIVOT XML is a parse error ("Expected ( but got '
-            'XML"). Real Oracle returns 2. See findings/FINDINGS.md F228.');
+    });
 
     test('F229 · LATERAL inline view', () async {
       final db = await openEngine();
@@ -2134,9 +2123,7 @@ void main() {
           'SELECT COUNT(*) FROM la, LATERAL (SELECT 1 x FROM lb '
           'WHERE lb.aid = la.id)',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: LATERAL inline views are a parse error. Real '
-            'Oracle returns 2. See findings/FINDINGS.md F229.');
+    });
 
     test('F230 · CROSS APPLY / OUTER APPLY', () async {
       final db = await openEngine();
@@ -2150,10 +2137,7 @@ void main() {
           'SELECT COUNT(*) FROM la CROSS APPLY (SELECT 1 x FROM lb '
           'WHERE lb.aid = la.id)',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: CROSS APPLY and OUTER APPLY are parse errors. '
-            'Real Oracle returns 2 (CROSS) / 3 (OUTER, id=2 keeps a NULL row). '
-            'See findings/FINDINGS.md F230.');
+    });
   });
 
   // Found by a second advanced-features three-way sweep (confirmed vs real
@@ -2166,10 +2150,7 @@ void main() {
           "SELECT CASE WHEN SYS_CONTEXT('USERENV','SESSION_USER') IS NOT NULL "
           "THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: SYS_CONTEXT and USERENV (session-context '
-            'functions) are missing ("Unknown function"). Real Oracle returns 1. '
-            'See findings/FINDINGS.md F231.');
+    });
 
     test('F232 · XMLTABLE with PASSING', () async {
       final db = await openEngine();
@@ -2179,10 +2160,7 @@ void main() {
           "SELECT COUNT(*) FROM XMLTABLE('/a/b' PASSING "
           "XMLTYPE('<a><b>1</b><b>2</b></a>') COLUMNS v NUMBER PATH '.')",
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: XMLTABLE with a PASSING clause is a parse error '
-            '("Expected ) but got PASSING"). Real Oracle returns 2. '
-            'See findings/FINDINGS.md F232.');
+    });
 
     test('F233 · JSON dot-notation column access', () async {
       final db = await openEngine();
@@ -2192,10 +2170,7 @@ void main() {
           "SELECT jt.doc.name.string() FROM "
           "(SELECT JSON('{\"name\":\"x\"}') doc FROM dual) jt",
           'x');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON dot-notation column access '
-            '(jt.doc.name.string()) is a parse error. Real Oracle returns "x". '
-            'See findings/FINDINGS.md F233.');
+    });
 
     // DIALECT DIFFERENCE (not a bug — appeal upheld): default NULLS ordering.
     // Oracle treats NULL as greatest (NULLS LAST for ASC); the engine follows
@@ -2226,10 +2201,7 @@ void main() {
       await db.execute('ALTER TABLE t ADD (a NUMBER, b NUMBER)');
       await db.execute('INSERT INTO t VALUES (1, 2, 3)');
       await expectScalar(db, 'SELECT a FROM t', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: ALTER TABLE ADD (a, b) adds only the first '
-            'column — a 3-column insert then fails ("Expected 1 values, got 3"). '
-            'Real Oracle adds both (a = 2). See findings/FINDINGS.md F235.');
+    });
 
     test('F236 · ALTER TABLE MODIFY applies the change', () async {
       final db = await openEngine();
@@ -2237,11 +2209,7 @@ void main() {
       await db.execute('ALTER TABLE t MODIFY (v VARCHAR2(10))');
       await db.execute("INSERT INTO t VALUES ('abcdef')");
       await expectScalar(db, 'SELECT LENGTH(v) FROM t', 6);
-    },
-        skip: 'KNOWN ENGINE BUG: ALTER TABLE MODIFY does not apply the change — '
-            'widening VARCHAR2(3)->(10) still rejects a 6-char value (ORA-12899), '
-            'and MODIFY of DEFAULT and NOT NULL are ignored too. Real Oracle '
-            'widens it (LENGTH = 6). See findings/FINDINGS.md F236.');
+    });
 
     test('F237 · ALTER TABLE DROP CONSTRAINT removes it', () async {
       final db = await openEngine();
@@ -2250,10 +2218,7 @@ void main() {
       // With the check dropped, a negative value is allowed.
       await db.execute('INSERT INTO t VALUES (-5)');
       await expectScalar(db, 'SELECT v FROM t', -5);
-    },
-        skip: 'KNOWN ENGINE BUG: ALTER TABLE DROP CONSTRAINT does not remove the '
-            'constraint — the CHECK is still enforced after dropping it, so the '
-            'insert is rejected. Real Oracle allows -5. See findings/FINDINGS.md F237.');
+    });
   });
 
   // Found by a PL/SQL stored-routine three-way sweep (6/10 matched: scalar
@@ -2266,11 +2231,7 @@ void main() {
           'CREATE OR REPLACE FUNCTION f0 RETURN NUMBER IS BEGIN RETURN 42; END;');
       // Oracle allows a no-arg function call without (); f0() works but f0 fails.
       await expectScalar(db, 'SELECT f0 FROM dual', 42);
-    },
-        skip: 'KNOWN ENGINE BUG: a parameterless function called without '
-            'parentheses (SELECT f0 FROM dual) is treated as a column '
-            '("Unknown column: f0") — only f0() works. Real Oracle returns 42. '
-            'See findings/FINDINGS.md F238.');
+    });
 
     test('F239 · CREATE FUNCTION ... DETERMINISTIC', () async {
       final db = await openEngine();
@@ -2278,11 +2239,7 @@ void main() {
           'CREATE OR REPLACE FUNCTION inc(x NUMBER) RETURN NUMBER DETERMINISTIC '
           'IS BEGIN RETURN x + 1; END;');
       await expectScalar(db, 'SELECT inc(1) FROM dual', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: the DETERMINISTIC clause on CREATE FUNCTION is a '
-            'parse error ("Unexpected token after statement: END"), so the '
-            'function is not created. Real Oracle returns 2. '
-            'See findings/FINDINGS.md F239.');
+    });
 
     test('F240 · function parameter DEFAULT value', () async {
       final db = await openEngine();
@@ -2291,10 +2248,7 @@ void main() {
           'RETURN NUMBER IS BEGIN RETURN x + y; END;');
       // Calling with one arg uses the default y = 10.
       await expectScalar(db, 'SELECT addn(5) FROM dual', 15);
-    },
-        skip: 'KNOWN ENGINE BUG: a DEFAULT value on a function parameter is a '
-            'parse error ("Expected ) but got DEFAULT"). Real Oracle uses the '
-            'default (addn(5) = 15). See findings/FINDINGS.md F240.');
+    });
   });
 
   // Found by a schema-object three-way sweep (10/14 matched: materialized views,
@@ -2309,11 +2263,7 @@ void main() {
           db,
           'CREATE TABLE c (pid NUMBER REFERENCES p(id) '
           'DEFERRABLE INITIALLY DEFERRED)');
-    },
-        skip: 'KNOWN ENGINE BUG: the DEFERRABLE [INITIALLY DEFERRED] constraint '
-            'attribute is a parse error ("Expected ) but got DEFERRABLE"), so '
-            'the table is not created. Real Oracle accepts it. '
-            'See findings/FINDINGS.md F241.');
+    });
 
     test('F242 · GLOBAL TEMPORARY TABLE', () async {
       final db = await openEngine();
@@ -2321,10 +2271,7 @@ void main() {
           'CREATE GLOBAL TEMPORARY TABLE gt (v NUMBER) ON COMMIT PRESERVE ROWS');
       await db.execute('INSERT INTO gt VALUES (1), (2)');
       await expectScalar(db, 'SELECT COUNT(*) FROM gt', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: CREATE GLOBAL TEMPORARY TABLE is a parse error '
-            '("Expected TABLE, INDEX, VIEW or TRIGGER after CREATE"). Real Oracle '
-            'creates it (count = 2). See findings/FINDINGS.md F242.');
+    });
 
     test('F243 · INVISIBLE column', () async {
       final db = await openEngine();
@@ -2332,11 +2279,7 @@ void main() {
       await db.execute('INSERT INTO inv (a, b) VALUES (1, 2)');
       // An invisible column is still selectable when named explicitly.
       await expectScalar(db, 'SELECT b FROM inv', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: an INVISIBLE column in CREATE TABLE is a parse '
-            'error ("Expected ) but got INVISIBLE"), so the table is not created. '
-            'Real Oracle creates it (b = 2 when selected). '
-            'See findings/FINDINGS.md F243.');
+    });
   });
 
   // Found by a misc/timezone/flashback three-way sweep. (CAST(MULTISET) was
@@ -2350,10 +2293,7 @@ void main() {
           "'2024-01-01 10:00:00 +05:00','YYYY-MM-DD HH24:MI:SS TZH:TZM'),"
           "'HH24') FROM dual",
           '10');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_TIMESTAMP_TZ and TZ_OFFSET are missing '
-            '("Unknown function"), and named timezone regions (US/Eastern) are '
-            'not resolved. Real Oracle returns 10. See findings/FINDINGS.md F244.');
+    });
 
     test('F245 · flashback VERSIONS BETWEEN', () async {
       final db = await openEngine();
@@ -2364,10 +2304,7 @@ void main() {
           db,
           'SELECT COUNT(*) FROM t VERSIONS BETWEEN SCN MINVALUE AND MAXVALUE',
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: the flashback "VERSIONS BETWEEN SCN … AND …" '
-            '(and AS OF SCN) clause is a parse error. Real Oracle returns 2. '
-            'See findings/FINDINGS.md F245.');
+    });
 
     test('F246 · SAMPLE clause', () async {
       final db = await openEngine();
@@ -2375,20 +2312,14 @@ void main() {
       await db.execute('INSERT INTO t VALUES (1), (2), (3), (4)');
       // The SAMPLE percentage is non-deterministic; assert it parses/runs.
       await expectOk(db, 'SELECT COUNT(*) FROM t SAMPLE (50)');
-    },
-        skip: 'KNOWN ENGINE BUG: the SAMPLE (n) row-sampling clause is a parse '
-            'error ("Unexpected token after statement: ("). Real Oracle runs it. '
-            'See findings/FINDINGS.md F246.');
+    });
 
     test('F247 · STANDARD_HASH / ROWIDTOCHAR', () async {
       final db = await openEngine();
       // STANDARD_HASH with MD5 returns a 32-char hex string.
       await expectScalar(
           db, "SELECT LENGTH(STANDARD_HASH('abc','MD5')) FROM dual", 32);
-    },
-        skip: 'KNOWN ENGINE BUG: STANDARD_HASH (and ROWIDTOCHAR, ORA_ROWSCN) are '
-            'missing ("Unknown function/column"). Real Oracle STANDARD_HASH '
-            '(MD5) is a 32-char hex string. See findings/FINDINGS.md F247.');
+    });
   });
 
   // Found by a CO real-data complex-query sweep (19/20 matched real Oracle 23ai).
@@ -2398,12 +2329,7 @@ void main() {
       // 2024-07-20 is a Saturday; day-of-week is 7 (US NLS).
       await expectScalar(
           db, "SELECT TO_CHAR(DATE '2024-07-20','D') FROM dual", '7');
-    },
-        skip: 'KNOWN ENGINE BUG: the single-letter TO_CHAR date element \'D\' '
-            '(numeric day-of-week) is not applied \u2014 it returns the date '
-            'unchanged (though \'DAY\' works). COUNT(DISTINCT TO_CHAR(ts,\'D\')) '
-            'over real orders returns 1950 instead of 7. Real Oracle returns 7. '
-            'See findings/FINDINGS.md F248.');
+    });
   });
 
   // Found by a grab-bag NLS/misc three-way sweep (confirmed vs real Oracle 23ai).
@@ -2415,10 +2341,7 @@ void main() {
           db,
           "SELECT TO_CHAR(1234.56,'FM9G999D99','NLS_NUMERIC_CHARACTERS='',.''') FROM dual",
           '1.234,56');
-    },
-        skip: 'KNOWN ENGINE BUG: the NLS_NUMERIC_CHARACTERS parameter (3rd arg) '
-            'of TO_CHAR is ignored \u2014 it uses the default separators (1,234.56) '
-            'instead of 1.234,56. See findings/FINDINGS.md F249.');
+    });
 
     test('F250 · = ANY (value list)', () async {
       final db = await openEngine();
@@ -2427,10 +2350,7 @@ void main() {
       // = ANY over an expression list is equivalent to IN: 2 matches.
       await expectScalar(
           db, "SELECT COUNT(*) FROM t WHERE v = ANY ('King', 'Kochhar')", 2);
-    },
-        skip: 'KNOWN ENGINE BUG: "= ANY (value-list)" (a non-subquery list) is a '
-            'parse error ("Expected SELECT but got ..."). Real Oracle treats it '
-            'like IN (2 matches). See findings/FINDINGS.md F250.');
+    });
 
     test('F251 · row/tuple = (subquery)', () async {
       final db = await openEngine();
@@ -2441,10 +2361,7 @@ void main() {
           db,
           'SELECT COUNT(*) FROM t WHERE (a, b) = (SELECT 1, 10 FROM dual)',
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: a row/tuple comparison against a subquery '
-            '((a,b) = (SELECT \u2026)) never matches \u2014 returns 0 instead of 1. '
-            '(F179 fixed the tuple IN-list form.) See findings/FINDINGS.md F251.');
+    });
 
     test('F252 · EXTRACT field from an INTERVAL literal', () async {
       final db = await openEngine();
@@ -2453,11 +2370,7 @@ void main() {
           db,
           "SELECT EXTRACT(YEAR FROM INTERVAL '2-6' YEAR TO MONTH) FROM dual",
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM an INTERVAL literal) returns '
-            'NULL \u2014 EXTRACT(YEAR FROM INTERVAL \'2-6\' YEAR TO MONTH) returns NULL '
-            'instead of 2. (F223 covered interval columns.) '
-            'See findings/FINDINGS.md F252.');
+    });
   });
 
   // Round 63: VARCHAR2 padding. Was an F221-fix regression; the author fixed it
@@ -2568,9 +2481,7 @@ void main() {
             [2, 20],
             [3, 30],
           ]);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_TABLE FOR ORDINALITY returns NULL instead of '
-            'the 1-based row counter. See findings/FINDINGS.md F264.');
+    });
 
     test('F265 · JSON_VALUE RETURNING NUMBER coercion + DEFAULT ON ERROR',
         () async {
@@ -2581,10 +2492,7 @@ void main() {
       await expectScalar(db,
           "SELECT JSON_VALUE('{\"a\":\"x\"}', '\$.a' RETURNING NUMBER DEFAULT -1 ON ERROR) FROM dual",
           -1);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_VALUE ignores RETURNING NUMBER coercion and '
-            'DEFAULT ... ON ERROR; a non-numeric string is returned verbatim. '
-            'Engine -> x, Oracle -> NULL / -1. See findings/FINDINGS.md F265.');
+    });
 
     test('F266 · JSON_TABLE column DEFAULT ON ERROR + coercion', () async {
       final db = await openEngine();
@@ -2593,26 +2501,18 @@ void main() {
           [
             [0],
           ]);
-    },
-        skip: 'KNOWN ENGINE BUG: a JSON_TABLE NUMBER column neither coerces nor '
-            'applies DEFAULT ... ON ERROR. Engine -> xyz, Oracle -> 0. '
-            'See findings/FINDINGS.md F266.');
+    });
 
     test('F267 · JSON_OBJECT ABSENT ON NULL', () async {
       final db = await openEngine();
       await expectScalar(db,
           "SELECT JSON_OBJECT('a' VALUE NULL ABSENT ON NULL) FROM dual", '{}');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_OBJECT ABSENT ON NULL is ignored. Engine -> '
-            '{"a":null}, Oracle -> {}. See findings/FINDINGS.md F267.');
+    });
 
     test('F268 · JSON_ARRAY defaults to ABSENT ON NULL', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT JSON_ARRAY(1, NULL, 3) FROM dual", '[1,3]');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_ARRAY omits its default ABSENT ON NULL '
-            '(JSON_ARRAYAGG applies it — inconsistent). Engine -> [1,null,3], '
-            'Oracle -> [1,3]. See findings/FINDINGS.md F268.');
+    });
 
     test('F269 · JSON_TABLE EXISTS PATH yields 0 when absent', () async {
       final db = await openEngine();
@@ -2621,9 +2521,7 @@ void main() {
           [
             [0],
           ]);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_TABLE EXISTS PATH returns NULL (not 0) when the '
-            'path is absent. See findings/FINDINGS.md F269.');
+    });
 
     test('F270 · JSON_TABLE NESTED PATH', () async {
       final db = await openEngine();
@@ -2633,41 +2531,31 @@ void main() {
             [1, 'x'],
             [1, 'y'],
           ]);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_TABLE NESTED PATH is a parse error '
-            '(FormatException: Invalid radix-10 number). See findings/FINDINGS.md F270.');
+    });
 
     test('F271 · JSON_QUERY WITH WRAPPER', () async {
       final db = await openEngine();
       await expectScalar(db,
           "SELECT JSON_QUERY('{\"a\":1}', '\$.a' WITH WRAPPER) FROM dual", '[1]');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_QUERY ... WITH WRAPPER is a parse error. '
-            'See findings/FINDINGS.md F271.');
+    });
 
     test('F272 · JSON_MERGEPATCH', () async {
       final db = await openEngine();
       await expectScalar(db,
           "SELECT JSON_MERGEPATCH('{\"a\":1,\"b\":2}', '{\"b\":20,\"c\":3}') FROM dual",
           '{"a":1,"b":20,"c":3}');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_MERGEPATCH (RFC 7386) is unsupported. '
-            'See findings/FINDINGS.md F272.');
+    });
 
     test('F273 · XMLFOREST / XMLATTRIBUTES AS alias', () async {
       final db = await openEngine();
       await expectScalar(db,
           "SELECT XMLFOREST(1 AS \"x\", 2 AS \"y\") FROM dual", '<x>1</x><y>2</y>');
-    },
-        skip: 'KNOWN ENGINE BUG: XMLFOREST/XMLATTRIBUTES reject the AS name clause '
-            '(parse error). See findings/FINDINGS.md F273.');
+    });
 
     test('F274 · XMLTYPE constructor + EXTRACTVALUE', () async {
       final db = await openEngine();
       await expectScalar(db,
           "SELECT EXTRACTVALUE(XMLTYPE('<r><a>7</a></r>'), '/r/a') FROM dual", '7');
-    },
-        skip: 'KNOWN ENGINE BUG: XMLTYPE constructor and EXTRACTVALUE/XMLAGG are '
-            'unsupported (XMLELEMENT works). See findings/FINDINGS.md F274.');
+    });
   });
 }
