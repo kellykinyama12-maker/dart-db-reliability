@@ -1597,9 +1597,9 @@ void main() {
     });
   });
 
-  // Found by a sixth HR three-way feature sweep (TZ, CUBE/ROLLUP, tuple IN,
-  // decimal ROUND, inline PL/SQL — confirmed vs real Oracle 23ai).
-  group('open bugs (round 45 — feature sweep VI, real-Oracle-adjudicated)', () {
+  // Found by a sixth HR three-way feature sweep. F177–F181 fixed & verified;
+  // F182 (inline WITH FUNCTION) still open.
+  group('feature sweep VI (round 45 — F177-F181 fixed; F182 open)', () {
     test('F177 · FROM_TZ + AT TIME ZONE', () async {
       final db = await openEngine();
       // 12:00 UTC shown AT TIME ZONE +05:00 is 17:00.
@@ -1608,11 +1608,7 @@ void main() {
           "SELECT TO_CHAR(FROM_TZ(TIMESTAMP '2024-01-01 12:00:00','+00:00') "
           "AT TIME ZONE '+05:00','HH24:MI') FROM dual",
           '17:00');
-    },
-        skip: 'KNOWN ENGINE BUG: timezone timestamp support is incomplete — '
-            'AT TIME ZONE is a parse error, EXTRACT(TIMEZONE_HOUR FROM ts) '
-            'returns NULL, and SYS_EXTRACT_UTC is missing. Real Oracle returns '
-            '17:00. See findings/FINDINGS.md F177.');
+    });
 
     test('F178 · GROUP BY CUBE/ROLLUP row count', () async {
       final db = await openEngine();
@@ -1622,11 +1618,7 @@ void main() {
       await expectScalar(
           db, 'SELECT COUNT(*) FROM (SELECT a, b FROM t GROUP BY CUBE(a, b))',
           8);
-    },
-        skip: 'KNOWN ENGINE BUG: GROUP BY CUBE / ROLLUP produce the wrong number '
-            'of result rows — CUBE(a,b) over 3 rows returns 10 (Oracle 8) and '
-            'ROLLUP(a,b) returns 8 (Oracle 6); they do not collapse the grouping '
-            'sets correctly. See findings/FINDINGS.md F178.');
+    });
 
     test('F179 · row/tuple IN-list', () async {
       final db = await openEngine();
@@ -1636,29 +1628,19 @@ void main() {
       await expectScalar(
           db, "SELECT COUNT(*) FROM u WHERE (a, b) IN ((90, 'x'), (60, 'y'))",
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: a row/tuple IN-list ((a,b) IN ((..),(..))) '
-            'never matches — it returns 0 instead of 2. Real Oracle matches '
-            'the tuples. See findings/FINDINGS.md F179.');
+    });
 
     test('F180 · ROUND is exact-decimal (half-up)', () async {
       final db = await openEngine();
       // 1.005 rounds up to 1.01 on exact decimal; binary gives 1.00.
       await expectScalar(db, 'SELECT ROUND(1.005, 2) FROM dual', 1.01);
-    },
-        skip: 'KNOWN ENGINE BUG: ROUND(1.005, 2) returns 1.00 instead of 1.01 — '
-            'it rounds the binary double (1.005 is slightly under) rather than '
-            'the exact decimal. Companion to F131/F142. Real Oracle returns 1.01. '
-            'See findings/FINDINGS.md F180.');
+    });
 
     test('F181 · NANVL built-in', () async {
       final db = await openEngine();
       // NANVL returns the first arg when it is not NaN.
       await expectScalar(db, 'SELECT NANVL(5, -1) FROM dual', 5);
-    },
-        skip: 'KNOWN ENGINE BUG: the NANVL built-in is missing ("Unknown '
-            'function: NANVL"); BINARY_DOUBLE_NAN is also unknown. Real Oracle '
-            'returns 5. See findings/FINDINGS.md F181.');
+    });
 
     test('F182 · inline WITH FUNCTION (PL/SQL)', () async {
       final db = await openEngine();
@@ -1671,5 +1653,140 @@ void main() {
         skip: 'KNOWN ENGINE BUG: the inline WITH FUNCTION (PL/SQL in the WITH '
             'clause) is a parse error ("Expected AS but got dbl"). Real Oracle '
             'returns 42. See findings/FINDINGS.md F182.');
+  });
+
+  // Found by a broad HR three-way mega-sweep (67 queries across date/number
+  // formats, stats/JSON/XML functions, predicates — all confirmed vs real
+  // Oracle 23ai). Oracle-also-errors and boolean-casing diffs were excluded.
+  group('open bugs (round 46 — mega-sweep, real-Oracle-adjudicated)', () {
+    test('F183 · TO_CHAR(date) format elements (IYYY/RM/W/SSSSS/SP-TH)',
+        () async {
+      final db = await openEngine();
+      await expectScalar(
+          db, "SELECT TO_CHAR(DATE '2024-07-20','IYYY') FROM dual", '2024');
+    },
+        skip: 'KNOWN ENGINE BUG: more TO_CHAR(date) elements are not applied '
+            '(return garbage/unchanged) — IYYY -> "I24Y" (Oracle 2024), RM '
+            '(Roman month -> VII), W (week of month -> 3), SSSSS (secs past '
+            'midnight), and DDspth (ordinal spelled -> TWENTIETH). '
+            'See findings/FINDINGS.md F183.');
+
+    test('F184 · TO_CHAR(number) format elements (RM/G/D/MI)', () async {
+      final db = await openEngine();
+      // MI puts a trailing minus for negatives.
+      await expectScalar(db, "SELECT TO_CHAR(-1234,'FM9999MI') FROM dual", '1234-');
+    },
+        skip: 'KNOWN ENGINE BUG: more TO_CHAR(number) elements are not applied — '
+            'MI (trailing minus: -1234 -> "1234-"), RM (Roman: 12 -> XII), and '
+            'G/D (group/decimal: FM9G999D99 -> "1,234.5"). Companion to F160. '
+            'See findings/FINDINGS.md F184.');
+
+    test('F185 · linear-regression aggregates (REGR_*)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE m (x NUMBER, y NUMBER)');
+      await db.execute('INSERT INTO m VALUES (1, 10), (2, 20), (3, 30)');
+      await expectScalar(db, 'SELECT REGR_COUNT(y, x) FROM m', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: the linear-regression aggregates are missing '
+            '("Unknown function") — REGR_COUNT, REGR_SLOPE, REGR_INTERCEPT, and '
+            'the rest of the REGR_* family. Real Oracle returns 3. '
+            'See findings/FINDINGS.md F185.');
+
+    test('F186 · NTH_VALUE ... FROM LAST', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE m (y NUMBER)');
+      await db.execute('INSERT INTO m VALUES (10), (20), (30)');
+      // FROM LAST counts from the end; the 1st-from-last over the full frame is 30.
+      await expectScalar(
+          db,
+          'SELECT MAX(nv) FROM (SELECT NTH_VALUE(y, 1) FROM LAST OVER '
+          '(ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) '
+          'nv FROM m)',
+          30);
+    },
+        skip: 'KNOWN ENGINE BUG: the NTH_VALUE ... FROM LAST (and FROM FIRST) '
+            'clause is a parse error ("Expected identifier but got LAST"). Real '
+            'Oracle returns 30. See findings/FINDINGS.md F186.');
+
+    test('F187 · JSON aggregate/manipulation functions', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE m (y NUMBER)');
+      await db.execute('INSERT INTO m VALUES (10), (20), (30)');
+      await expectScalar(
+          db, 'SELECT JSON_ARRAYAGG(y ORDER BY y) FROM m', '[10,20,30]');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON aggregate/manipulation functions are '
+            'missing — JSON_ARRAYAGG, JSON_OBJECTAGG, JSON_MERGEPATCH, '
+            'JSON_SERIALIZE; and JSON_QUERY with an array-index path '
+            '(\$.a[1]) returns NULL. Real Oracle returns [10,20,30]. '
+            'See findings/FINDINGS.md F187.');
+
+    test('F188 · XML query/serialize functions', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT XMLCAST(XMLQUERY('1+2' RETURNING CONTENT) AS NUMBER) FROM dual",
+          3);
+    },
+        skip: 'KNOWN ENGINE BUG: XMLQUERY / XMLCAST / XMLSERIALIZE / XMLTABLE '
+            'are parse errors (F172 added XMLELEMENT only). Real Oracle returns '
+            '3. See findings/FINDINGS.md F188.');
+
+    test('F189 · ROWID / SESSIONTIMEZONE pseudocolumns', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      await expectOk(db, 'SELECT COUNT(*) FROM t WHERE ROWID IS NOT NULL');
+    },
+        skip: 'KNOWN ENGINE BUG: the ROWID pseudocolumn is unsupported '
+            '("Unknown column: ROWID"); SESSIONTIMEZONE is too. Real Oracle '
+            'exposes both. See findings/FINDINGS.md F189.');
+
+    test('F190 · missing scalar functions (NCHR/COMPOSE/NEW_TIME/…)', () async {
+      final db = await openEngine();
+      await expectScalar(db, 'SELECT NCHR(65) FROM dual', 'A');
+    },
+        skip: 'KNOWN ENGINE BUG: several scalar functions are missing ("Unknown '
+            'function") — NCHR, COMPOSE, TO_SINGLE_BYTE, NEW_TIME, TO_YMINTERVAL, '
+            'and SYS_GUID. Real Oracle NCHR(65) = "A". '
+            'See findings/FINDINGS.md F190.');
+
+    test('F191 · OVERLAPS predicate', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN (DATE '2024-01-01', DATE '2024-06-01') OVERLAPS "
+          "(DATE '2024-03-01', DATE '2024-09-01') THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: the OVERLAPS period predicate is a parse error '
+            '("Expected THEN but got OVERLAPS"). Real Oracle returns 1. '
+            'See findings/FINDINGS.md F191.');
+
+    test('F192 · = ALL (subquery)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE m (x NUMBER, y NUMBER)');
+      await db.execute('INSERT INTO m VALUES (1, 10), (2, 20)');
+      // = ALL over a single-row subquery; the one matching row counts.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM m WHERE y = ALL (SELECT y FROM m WHERE x = 1)',
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: "= ALL (subquery)" is a parse error ("Expected '
+            ') but got salary/y"). F138 added >= ALL but not = ALL. Real Oracle '
+            'returns 1. See findings/FINDINGS.md F192.');
+
+    test('F193 · MONTHS_BETWEEN end-of-month handling', () async {
+      final db = await openEngine();
+      // Both dates are last-day-of-month, so Oracle returns a whole number.
+      await expectScalar(
+          db,
+          "SELECT MONTHS_BETWEEN(DATE '2024-03-31', DATE '2024-02-29') FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: MONTHS_BETWEEN does not special-case two '
+            'last-day-of-month dates — it returns 1.0645… instead of a whole 1. '
+            'Real Oracle returns 1. See findings/FINDINGS.md F193.');
   });
 }

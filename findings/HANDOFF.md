@@ -1,14 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs** (F177–F182)
-— the Oracle backlog through F176 is fixed and verified. A sixth broad HR
-three-way feature sweep (timezone, CUBE/ROLLUP, tuple IN, decimal ROUND, inline
-PL/SQL) surfaced these. Real HR + SH + CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **12 open bugs** (F182–F193)
+— the Oracle backlog through F181 is fixed and verified. A broad HR three-way
+mega-sweep (67 queries across date/number formats, stats/JSON/XML functions,
+predicates) surfaced F183–F193. Real HR + SH + CO data load and match real
+Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F177–F182 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F182–F193 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 182 found, 176 fixed & verified, 6 open (F177–F182).**
+**Status: 193 found, 181 fixed & verified, 12 open (F182–F193).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,21 +35,26 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR feature sweep VI — real-Oracle-adjudicated (F177–F182)
+### HR mega-sweep — real-Oracle-adjudicated (F182–F193)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F177** | timezone timestamps | `FROM_TZ(…) AT TIME ZONE` → parse error; `EXTRACT(TIMEZONE_HOUR…)` → NULL; `SYS_EXTRACT_UTC` missing (Oracle `17:00`) | support TZ timestamps + AT TIME ZONE |
-| **F178** | CUBE / ROLLUP row count | `GROUP BY CUBE(a,b)` over 3 rows → 10 (Oracle 8); ROLLUP → 8 (Oracle 6) | collapse the grouping sets correctly |
-| **F179** | row/tuple IN-list | `(a,b) IN ((..),(..))` → 0 matches (Oracle 2) | match tuple IN-lists |
-| **F180** | ROUND decimal | `ROUND(1.005,2)` → `1.00` (Oracle `1.01`) | round the exact decimal, not the binary double (companion F131/F142) |
-| **F181** | NANVL | unknown function; `BINARY_DOUBLE_NAN` also unknown (Oracle `5`) | add NANVL + the BINARY_DOUBLE_NAN literal |
 | **F182** | inline WITH FUNCTION | `WITH FUNCTION dbl… SELECT dbl(21)` → parse error (Oracle `42`) | parse the inline PL/SQL WITH FUNCTION |
+| **F183** | TO_CHAR(date) IYYY/RM/W/SSSSS/SP-TH | not applied / garbage (`IYYY` → "I24Y" vs 2024) | apply the ISO-year, Roman-month, week-of-month, secs-past-midnight, spelled/ordinal elements |
+| **F184** | TO_CHAR(number) RM/G/D/MI | not applied (`FM9999MI` on -1234 → "-1234" vs "1234-") | apply Roman, group/decimal, trailing-minus |
+| **F185** | REGR_* aggregates | `REGR_COUNT/SLOPE/INTERCEPT…` → unknown function (Oracle `3`) | add the linear-regression aggregates |
+| **F186** | NTH_VALUE FROM LAST | `NTH_VALUE(y,1) FROM LAST OVER(…)` → parse error (Oracle `30`) | parse FROM FIRST/LAST |
+| **F187** | JSON agg/manipulation | JSON_ARRAYAGG/OBJECTAGG/MERGEPATCH/SERIALIZE missing; array-index path → NULL (Oracle `[10,20,30]`) | add the JSON functions + array-index paths |
+| **F188** | XML functions | XMLQUERY/XMLCAST/XMLSERIALIZE/XMLTABLE → parse error (Oracle `3`) | support the XML query/serialize functions |
+| **F189** | ROWID / SESSIONTIMEZONE | pseudocolumns unsupported ("Unknown column") | expose ROWID + SESSIONTIMEZONE |
+| **F190** | missing scalar funcs | NCHR/COMPOSE/TO_SINGLE_BYTE/NEW_TIME/TO_YMINTERVAL/SYS_GUID → unknown (Oracle NCHR(65)=`A`) | add the built-ins |
+| **F191** | OVERLAPS predicate | `(d1,d2) OVERLAPS (d3,d4)` → parse error (Oracle `1`) | parse the OVERLAPS period predicate |
+| **F192** | = ALL (subquery) | parse error (F138 added >= ALL only) (Oracle `1`) | parse `= ALL`/`= ANY (subquery)` |
+| **F193** | MONTHS_BETWEEN EOM | two last-day-of-month dates → `1.0645…` (Oracle `1`) | special-case end-of-month pairs |
 
-> Found by a sixth 34-query HR three-way feature sweep (recursive WITH, named
-> windows, ROW_NUMBER, INTERSECT, ANY/EXISTS, REGEXP backrefs, LISTAGG OVERFLOW,
-> ADD_MONTHS clamp, TRUNC timestamp already matched). Not filed: nested
-> WITH FUNCTION (Oracle also raises ORA-32034).
+> Found by a 67-query HR three-way mega-sweep. Excluded: diffs where Oracle
+> itself errors (ORA-01481/01821/22814/01760) and boolean-literal casing
+> (`true`/`TRUE`).
 
 ---
 

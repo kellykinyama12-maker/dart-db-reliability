@@ -52,10 +52,12 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 182 found, 176 fixed & verified, 6 open (F177
-  timezone timestamps; F178 CUBE/ROLLUP row count; F179 tuple IN-list; F180
-  ROUND decimal; F181 NANVL; F182 inline WITH FUNCTION).** The author drained
-  F143–F176; six broad HR feature sweeps surfaced F150–F182.
+- **Bug status (2026-10-23): 193 found, 181 fixed & verified, 12 open (F182
+  inline WITH FUNCTION; F183 TO_CHAR date elements; F184 TO_CHAR number
+  elements; F185 REGR_*; F186 NTH_VALUE FROM LAST; F187 JSON agg/manip; F188 XML
+  funcs; F189 ROWID/SESSIONTIMEZONE; F190 missing scalar funcs; F191 OVERLAPS;
+  F192 = ALL subquery; F193 MONTHS_BETWEEN EOM).** The author drained F143–F181;
+  seven HR feature sweeps surfaced F150–F193.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.
