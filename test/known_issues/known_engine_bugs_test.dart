@@ -2044,7 +2044,8 @@ void main() {
     },
         skip: 'KNOWN ENGINE BUG: CHAR(n) uses non-padded comparison — the value '
             'is stored blank-padded (LENGTH=5) but `x = \'ab\'` returns 0 '
-            'instead of 1. Oracle blank-pads both operands for CHAR comparison. '
+            'instead of 1. The same affects CHAR in IN-lists and CHAR=CHAR '
+            'joins. Oracle blank-pads both operands for CHAR comparison. '
             'See findings/FINDINGS.md F221.');
 
     test('F222 · concatenation treats NULL as empty string', () async {
@@ -2067,7 +2068,22 @@ void main() {
     },
         skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM interval_column) returns the '
             'wrong field — EXTRACT(HOUR) from INTERVAL \'1 02:00:00\' returns 1 '
-            '(the day) instead of 2. Real Oracle returns 2. '
+            '(the day) instead of 2; EXTRACT(MONTH) from an INTERVAL YEAR TO '
+            'MONTH column also returns NULL. Real Oracle returns 2 / 6. '
             'See findings/FINDINGS.md F223.');
+
+    test('F224 · multi-column UPDATE SET (a,b) = (subquery)', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, a NUMBER, b NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 0, 0)');
+      // Oracle updates both columns from a single row-subquery.
+      await db.execute(
+          'UPDATE t SET (a, b) = (SELECT 5, 7 FROM dual) WHERE id = 1');
+      await expectScalar(db, 'SELECT a + b FROM t', 12);
+    },
+        skip: 'KNOWN ENGINE BUG: the multi-column UPDATE form '
+            '"SET (a, b) = (SELECT …)" is a parse error ("Expected identifier but '
+            'got ("). Real Oracle updates both columns (a+b = 12). '
+            'See findings/FINDINGS.md F224.');
   });
 }
