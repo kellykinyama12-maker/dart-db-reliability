@@ -1,16 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **17 open bugs** — a date/time
-+ regex batch (F100–F104), analytic/set-op/format (F106–F108), DML/DDL (F110,
-F111), type-enforcement + CTE (F113–F116), and a functions/numeric/timestamp
-batch (F117–F119), all adjudicated against real Oracle 23ai. F86–F99, F94,
-F105, F109, F112 were fixed async and are active regression guards.
+For the engine author working in `dart-db-server`. **14 open bugs** — date/time
++ regex (F100–F104), analytic/format (F106, F108), functions/numeric/timestamp
+(F117–F119), and a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch (F120–F123), all
+adjudicated against real Oracle 23ai. F85–F99, F94, F105, F107, F109–F116 were
+fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 119 found, 102 fixed & verified, 17 open.**
+**Status: 123 found, 109 fixed & verified, 14 open.**
 
 ## Current open bugs
 
@@ -33,35 +33,10 @@ F105, F109, F112 were fixed async and are active regression guards.
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
 | **F106** | TO_CHAR number format ignored | `TO_CHAR(1234.5,'FM9,999.00')` → `1234.5`, Oracle → `1,234.50` | apply the number format model (companion to F100) |
-| **F107** | MINUS set operator | `SELECT g FROM t MINUS SELECT 1 FROM t` → parse error | accept `MINUS` (EXCEPT synonym) |
 | **F108** | analytic features | `RATIO_TO_REPORT` / `PERCENTILE_CONT`/`DISC` / `WIDTH_BUCKET` / `GROUPING_ID` / `NANVL` / `IGNORE NULLS` / `CONNECT_BY_ROOT` → unsupported | add these analytic functions/clauses |
 
 > Already clean: ROWNUM, MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE,
-> LISTAGG DISTINCT, LEVEL, TO_CHAR sign format.
-
-### DML / DDL — real-Oracle-adjudicated (F110, F111)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F110** | NUMBER(p,s) scale | `1.239` into `NUMBER(5,2)` stays `1.239`, Oracle → `1.24` | round values to the declared scale |
-| **F111** | MERGE DELETE | `WHEN MATCHED THEN UPDATE SET … DELETE WHERE …` → parse error | parse the MERGE DELETE clause |
-
-> **F110 is a silent data-integrity bug** (stored precision wrong). Already
-> clean: sequences (NEXTVAL), IDENTITY, virtual columns, column DEFAULT /
-> DEFAULT ON NULL, INSERT ALL, UPDATE, CHECK constraints.
-
-### Type-enforcement + CTE — real-Oracle-adjudicated (F113–F116)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F113** | VARCHAR2 length | stores `'abcdefg'` into `VARCHAR2(3)`, Oracle → ORA-12899 | enforce the declared length |
-| **F114** | NUMBER precision | stores `12345` into `NUMBER(3)`, Oracle → ORA-01438 | enforce the declared precision (companion to F110) |
-| **F115** | recursive WITH keyword | `WITH r AS (… self-ref …)` → `No such table r`; needs `RECURSIVE` | auto-detect recursion (Oracle has no RECURSIVE keyword) |
-| **F116** | WITH in subquery | `FROM (WITH x AS (…) SELECT …)` → parse error | parse a WITH clause inside a derived table |
-
-> **F113/F114 are silent data-integrity bugs.** Already clean: FK ON DELETE
-> CASCADE/SET NULL, CLOB, TIMESTAMP, PL/SQL loops, CREATE FUNCTION + call,
-> NOT NULL, UNIQUE, plain + `WITH RECURSIVE` CTEs.
+> LISTAGG DISTINCT, LEVEL, TO_CHAR sign format, KEEP, MINUS.
 
 ### Functions / numeric / timestamp — real-Oracle-adjudicated (F117–F119)
 
@@ -74,13 +49,27 @@ F105, F109, F112 were fixed async and are active regression guards.
 > Already clean: CONNECT_BY_ISLEAF, ORDER SIBLINGS BY, NOCYCLE, LOG/LN,
 > TO_CHAR '000', TO_NUMBER '9D999'.
 
+### PL/SQL + TIMESTAMP WITH TIME ZONE — real-Oracle-adjudicated (F120–F123)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F120** | PL/SQL packages | `CREATE PACKAGE`/`BODY` + `pk.f` → `Unknown column: pk.f` | support packages + `pkg.func` calls |
+| **F121** | PL/SQL CASE statement | `CASE x WHEN … END CASE;` → parse error | parse the PL/SQL CASE statement |
+| **F122** | %TYPE declarations | `v t.n%TYPE` → parse error | parse `%TYPE`/`%ROWTYPE` anchors |
+| **F123** | TIMESTAMP WITH TIME ZONE | `ts TIMESTAMP WITH TIME ZONE` → parse error; `FROM_TZ` missing | support the TZ timestamp type + TZ functions |
+
+> Already clean: PL/SQL exception handling, WHILE loops, cursor FOR loops,
+> CREATE FUNCTION + call, CURRENT_TIMESTAMP.
+
 ---
 
-## Resolved batch (F86–F99, F94, F105, F109, F112) — ✅ fixed 2026-10-23
+## Resolved batch (F85–F99, F94, F105, F107, F109–F116) — ✅ fixed 2026-10-23
 
-> **✅ RESOLVED (async).** The F86–F99 batch, SYS_CONNECT_BY_PATH + PIVOT (F94),
-> the KEEP aggregate ordering (F105), IDENTITY columns (F109), and DEFAULT ON
-> NULL (F112). All verified live and kept as active regression guards.
+> **✅ RESOLVED (async).** The F86–F99 batch; SYS_CONNECT_BY_PATH + PIVOT (F94);
+> KEEP ordering (F105); MINUS (F107); IDENTITY (F109); NUMBER scale (F110);
+> MERGE DELETE (F111); DEFAULT ON NULL (F112); VARCHAR2 length (F113); NUMBER
+> precision (F114); recursive-WITH keyword (F115); WITH-in-subquery (F116).
+> All verified live and kept as active regression guards.
 
 ---
 

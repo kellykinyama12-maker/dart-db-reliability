@@ -916,16 +916,13 @@ void main() {
             'model (grouping, scientific, sign) and returns the raw value. '
             'Companion to F100 (dates). See findings/FINDINGS.md F106.');
 
-    test('F107 · the MINUS set operator is not supported', () async {
+    test('F107 · the MINUS set operator is supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (g NUMBER)');
       await db.execute('INSERT INTO t VALUES (1),(2),(3)');
       // Oracle MINUS is the EXCEPT synonym.
       await expectOk(db, 'SELECT g FROM t MINUS SELECT 1 FROM t');
-    },
-        skip: 'KNOWN ENGINE BUG: the Oracle MINUS set operator (synonym for '
-            'EXCEPT) is a parse error ("Expected ) but got SELECT"). See '
-            'findings/FINDINGS.md F107.');
+    });
 
     test('F108 · Oracle analytic features are unsupported', () async {
       final db = await openEngine();
@@ -957,28 +954,22 @@ void main() {
           'CREATE TABLE t (id NUMBER GENERATED ALWAYS AS IDENTITY, v NUMBER)');
     });
 
-    test('F110 · NUMBER(p,s) does not enforce scale (no rounding)', () async {
+    test('F110 · NUMBER(p,s) rounds values to the declared scale', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (n NUMBER(5,2))');
       await db.execute('INSERT INTO t VALUES (1.239)');
-      // Oracle rounds to the declared scale (1.24); the engine stores 1.239.
+      // Oracle rounds to the declared scale (1.24).
       await expectScalar(db, 'SELECT n FROM t', 1.24);
-    },
-        skip: 'KNOWN ENGINE BUG: NUMBER(p,s) does not round values to the '
-            'declared scale — 1.239 into NUMBER(5,2) stays 1.239 instead of '
-            '1.24. Silent data-integrity bug. See findings/FINDINGS.md F110.');
+    });
 
-    test('F111 · MERGE ... DELETE clause is not parsed', () async {
+    test('F111 · MERGE ... DELETE clause is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
       await db.execute('INSERT INTO t VALUES (1, 10), (2, 20)');
       await expectOk(db,
           'MERGE INTO t USING (SELECT 1 id FROM dual) s ON (t.id = s.id) '
           'WHEN MATCHED THEN UPDATE SET v = 99 DELETE WHERE v > 50');
-    },
-        skip: 'KNOWN ENGINE BUG: the MERGE ... WHEN MATCHED THEN UPDATE ... '
-            'DELETE WHERE clause is a parse error ("Unexpected token after '
-            'statement: DELETE"). See findings/FINDINGS.md F111.');
+    });
 
     test('F112 · DEFAULT ON NULL is parsed', () async {
       final db = await openEngine();
@@ -992,52 +983,38 @@ void main() {
   // PL/SQL loops, CREATE FUNCTION, NOT NULL, UNIQUE all work.)
   group('open bugs (round 26 — Oracle type-enforcement + CTE, real-Oracle-adjudicated)',
       () {
-    test('F113 · VARCHAR2(n) length is not enforced', () async {
+    test('F113 · VARCHAR2(n) length is enforced', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (s VARCHAR2(3))');
-      // Oracle rejects with ORA-12899; the engine silently stores 7 chars.
+      // Oracle rejects an oversized value with ORA-12899.
       await expectThrows(db, "INSERT INTO t VALUES ('abcdefg')");
-    },
-        skip: 'KNOWN ENGINE BUG: VARCHAR2(n) length is not enforced — an '
-            'oversized string is stored instead of rejected (Oracle: '
-            'ORA-12899). Silent data-integrity bug. See findings/FINDINGS.md '
-            'F113.');
+    });
 
-    test('F114 · NUMBER(p) precision is not enforced', () async {
+    test('F114 · NUMBER(p) precision is enforced', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (n NUMBER(3))');
-      // Oracle rejects with ORA-01438; the engine silently stores 12345.
+      // Oracle rejects an out-of-precision value with ORA-01438.
       await expectThrows(db, 'INSERT INTO t VALUES (12345)');
-    },
-        skip: 'KNOWN ENGINE BUG: NUMBER(p) precision is not enforced — an '
-            'out-of-precision value is stored instead of rejected (Oracle: '
-            'ORA-01438). Companion to F110. See findings/FINDINGS.md F114.');
+    });
 
-    test('F115 · recursive WITH without the RECURSIVE keyword is not resolved',
+    test('F115 · recursive WITH without the RECURSIVE keyword is resolved',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
-      // Oracle auto-detects recursion; WITH RECURSIVE works, plain WITH does not.
+      // Oracle auto-detects recursion (no RECURSIVE keyword).
       await expectOk(db,
           'WITH r(n) AS (SELECT 1 FROM d UNION ALL SELECT n+1 FROM r WHERE n < 5) '
           'SELECT COUNT(*) FROM r');
-    },
-        skip: 'KNOWN ENGINE BUG: a recursive WITH requires the SQLite-style '
-            'RECURSIVE keyword; Oracle auto-detects recursion, so plain '
-            '"WITH r AS (… self-reference …)" fails ("No such table or view: '
-            'r"). See findings/FINDINGS.md F115.');
+    });
 
-    test('F116 · a WITH clause inside a subquery is not parsed', () async {
+    test('F116 · a WITH clause inside a subquery is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
       await expectOk(db,
           'SELECT COUNT(*) FROM (WITH x AS (SELECT 1 n FROM d) SELECT n FROM x)');
-    },
-        skip: 'KNOWN ENGINE BUG: a WITH clause inside a parenthesized subquery / '
-            'derived table is a parse error ("Expected SELECT but got WITH"). '
-            'See findings/FINDINGS.md F116.');
+    });
   });
 
   // More Oracle function / numeric / timestamp gaps vs real Oracle 23ai.
@@ -1081,5 +1058,53 @@ void main() {
         skip: 'KNOWN ENGINE BUG: TIMESTAMP - TIMESTAMP does not yield a correct '
             'INTERVAL — EXTRACT(DAY FROM (ts5 - ts1)) returns 24 instead of 4. '
             'See findings/FINDINGS.md F119.');
+  });
+
+  // Oracle PL/SQL depth and TIMESTAMP WITH TIME ZONE gaps vs real Oracle 23ai.
+  // (PL/SQL exception handling, WHILE loops, cursor FOR loops, CREATE FUNCTION,
+  // CURRENT_TIMESTAMP all work.)
+  group('open bugs (round 28 — Oracle PL/SQL + TIMESTAMP WITH TIME ZONE, real-Oracle-adjudicated)',
+      () {
+    test('F120 · PL/SQL packages are not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      await db.execute('CREATE PACKAGE pk AS FUNCTION f RETURN NUMBER; END;');
+      await db.execute(
+          'CREATE PACKAGE BODY pk AS FUNCTION f RETURN NUMBER IS BEGIN RETURN 42; END; END;');
+      await expectScalar(db, 'SELECT pk.f FROM d', 42);
+    },
+        skip: 'KNOWN ENGINE BUG: PL/SQL packages (CREATE PACKAGE / PACKAGE BODY '
+            'and pkg.func calls) are unsupported ("Unknown column: pk.f"). See '
+            'findings/FINDINGS.md F120.');
+
+    test('F121 · PL/SQL CASE statement is not parsed', () async {
+      final db = await openEngine();
+      await expectOk(db,
+          'DECLARE x NUMBER := 2; BEGIN CASE x WHEN 1 THEN NULL; '
+          'WHEN 2 THEN NULL; ELSE NULL; END CASE; END;');
+    },
+        skip: 'KNOWN ENGINE BUG: the PL/SQL CASE … END CASE statement is a parse '
+            'error ("Unexpected token after statement: CASE"). See '
+            'findings/FINDINGS.md F121.');
+
+    test('F122 · %TYPE anchored declarations are not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (n NUMBER)');
+      await expectOk(db,
+          'DECLARE v t.n%TYPE := 99; BEGIN INSERT INTO t VALUES (v); END;');
+    },
+        skip: 'KNOWN ENGINE BUG: a %TYPE (and %ROWTYPE) anchored declaration is '
+            'a parse error ("Expected identifier but got "."). See '
+            'findings/FINDINGS.md F122.');
+
+    test('F123 · TIMESTAMP WITH TIME ZONE is not supported', () async {
+      final db = await openEngine();
+      await expectOk(db, 'CREATE TABLE t (ts TIMESTAMP WITH TIME ZONE)');
+    },
+        skip: 'KNOWN ENGINE BUG: the TIMESTAMP WITH TIME ZONE (and WITH LOCAL '
+            'TIME ZONE) column type is a parse error ("Expected ) but got '
+            'WITH"); TZ functions like FROM_TZ are also missing. See '
+            'findings/FINDINGS.md F123.');
   });
 }

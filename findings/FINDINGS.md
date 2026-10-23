@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**119 bugs found; F1–F99 + F94, F105, F109, F112 fixed & verified; 17 open.**
+**123 bugs found; 109 fixed & verified; 14 open (F100–F104, F106, F108, F117–F123).**
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
@@ -68,6 +68,19 @@ A functions/numeric/timestamp sweep vs real Oracle then added F117–F119:
 
 > **Drained async since last round:** F94 (SYS_CONNECT_BY_PATH/PIVOT), F105
 > (KEEP ordering), F109 (IDENTITY), F112 (DEFAULT ON NULL) — now active guards.
+
+A PL/SQL + TIMESTAMP-WITH-TIME-ZONE sweep vs real Oracle then added F120–F123:
+- **F120** (open) — PL/SQL packages (`CREATE PACKAGE`/`PACKAGE BODY` and
+  `pkg.func` calls) are unsupported.
+- **F121** (open) — the PL/SQL `CASE … END CASE` statement is a parse error.
+- **F122** (open) — `%TYPE`/`%ROWTYPE` anchored declarations are a parse error.
+- **F123** (open) — the `TIMESTAMP WITH TIME ZONE` column type is a parse error;
+  TZ functions (`FROM_TZ`, etc.) are missing. (PL/SQL exception handling, WHILE
+  loops, cursor FOR loops, CREATE FUNCTION, CURRENT_TIMESTAMP all work.)
+
+> **Also drained since:** F107 (MINUS), F110 (NUMBER scale), F111 (MERGE DELETE),
+> F113 (VARCHAR2 length), F114 (NUMBER precision), F115 (recursive-WITH keyword),
+> F116 (WITH-in-subquery) — now active guards.
 
 Original write-up of the now-fixed F86–F99 batch follows for the record.
 
