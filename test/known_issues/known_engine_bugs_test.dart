@@ -2253,4 +2253,45 @@ void main() {
             'constraint — the CHECK is still enforced after dropping it, so the '
             'insert is rejected. Real Oracle allows -5. See findings/FINDINGS.md F237.');
   });
+
+  // Found by a PL/SQL stored-routine three-way sweep (6/10 matched: scalar
+  // functions, SELECT-returning functions, procedures with DML, anon-block
+  // loops, package functions, functions in WHERE). These are genuine gaps.
+  group('open bugs (round 58 — PL/SQL routines, real-Oracle-adjudicated)', () {
+    test('F238 · parameterless function call without parentheses', () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE OR REPLACE FUNCTION f0 RETURN NUMBER IS BEGIN RETURN 42; END;');
+      // Oracle allows a no-arg function call without (); f0() works but f0 fails.
+      await expectScalar(db, 'SELECT f0 FROM dual', 42);
+    },
+        skip: 'KNOWN ENGINE BUG: a parameterless function called without '
+            'parentheses (SELECT f0 FROM dual) is treated as a column '
+            '("Unknown column: f0") — only f0() works. Real Oracle returns 42. '
+            'See findings/FINDINGS.md F238.');
+
+    test('F239 · CREATE FUNCTION ... DETERMINISTIC', () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE OR REPLACE FUNCTION inc(x NUMBER) RETURN NUMBER DETERMINISTIC '
+          'IS BEGIN RETURN x + 1; END;');
+      await expectScalar(db, 'SELECT inc(1) FROM dual', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: the DETERMINISTIC clause on CREATE FUNCTION is a '
+            'parse error ("Unexpected token after statement: END"), so the '
+            'function is not created. Real Oracle returns 2. '
+            'See findings/FINDINGS.md F239.');
+
+    test('F240 · function parameter DEFAULT value', () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE OR REPLACE FUNCTION addn(x NUMBER, y NUMBER DEFAULT 10) '
+          'RETURN NUMBER IS BEGIN RETURN x + y; END;');
+      // Calling with one arg uses the default y = 10.
+      await expectScalar(db, 'SELECT addn(5) FROM dual', 15);
+    },
+        skip: 'KNOWN ENGINE BUG: a DEFAULT value on a function parameter is a '
+            'parse error ("Expected ) but got DEFAULT"). Real Oracle uses the '
+            'default (addn(5) = 15). See findings/FINDINGS.md F240.');
+  });
 }
