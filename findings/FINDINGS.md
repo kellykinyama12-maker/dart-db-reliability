@@ -86,6 +86,14 @@ dialect differences:
 > arithmetic, `TO_NUMBER` with a format model, and `REMAINDER`. These diverge
 > from Oracle but match SQLite or are documented dialect choices.
 
+> **Three-way CLEAN (engine == SQLite == real Oracle 23ai):** aggregates
+> (AVG/SUM/MIN/MAX/COUNT, COUNT DISTINCT, empty-set, HAVING, NULL grouping),
+> window functions (ROW_NUMBER/RANK/DENSE_RANK/LAG/running SUM/NTILE), and
+> NULL/three-valued-logic predicates (`= NULL`, `<>`, `NOT IN (…, NULL)`,
+> `NOT BETWEEN`, `NOT EXISTS`, COALESCE predicates) — 0 divergences across ~50
+> probed cases. Bugs cluster in scalar functions and advanced/OR DDL, not the
+> relational core.
+
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**
 > (`oracle_sh_data_parity_test.dart` — channels=5, countries=35, products=72).
