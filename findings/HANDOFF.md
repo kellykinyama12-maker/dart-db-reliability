@@ -1,29 +1,23 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **4 open bugs (F75–F78)** —
-Oracle data-load / DML gaps found loading the real `hr_populate.sql`. Each has a
-minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **0 open bugs** — the Oracle
+data-load batch (F75–F78) is fixed and verified. The full suite runs live with
+nothing skipped; the real Oracle HR schema **and its data** now load.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green, nothing skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 78 found, 74 fixed & verified, 4 open.** HR + SH *schema* parity gates
-are live/green; the HR *data* load needs these four.
+**Status: 78 found, 78 fixed & verified, 0 open.**
 
-## Current open bugs (F75–F78) — Oracle data load
+> **Not yet filed (observations):** schema-qualified FK references
+> (`REFERENCES schema.table`) parse-error. (`COMMIT`-no-tx is now F78, fixed.)
 
-| # | Bug | Severity | Repro → error |
-| --- | --- | --- | --- |
-| **F75** | TO_DATE unsupported | 🔴 common function | `SELECT TO_DATE('2024-01-15','YYYY-MM-DD') FROM dual` → `Unknown function: TO_DATE` |
-| **F76** | ALTER TABLE ENABLE/DISABLE CONSTRAINT | 🟠 deferred-FK flow | `ALTER TABLE t DISABLE CONSTRAINT pk` → `Expected ADD but got DISABLE` |
-| **F77** | ALTER SESSION SET | 🟡 accept/ignore | `ALTER SESSION SET NLS_LANGUAGE=American` → `Expected TABLE but got SESSION` |
-| **F78** | COMMIT with no transaction | 🟡 should be no-op | `COMMIT` (no tx) → `No transaction in progress` (Oracle/MySQL: no-op) |
+## Resolved batch (F75–F78) — ✅ fixed 2026-10-23 (Oracle data load)
 
-> **F75** is the big one — `TO_DATE` is used throughout Oracle DML (`TO_CHAR`/
-> `TO_NUMBER` already work). **F76** enables the circular-FK deferred load
-> (disable → load → enable). **F77/F78** are accept-and-ignore / no-op.
-> Anonymous PL/SQL blocks (`BEGIN INSERT…; INSERT…; END;`) already work.
+> **✅ RESOLVED.** `TO_DATE` (F75), `ALTER TABLE ENABLE/DISABLE CONSTRAINT`
+> (F76), `ALTER SESSION SET` (F77), and `COMMIT`-no-tx no-op (F78). The real HR
+> data now loads (100 employees via `TO_DATE` + the circular-FK deferred flow);
+> `oracle_hr_data_parity_test.dart` runs live/green.
 
 ---
 

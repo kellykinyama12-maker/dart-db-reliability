@@ -9,20 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-22
 
-**78 bugs found; F1–F74 fixed & verified; F75–F78 open.** Loading the real
-Oracle HR **data** (`hr_populate.sql`) — after the schema loads fully — surfaced
-four DML/parity gaps (only 5/43 populate units load):
-- **F75** — `TO_DATE(text, fmt)` is “Unknown function” (fundamental Oracle date
-  function; blocks the employees/job_history data). `TO_CHAR`/`TO_NUMBER` work.
-- **F76** — `ALTER TABLE t ENABLE/DISABLE CONSTRAINT c` is a parse error; needed
-  for the circular-FK deferred-load flow (26 FK failures cascade from this).
-- **F77** — `ALTER SESSION SET ...` is a parse error; should be accepted/ignored.
-- **F78** — `COMMIT` with no active transaction throws “No transaction in
-  progress”; Oracle/MySQL treat it as a no-op.
+**78 bugs found; F1–F78 fixed & verified; 0 open.** Loading the real Oracle HR
+**data** (`hr_populate.sql`) drove the last wave of fixes (F75–F78): the schema
+now loads *and* its rows load — 100 employees with `TO_DATE` hire-dates, 26
+departments, 19 jobs, 4 regions — through the circular-FK disable/load/enable
+flow:
+- **F75** *(fixed & verified)* — `TO_DATE(text, fmt)` is supported.
+- **F76** *(fixed & verified)* — `ALTER TABLE ENABLE/DISABLE CONSTRAINT` (the
+  circular-FK deferred-load flow).
+- **F77** *(fixed & verified)* — `ALTER SESSION SET ...` is accepted.
+- **F78** *(fixed & verified)* — `COMMIT` with no active transaction is a no-op.
 
-> **Anonymous PL/SQL blocks work:** `BEGIN INSERT ...; INSERT ...; END;` (the
-> form the populate script uses) executes. HR and SH *schema* parity gates are
-> GREEN. A later `hr_populate` data gate can go live once F75–F78 land.
+> **Oracle parity gates GREEN:** HR schema + SH schema + HR **data**
+> (`oracle_hr_data_parity_test.dart`, loads real rows). All auto-skip only when
+> the dataset is absent. Anonymous PL/SQL blocks execute.
 
 > **Broad differential otherwise clean:** rowid allocation with `AUTOINCREMENT`,
 > `last_insert_rowid()`, LIMIT/OFFSET (incl. 0 and beyond-end), UNION/UNION
