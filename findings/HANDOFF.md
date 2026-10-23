@@ -1,14 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **7 open bugs (F86–F92)** —
-OE object-relational DDL (F86–F88) and an Oracle function sweep (F89–F92). Each
-has a minimal repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **9 open bugs (F86–F94)** —
+OE object-relational DDL (F86–F88), an Oracle function sweep (F89–F92), and an
+advanced-SQL sweep (F93–F94). Each has a minimal repro and a skipped regression
+test that turns green when fixed.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 92 found, 85 fixed & verified, 7 open.**
+**Status: 94 found, 85 fixed & verified, 9 open.**
 
 ## Current open bugs
 
@@ -34,6 +35,23 @@ has a minimal repro and a skipped regression test that turns green when fixed.
 
 > **F89 and F90 are silent correctness bugs** (wrong answers, not errors) — the
 > highest priority. `ROUND(n, places)` already works; only `TRUNC` is wrong.
+
+### Advanced Oracle SQL (F93–F94)
+
+| # | Bug | Repro → error | Fix |
+| --- | --- | --- | --- |
+| **F93** | ORDER BY + ROLLUP | `SELECT SUM(sal) FROM e GROUP BY ROLLUP(dept) ORDER BY dept` → `Compound ORDER BY only supports projected columns or positions` | allow ordering by a grouping column not in SELECT (works under plain GROUP BY) |
+| **F94** | advanced features | `SYS_CONNECT_BY_PATH` / `PIVOT` / `KEEP (DENSE_RANK FIRST …)` → unsupported | add these (lower priority; advanced) |
+
+> **F93** is an internal inconsistency (plain `GROUP BY` already orders by a
+> non-projected grouping column; only the ROLLUP/CUBE path rejects it).
+
+> **⚠ Needs a running Oracle to adjudicate (NOT filed):** `MERGE … WHEN MATCHED
+> THEN UPDATE SET t.v = s.v` with an alias-qualified target column is rejected
+> (`Expected = but got "."`). Unqualified `SET v = s.v` works and is correct
+> (result 119). Whether real Oracle accepts the qualified form needs Gun 3,
+> which was down (ORA-12541, no listener on 1521). Start the Oracle instance to
+> let the triple-threat decide.
 
 ---
 

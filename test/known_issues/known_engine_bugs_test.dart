@@ -759,4 +759,42 @@ void main() {
         skip: 'KNOWN ENGINE BUG: TRANSLATE, ADD_MONTHS, MONTHS_BETWEEN, and '
             'NEXT_DAY are unknown functions. See findings/FINDINGS.md F92.');
   });
+
+  // Advanced Oracle SQL gaps found probing grouping/hierarchical/pivot SQL.
+  group('open bugs (round 20 — advanced Oracle SQL)', () {
+    test('F93 · ORDER BY a non-projected grouping column fails under ROLLUP',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE e (dept NUMBER, sal NUMBER)');
+      await db.execute('INSERT INTO e VALUES (10, 100), (20, 70)');
+      // This works under plain GROUP BY, so it must work under ROLLUP too.
+      await expectOk(db,
+          'SELECT SUM(sal) FROM e GROUP BY ROLLUP(dept) ORDER BY dept');
+    },
+        skip: 'KNOWN ENGINE BUG: ORDER BY a grouping column that is not in the '
+            'SELECT list fails under ROLLUP/CUBE/GROUPING SETS ("Compound ORDER '
+            'BY only supports projected columns or positions") though it works '
+            'under plain GROUP BY. See findings/FINDINGS.md F93.');
+
+    test('F94 · advanced Oracle SQL features are unsupported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER, name VARCHAR2(10), dept NUMBER, sal NUMBER)');
+      await db.execute("INSERT INTO emp VALUES (1, NULL, 'A', 10, 100)");
+      await db.execute("INSERT INTO emp VALUES (2, 1, 'B', 20, 70)");
+      // SYS_CONNECT_BY_PATH in a hierarchical query.
+      await expectOk(db,
+          "SELECT SYS_CONNECT_BY_PATH(name, '/') FROM emp "
+          'START WITH mgr IS NULL CONNECT BY PRIOR id = mgr');
+      // PIVOT.
+      await expectOk(db,
+          'SELECT * FROM (SELECT dept, sal FROM emp) '
+          'PIVOT (SUM(sal) FOR dept IN (10, 20))');
+      // KEEP ... DENSE_RANK FIRST aggregate.
+      await expectOk(db,
+          'SELECT MAX(sal) KEEP (DENSE_RANK FIRST ORDER BY id) FROM emp');
+    },
+        skip: 'KNOWN ENGINE BUG: SYS_CONNECT_BY_PATH, PIVOT, and the KEEP '
+            '(DENSE_RANK FIRST/LAST) aggregate are unsupported. See '
+            'findings/FINDINGS.md F94.');
+  });
 }

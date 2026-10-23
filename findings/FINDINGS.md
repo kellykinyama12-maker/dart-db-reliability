@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**92 bugs found; F1–F85 fixed & verified; F86–F92 open.** With a correct
+**94 bugs found; F1–F85 fixed & verified; F86–F94 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK
@@ -51,6 +51,21 @@ A scalar/aggregate function sweep surfaced four more, still open:
 - **F92** (open) — `TRANSLATE`, `ADD_MONTHS`, `MONTHS_BETWEEN`, and `NEXT_DAY`
   are unknown functions. (`ROUND(n, places)`, `REPLACE`, `REGEXP_REPLACE/SUBSTR`,
   `ASCII`, `SOUNDEX`, `DECODE`, `NVL2`, `GREATEST/LEAST`, `LAST_DAY` all work.)
+
+An advanced-SQL sweep (grouping/hierarchical/pivot) surfaced two more, still
+open:
+- **F93** (open) — `ORDER BY` a grouping column that is not in the SELECT list
+  fails under `ROLLUP`/`CUBE`/`GROUPING SETS` ("Compound ORDER BY only supports
+  projected columns or positions") though it works under plain `GROUP BY`.
+- **F94** (open) — `SYS_CONNECT_BY_PATH`, `PIVOT`, and the `KEEP (DENSE_RANK
+  FIRST/LAST)` aggregate are unsupported. (`CONNECT BY`, `LEVEL`, `ROLLUP`,
+  `CUBE`, `GROUPING SETS`, `GROUPING()`, `MERGE` with unqualified SET,
+  `FETCH FIRST`/`OFFSET`, `NULLS FIRST/LAST`, window `RANGE` frames all work.)
+
+> **Needs real Oracle to adjudicate (not filed):** `MERGE … WHEN MATCHED THEN
+> UPDATE SET t.v = s.v` with an *alias-qualified* target column is rejected
+> (unqualified `SET v = s.v` works and is correct). Whether Oracle accepts the
+> qualified form needs a running instance (Gun 3 was down: ORA-12541).
 
 > **Parity gates GREEN:** HR schema, SH schema, HR **data** (full dataset,
 > `oracle_hr_data_parity_test.dart`), and SH **lookup data**
