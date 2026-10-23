@@ -1972,11 +1972,7 @@ void main() {
       // The INSTEAD OF trigger redirects the view insert into the base table.
       await db.execute('INSERT INTO iov VALUES (1, 5)');
       await expectScalar(db, 'SELECT v FROM iob WHERE id = 1', 50);
-    },
-        skip: 'KNOWN ENGINE BUG: INSTEAD OF triggers on a view are unsupported — '
-            'the CREATE TRIGGER body (:NEW.col) is a parse error and the view '
-            'is not insertable ("No such table: iov"). Real Oracle redirects the '
-            'insert via the trigger (base row v = 50). See findings/FINDINGS.md F216.');
+    });
 
     test('F217 · DEFAULT <sequence>.NEXTVAL column default', () async {
       final db = await openEngine();
@@ -2001,10 +1997,7 @@ void main() {
           db,
           'SELECT LAG(v, 1, v) OVER (ORDER BY v) FROM t FETCH FIRST 1 ROW ONLY',
           10);
-    },
-        skip: 'KNOWN ENGINE BUG: LAG/LEAD with a COLUMN as the default (3rd) '
-            'argument throws "Unknown column" — it works only with a literal '
-            'default. Real Oracle returns 10. See findings/FINDINGS.md F218.');
+    });
 
     test('F219 · GROUPING() marks ROLLUP superaggregate rows', () async {
       final db = await openEngine();
