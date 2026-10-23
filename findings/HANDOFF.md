@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs (F149–F154)**
-— the Oracle backlog through F148 is fixed and verified. A broad HR three-way
-feature sweep (37/42 matched real Oracle) plus the CO gate surfaced six gaps.
-Real HR + SH + CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **10 open bugs (F150–F159)**
+— the Oracle backlog through F149 is fixed and verified. Two broad HR three-way
+feature sweeps surfaced these function/format gaps. Real HR + SH + CO data load
+and match real Oracle 23ai (CO gate now includes JSON_VALUE over a BLOB).
 
-- **Verify:** `dart test --timeout 30s` (all green; F149–F154 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F150–F159 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 154 found, 148 fixed & verified, 6 open (F149–F154).**
+**Status: 159 found, 149 fixed & verified, 10 open (F150–F159).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,18 +34,23 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### JSON_VALUE over a BLOB — real-Oracle-adjudicated (F149)
+### HR feature sweep II — real-Oracle-adjudicated (F155–F159)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F149** | JSON over BLOB | `JSON_VALUE(blob_col,'$.k')` → NULL when the BLOB holds JSON (works over VARCHAR2); Oracle returns the value | decode BLOB/RAW to text before JSON parsing |
+| **F155** | TO_CHAR(date) WW/IW/J | returns the date unchanged (Oracle `29` / `29` / `2460512`) | apply the week-of-year, ISO-week, and Julian-day format elements |
+| **F156** | TO_CHAR(date,'DDD') | Jan 1 → `012`, Jul 20 → `207` (Oracle `001` / `202`) | fix the day-of-year computation |
+| **F157** | JSON_EXISTS | unknown function (Oracle true) | add the JSON_EXISTS predicate |
+| **F158** | JSON_VALUE RETURNING | `JSON_VALUE(… RETURNING NUMBER)` → parse error (Oracle `12.5`) | parse the RETURNING clause |
+| **F159** | VSIZE / DUMP | unknown function (Oracle `3` / `Typ=96 Len=1: 65`) | add the datatype-introspection functions |
 
-> Found by the new **customer_orders real-data three-way gate**
-> (`oracle_realdata_parity_test.dart`, 19 queries all green). CO stores
-> `product_details` as a JSON BLOB (via UTL_RAW.CAST_TO_RAW); the payload
-> round-trips through `UTL_RAW.CAST_TO_VARCHAR2`, so it is valid JSON —
-> `JSON_VALUE` just does not decode the BLOB. The single query excluded from the
-> green gate.
+> Found by a second 39-query HR three-way feature sweep (29 already matched real
+> Oracle, incl. windowing frames ROWS/RANGE, CUME_DIST, PERCENT_RANK, NTH_VALUE,
+> LAST_VALUE, RPAD/LTRIM/RTRIM, REGEXP_REPLACE backrefs, CEIL/FLOOR/POWER/LOG/LN,
+> WIDTH_BUCKET, LAST_DAY, MONTHS_BETWEEN, ADD_MONTHS, EXTRACT, TO_CHAR Q/DAY,
+> JSON_VALUE nested, JSON_QUERY).
+
+---
 
 ### HR feature sweep — real-Oracle-adjudicated (F150–F154)
 

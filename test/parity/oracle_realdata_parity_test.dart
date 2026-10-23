@@ -92,8 +92,7 @@ const _shBattery = <String>[
   'SELECT ROUND(SUM(prod_list_price - prod_min_price), 2) FROM products',
 ];
 
-// Real customer_orders (CO) battery. Excludes JSON_VALUE over the BLOB
-// product_details column (F149 — engine returns NULL, Oracle returns the value).
+// Real customer_orders (CO) battery.
 const _coBattery = <String>[
   'SELECT COUNT(*) FROM customers',
   'SELECT COUNT(*) FROM products',
@@ -114,6 +113,8 @@ const _coBattery = <String>[
   "SELECT TO_CHAR(MAX(order_tms), 'YYYY-MM-DD') FROM orders",
   'SELECT COUNT(*) FROM (SELECT customer_id, COUNT(*) FROM orders GROUP BY customer_id HAVING COUNT(*) > 1)',
   'SELECT MAX(rk) FROM (SELECT RANK() OVER (ORDER BY COUNT(*) DESC) rk FROM orders GROUP BY store_id)',
+  // JSON_VALUE over the BLOB product_details column (F149, now fixed).
+  "SELECT JSON_VALUE(product_details, '\$.colour') FROM products WHERE product_id = 1",
 ];
 
 void main() {

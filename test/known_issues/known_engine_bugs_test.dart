@@ -1339,8 +1339,9 @@ void main() {
   // Found by the real customer_orders three-way gate: JSON_VALUE works over a
   // VARCHAR2 JSON column but returns NULL over a BLOB that holds JSON (the way
   // CO stores product_details). Confirmed against real Oracle 23ai.
-  group('open bugs (round 39 — JSON over BLOB, real-Oracle-adjudicated)', () {
-    test('F149 · JSON_VALUE over a BLOB column returns NULL', () async {
+  // Was: JSON_VALUE returned NULL over a BLOB holding JSON. Fixed & verified.
+  group('formerly-open bug F149 (fixed & verified; JSON over BLOB)', () {
+    test('F149 · JSON_VALUE over a BLOB column works', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE jb (id NUMBER, details BLOB)');
       await db.execute(
@@ -1349,13 +1350,7 @@ void main() {
       // Oracle's JSON_VALUE decodes the BLOB and returns "white".
       await expectScalar(
           db, "SELECT JSON_VALUE(details, '\$.colour') FROM jb", 'white');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_VALUE over a BLOB column that holds JSON '
-            'returns NULL (it works over VARCHAR2). The BLOB round-trips via '
-            'UTL_RAW.CAST_TO_VARCHAR2, so the payload is valid — JSON_VALUE just '
-            'does not decode BLOB/RAW before parsing. Real Oracle returns '
-            '"white". Surfaced by the real CO products data (product_details is '
-            'a JSON BLOB). See findings/FINDINGS.md F149.');
+    });
   });
 
   // Found by a broad HR three-way feature sweep (37/42 matched real Oracle 23ai).
@@ -1413,5 +1408,64 @@ void main() {
         skip: 'KNOWN ENGINE BUG: the STATS_MODE aggregate is missing ("Unknown '
             'function: STATS_MODE"). It returns the most frequent value. Real '
             'Oracle returns 50. See findings/FINDINGS.md F154.');
+  });
+
+  // Found by a second HR three-way feature sweep (windowing frames, more
+  // string/date/number/JSON — 29/39 matched real Oracle 23ai). All confirmed
+  // against real Oracle.
+  group('open bugs (round 41 — feature sweep II, real-Oracle-adjudicated)', () {
+    test('F155 · TO_CHAR(date) week/Julian format elements', () async {
+      final db = await openEngine();
+      // 'WW' is the week of the year (29 for 2024-07-20); the engine returns
+      // the date unchanged, as it does for 'IW' and 'J' too.
+      await expectScalar(
+          db, "SELECT TO_CHAR(DATE '2024-07-20','WW') FROM dual", '29');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) with the WW / IW / J format '
+            'elements returns the date unchanged (the element is not applied). '
+            'Real Oracle returns the week-of-year (29), ISO week (29), and '
+            'Julian day (2460512). See findings/FINDINGS.md F155.');
+
+    test('F156 · TO_CHAR(date, \'DDD\') returns the right day-of-year',
+        () async {
+      final db = await openEngine();
+      // Day-of-year for Jan 1 is 001; the engine returns "012".
+      await expectScalar(
+          db, "SELECT TO_CHAR(DATE '2024-01-01','DDD') FROM dual", '001');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, \'DDD\') returns the wrong '
+            'day-of-year — Jan 1 2024 returns "012" (Oracle "001") and Jul 20 '
+            'returns 207 (Oracle 202). See findings/FINDINGS.md F156.');
+
+    test('F157 · JSON_EXISTS predicate', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN JSON_EXISTS('{\"a\":1}', '\$.a') THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_EXISTS is missing ("Unknown function: '
+            'JSON_EXISTS"). Real Oracle evaluates the path and returns true. '
+            'See findings/FINDINGS.md F157.');
+
+    test('F158 · JSON_VALUE RETURNING clause', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT JSON_VALUE('{\"n\":12.5}', '\$.n' RETURNING NUMBER) FROM dual",
+          12.5);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_VALUE with a RETURNING clause '
+            '(\'\$.n\' RETURNING NUMBER) is a parse error ("Expected ) but got '
+            'RETURNING"). Real Oracle returns 12.5. See findings/FINDINGS.md F158.');
+
+    test('F159 · VSIZE / DUMP datatype-introspection functions', () async {
+      final db = await openEngine();
+      await expectScalar(db, 'SELECT VSIZE(123) FROM dual', 3);
+    },
+        skip: 'KNOWN ENGINE BUG: the datatype-introspection functions VSIZE and '
+            'DUMP are missing ("Unknown function"). Real Oracle returns the '
+            'internal storage size (VSIZE(123) = 3) and a DUMP description. '
+            'See findings/FINDINGS.md F159.');
   });
 }

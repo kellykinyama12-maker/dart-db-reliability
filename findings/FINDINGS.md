@@ -9,22 +9,20 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**154 bugs found; 148 fixed & verified; 6 open (F149–F154).**
+**159 bugs found; 149 fixed & verified; 10 open (F150–F159).**
 
-> **F149 (open) — `JSON_VALUE` over a BLOB column returns NULL** (confirmed vs
-> real Oracle 23ai). JSON_VALUE works over a VARCHAR2 JSON column but returns
-> NULL over a BLOB that holds JSON (the way CO stores `product_details` via
-> UTL_RAW.CAST_TO_RAW). The payload round-trips through UTL_RAW.CAST_TO_VARCHAR2,
-> so it is valid — JSON_VALUE just does not decode BLOB/RAW before parsing.
-> Oracle returns the value. Surfaced by the real CO three-way gate.
+> **F150–F154 (open) — HR feature sweep.** F150 `ROUND(date, fmt)` ignores the
+> date rounding model; F151 `TO_CHAR(number,'X')` hex ignored; F152 `JSON_OBJECT`
+> `KEY … VALUE` parse error; F153 `REMAINDER` missing; F154 `STATS_MODE` missing.
 >
-> **F150–F154 (open) — HR three-way feature sweep** (37/42 matched real Oracle).
-> **F150:** `ROUND(date, fmt)` ignores the date rounding model (returns "2024"
-> vs `2024-08-01`; companion to F137 TRUNC). **F151:** `TO_CHAR(number,'X')` hex
-> format is ignored (`255` vs `FF`; companion to F106). **F152:** `JSON_OBJECT`
-> with the `KEY … VALUE` syntax is a parse error (vs `{"k":1}`). **F153:**
-> `REMAINDER` is missing (vs `-1`; rounds the quotient unlike MOD). **F154:**
-> `STATS_MODE` aggregate is missing.
+> **F155–F159 (open) — HR feature sweep II.** F155 `TO_CHAR(date)` WW/IW/J format
+> elements return the date unchanged; F156 `TO_CHAR(date,'DDD')` wrong day-of-year
+> (Jan 1 → `012`, Jul 20 → `207` vs `001`/`202`); F157 `JSON_EXISTS` missing;
+> F158 `JSON_VALUE … RETURNING` clause parse error; F159 `VSIZE`/`DUMP` missing.
+> All ten confirmed vs real Oracle 23ai.
+>
+> **F149 fixed & verified:** JSON_VALUE now decodes a BLOB holding JSON; the CO
+> three-way gate re-includes that query and stays green.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
