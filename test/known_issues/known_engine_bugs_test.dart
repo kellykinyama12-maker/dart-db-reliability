@@ -1057,65 +1057,47 @@ void main() {
   // advanced query clauses. (INSERT … SELECT, PIVOT already work.)
   group('open bugs (round 29 — Oracle stragglers, real-Oracle-adjudicated)',
       () {
-    test('F124 · q-quote string literals are not parsed', () async {
+    test('F124 · q-quote string literals are parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
       await expectScalar(db, "SELECT q'[it's a test]' FROM d", "it's a test");
-    },
-        skip: 'KNOWN ENGINE BUG: the Oracle alternative-quoting literal '
-            "(q'[...]', q'{...}', etc.) is a parse error (\"Unexpected "
-            'character "["). See findings/FINDINGS.md F124.');
+    });
 
-    test('F125 · RETURNING ... INTO is not parsed', () async {
+    test('F125 · RETURNING ... INTO is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
       await expectOk(db,
           'DECLARE x NUMBER; BEGIN INSERT INTO t VALUES (1, 99) '
           'RETURNING v INTO x; END;');
-    },
-        skip: 'KNOWN ENGINE BUG: the DML RETURNING ... INTO clause is a parse '
-            'error ("Unexpected token after statement: INTO"). See '
-            'findings/FINDINGS.md F125.');
+    });
 
-    test('F126 · UNPIVOT is not supported', () async {
+    test('F126 · UNPIVOT is supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE s (id NUMBER, a NUMBER, b NUMBER)');
       await db.execute('INSERT INTO s VALUES (1, 10, 20)');
-      // PIVOT works; UNPIVOT (its inverse) does not.
+      // PIVOT works; UNPIVOT (its inverse) too.
       await expectOk(db,
           'SELECT * FROM s UNPIVOT (val FOR col IN (a, b))');
-    },
-        skip: 'KNOWN ENGINE BUG: UNPIVOT is a parse error ("Expected ) but got '
-            '("). See findings/FINDINGS.md F126.');
+    });
 
-    test('F127 · PL/SQL collection / record types are not parsed', () async {
+    test('F127 · PL/SQL collection / record types are parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE src (n NUMBER)');
       await db.execute('INSERT INTO src VALUES (5), (7)');
-      // TYPE … IS TABLE OF / RECORD, BULK COLLECT, FORALL, %ROWTYPE field access.
       await expectOk(db,
           'DECLARE TYPE nt IS TABLE OF NUMBER; a nt; '
           'BEGIN SELECT n BULK COLLECT INTO a FROM src; END;');
-    },
-        skip: 'KNOWN ENGINE BUG: PL/SQL collection/record types (TYPE … IS '
-            'TABLE OF / IS RECORD), BULK COLLECT, FORALL, and %ROWTYPE field '
-            'access are unsupported ("Expected identifier but got IS"). See '
-            'findings/FINDINGS.md F127.');
+    });
 
-    test('F128 · ROWNUM in UPDATE ... SET is rejected', () async {
+    test('F128 · ROWNUM in UPDATE ... SET is accepted', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
       await db.execute('INSERT INTO t VALUES (1, 0), (2, 0)');
-      // Oracle assigns ROWNUM 1,2; the engine maps ROWNUM to ROW_NUMBER() and
-      // rejects it outside a projection.
       await expectOk(db, 'UPDATE t SET v = ROWNUM');
-    },
-        skip: 'KNOWN ENGINE BUG: ROWNUM in UPDATE ... SET is rejected ("Window '
-            'function ROW_NUMBER() ... is only valid in a query projection"). '
-            'See findings/FINDINGS.md F128.');
+    });
 
-    test('F129 · advanced query clauses are unsupported', () async {
+    test('F129 · advanced query clauses are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE s (y NUMBER, v NUMBER)');
       await db.execute('INSERT INTO s VALUES (2020, 100)');
@@ -1123,28 +1105,21 @@ void main() {
       await expectOk(db,
           'SELECT y, v FROM s MODEL DIMENSION BY (y) MEASURES (v) '
           'RULES (v[2021] = v[2020] * 2)');
-    },
-        skip: 'KNOWN ENGINE BUG: advanced query clauses — MODEL, '
-            'MATCH_RECOGNIZE, PIVOT XML, and flashback VERSIONS BETWEEN — are '
-            'unsupported (rare/advanced). See findings/FINDINGS.md F129.');
+    });
   });
 
   // Found running the real HR sample-schema analytic battery three-way vs real
   // Oracle 23ai: the Oracle nested-aggregate-over-GROUP-BY extension.
   group('open bugs (round 30 — nested aggregates, real-Oracle-adjudicated)',
       () {
-    test('F130 · nested aggregate MAX(MIN(x)) over GROUP BY is not supported',
+    test('F130 · nested aggregate MAX(MIN(x)) over GROUP BY is supported',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (d NUMBER, s NUMBER)');
       await db.execute('INSERT INTO t VALUES (1,10),(1,30),(2,20),(2,40)');
       // Oracle's two-level aggregation: MIN per group, then MAX across = 20.
       await expectScalar(db, 'SELECT MAX(MIN(s)) FROM t GROUP BY d', 20);
-    },
-        skip: 'KNOWN ENGINE BUG: a nested aggregate over GROUP BY (Oracle\'s '
-            'MAX(MIN(x)) two-level aggregation) throws ("Aggregate function '
-            'MIN() cannot be evaluated as a scalar"). See findings/FINDINGS.md '
-            'F130.');
+    });
   });
 
   // Data-type fidelity gaps found vs real Oracle 23ai: NUMBER is a binary
@@ -1152,27 +1127,71 @@ void main() {
   // round-trip, big-number clamping, NUMBER division, 2.675→2.68 all match.)
   group('open bugs (round 31 — data-type fidelity, real-Oracle-adjudicated)',
       () {
-    test('F131 · NUMBER is binary floating point, not exact decimal', () async {
+    test('F131 · NUMBER is exact decimal, not binary floating point', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v NUMBER(10,2))');
       await db.execute('INSERT INTO t VALUES (1.005)');
-      // Exact decimal rounds 1.005 to 1.01; the engine's double gives 1.00.
+      // Exact decimal rounds 1.005 to 1.01.
       await expectScalar(db, 'SELECT v FROM t', 1.01);
-    },
-        skip: 'KNOWN ENGINE BUG: NUMBER is stored as a binary double, not exact '
-            'decimal — NUMBER(10,2) rounds 1.005 to 1.00 (Oracle 1.01) and '
-            '0.1 * 3 yields 0.30000000000000004 (Oracle 0.3). Financial-'
-            'precision bug. See findings/FINDINGS.md F131.');
+    });
 
-    test('F132 · CHAR(n) is not blank-padded to the declared length', () async {
+    test('F132 · CHAR(n) is blank-padded to the declared length', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v CHAR(5))');
       await db.execute("INSERT INTO t VALUES ('ab')");
-      // Oracle blank-pads CHAR(5) to 'ab   ' (LENGTH 5); the engine keeps 2.
+      // Oracle blank-pads CHAR(5) to 'ab   ' (LENGTH 5).
       await expectScalar(db, 'SELECT LENGTH(v) FROM t', 5);
+    });
+  });
+
+  // More data-type fidelity gaps vs real Oracle 23ai: RAW/HEXTORAW, TO_CHAR
+  // fractional-seconds, INTERVAL column types, and NUMBER negative scale.
+  // (BINARY_DOUBLE/FLOAT arithmetic, NCHAR/NVARCHAR2, CLOB, TIMESTAMP, NUMBER(*,0)
+  // all match.)
+  group('open bugs (round 32 — data-type fidelity II, real-Oracle-adjudicated)',
+      () {
+    test('F133 · HEXTORAW / RAW hex handling is missing', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      await expectScalar(db, "SELECT RAWTOHEX(HEXTORAW('DEADBEEF')) FROM d",
+          'DEADBEEF');
     },
-        skip: 'KNOWN ENGINE BUG: a CHAR(n) fixed-length column is not blank-'
-            'padded to n — CHAR(5) holding \'ab\' has LENGTH 2, not 5 (Oracle '
-            'pads to "ab   "). See findings/FINDINGS.md F132.');
+        skip: 'KNOWN ENGINE BUG: HEXTORAW is an unknown function (RAW/BLOB hex '
+            'round-trip). Real Oracle returns "DEADBEEF". See '
+            'findings/FINDINGS.md F133.');
+
+    test('F134 · TO_CHAR fractional-seconds format (FF) is not applied',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (ts TIMESTAMP(3))');
+      await db.execute("INSERT INTO t VALUES (TIMESTAMP '2021-06-15 13:45:30.123')");
+      // Oracle 'FF3' returns just the fraction '123'; the engine returns the
+      // whole timestamp string.
+      await expectScalar(db, "SELECT TO_CHAR(ts, 'FF3') FROM t", '123');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(timestamp, \'FF[n]\') (fractional '
+            'seconds) is not applied — it returns the full value instead of the '
+            'fraction. See findings/FINDINGS.md F134.');
+
+    test('F135 · INTERVAL column types are not parsed', () async {
+      final db = await openEngine();
+      // INTERVAL DAY TO SECOND / YEAR TO MONTH as a column type.
+      await expectOk(db, 'CREATE TABLE t (v INTERVAL DAY TO SECOND)');
+    },
+        skip: 'KNOWN ENGINE BUG: INTERVAL DAY TO SECOND / YEAR TO MONTH column '
+            'types are a parse error ("Expected ) but got DAY"). INTERVAL '
+            'literals in expressions work. See findings/FINDINGS.md F135.');
+
+    test('F136 · NUMBER(p, -s) negative scale is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER(5,-2))');
+      await db.execute('INSERT INTO t VALUES (12345)');
+      // Oracle rounds to the negative scale: 12345 -> 12300.
+      await expectScalar(db, 'SELECT v FROM t', 12300);
+    },
+        skip: 'KNOWN ENGINE BUG: NUMBER(p, -s) with a negative scale is a parse '
+            'error ("Expected ) but got 2"); Oracle rounds 12345 into '
+            'NUMBER(5,-2) to 12300. See findings/FINDINGS.md F136.');
   });
 }

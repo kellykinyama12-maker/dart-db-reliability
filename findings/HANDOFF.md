@@ -1,15 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **9 open bugs** — a stragglers
-batch (F124–F129), a nested-aggregate bug (F130), and a data-type-fidelity batch
-(F131–F132), all adjudicated against real Oracle 23ai. F85–F123 were fixed async
-and are active regression guards.
+For the engine author working in `dart-db-server`. **4 open bugs** — a
+data-type-fidelity II batch (F133–F136: RAW/HEXTORAW, TO_CHAR fractional seconds,
+INTERVAL column types, NUMBER negative scale), all adjudicated against real
+Oracle 23ai. F85–F132 were fixed async and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 132 found, 123 fixed & verified, 9 open.**
+**Status: 136 found, 132 fixed & verified, 4 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,6 +34,19 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 `lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
+
+### Data-type fidelity II — real-Oracle-adjudicated (F133–F136)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F133** | HEXTORAW / RAW | `RAWTOHEX(HEXTORAW('DEADBEEF'))` → unknown function | add HEXTORAW + RAW/BLOB hex handling |
+| **F134** | TO_CHAR fractional sec | `TO_CHAR(ts,'FF3')` → full value, Oracle → `123` | apply the `FF[n]` format |
+| **F135** | INTERVAL column types | `v INTERVAL DAY TO SECOND` → parse error | parse INTERVAL DAY-TO-SECOND / YEAR-TO-MONTH column types |
+| **F136** | NUMBER negative scale | `NUMBER(5,-2)` → parse error; Oracle rounds `12345`→`12300` | parse negative scale |
+
+> Already clean: BINARY_DOUBLE/FLOAT arithmetic, NCHAR/NVARCHAR2, CLOB,
+> TIMESTAMP, NUMBER(*,0), and (now) NUMBER exact decimal (F131) + CHAR padding
+> (F132).
 
 ### Stragglers — real-Oracle-adjudicated (F124–F129)
 
