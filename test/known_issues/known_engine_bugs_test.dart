@@ -2037,4 +2037,44 @@ void main() {
             'the implicit non-pivoted columns — returns 1 where Oracle returns 3. '
             'See findings/FINDINGS.md F220.');
   });
+
+  // Found by a data-type fidelity three-way sweep (19/22 already matched real
+  // Oracle 23ai). All confirmed vs Oracle.
+  group('open bugs (round 54 — data-type fidelity, real-Oracle-adjudicated)', () {
+    test('F221 · CHAR blank-padded comparison', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE c (x CHAR(5))');
+      await db.execute("INSERT INTO c VALUES ('ab')");
+      // CHAR comparison blank-pads both sides: 'ab   ' = 'ab' is true.
+      await expectScalar(
+          db, "SELECT CASE WHEN x = 'ab' THEN 1 ELSE 0 END FROM c", 1);
+    },
+        skip: 'KNOWN ENGINE BUG: CHAR(n) uses non-padded comparison — the value '
+            'is stored blank-padded (LENGTH=5) but `x = \'ab\'` returns 0 '
+            'instead of 1. Oracle blank-pads both operands for CHAR comparison. '
+            'See findings/FINDINGS.md F221.');
+
+    test('F222 · concatenation treats NULL as empty string', () async {
+      final db = await openEngine();
+      // Oracle || never nulls the result for non-null operands.
+      await expectScalar(
+          db, "SELECT 'x' || CAST(NULL AS VARCHAR2(5)) || 'y' FROM dual", 'xy');
+    },
+        skip: 'KNOWN ENGINE BUG: the || operator propagates NULL — '
+            '\'x\' || NULL || \'y\' returns NULL instead of "xy". Oracle treats a '
+            'NULL operand as an empty string in concatenation (a cornerstone '
+            'Oracle behavior). See findings/FINDINGS.md F222.');
+
+    test('F223 · EXTRACT field from an INTERVAL column', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE i (v INTERVAL DAY TO SECOND)');
+      await db.execute("INSERT INTO i VALUES (INTERVAL '1 02:00:00' DAY TO SECOND)");
+      // 1 day 2 hours — the HOUR field is 2.
+      await expectScalar(db, 'SELECT EXTRACT(HOUR FROM v) FROM i', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM interval_column) returns the '
+            'wrong field — EXTRACT(HOUR) from INTERVAL \'1 02:00:00\' returns 1 '
+            '(the day) instead of 2. Real Oracle returns 2. '
+            'See findings/FINDINGS.md F223.');
+  });
 }
