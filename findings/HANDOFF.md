@@ -1,16 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **14 open bugs** — date/time
-+ regex (F100–F104), analytic/format (F106, F108), functions/numeric/timestamp
-(F117–F119), and a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch (F120–F123), all
-adjudicated against real Oracle 23ai. F85–F99, F94, F105, F107, F109–F116 were
-fixed async and are active regression guards.
+For the engine author working in `dart-db-server`. **5 open bugs** — one
+timestamp-interval bug (F119) and a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch
+(F120–F123), all adjudicated against real Oracle 23ai. F85–F118 were fixed async
+and are active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 123 found, 109 fixed & verified, 14 open.**
+**Status: 123 found, 118 fixed & verified, 5 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -36,40 +35,11 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### Date/time + regex — real-Oracle-adjudicated (F100–F104)
+### Timestamp interval — real-Oracle-adjudicated (F119)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F100** | TO_CHAR date format ignored | `TO_CHAR(TO_DATE(…),'MON')` → raw ISO, Oracle → `JUN` | apply the date format model |
-| **F101** | date arithmetic broken | `date - date` → 0, Oracle → 60; `date + n` → n | implement temporal +/- |
-| **F102** | INTERVAL / NUMTO* | `+ INTERVAL '5' DAY` → parse error | parse interval literals + `NUMTOYMINTERVAL`/`NUMTODSINTERVAL` |
-| **F103** | REGEXP_REPLACE backrefs | `\2 \1` returned literally, Oracle → `Smith John` | substitute `\1`…`\9` backreferences |
-| **F104** | REGEXP_SUBSTR occurrence | ignores the occurrence arg (→ first match); `REGEXP_COUNT`/`REGEXP_INSTR` missing | honor occurrence/position; add the two functions |
-
-> **F101, F103, F104 are silent wrong answers.** `EXTRACT`/`LAST_DAY`/
-> `ADD_MONTHS` already parse date values, so F100/F101 are TO_CHAR/arithmetic-
-> specific, not a missing temporal type.
-
-### Analytic / set-op / formatting — real-Oracle-adjudicated (F106–F108)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F106** | TO_CHAR number format ignored | `TO_CHAR(1234.5,'FM9,999.00')` → `1234.5`, Oracle → `1,234.50` | apply the number format model (companion to F100) |
-| **F108** | analytic features | `RATIO_TO_REPORT` / `PERCENTILE_CONT`/`DISC` / `WIDTH_BUCKET` / `GROUPING_ID` / `NANVL` / `IGNORE NULLS` / `CONNECT_BY_ROOT` → unsupported | add these analytic functions/clauses |
-
-> Already clean: ROWNUM, MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE,
-> LISTAGG DISTINCT, LEVEL, TO_CHAR sign format, KEEP, MINUS.
-
-### Functions / numeric / timestamp — real-Oracle-adjudicated (F117–F119)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F117** | missing functions | `BITAND` / `BIN_TO_NUM` / `SUBSTRB` / `LENGTHB` / `INSTRB` / `ORA_HASH` → unknown | add these built-ins |
-| **F118** | POWER fractional exponent | `POWER(27, 1.0/3)` → throws, Oracle → 3 | support non-integer exponents |
 | **F119** | TIMESTAMP subtraction | `EXTRACT(DAY FROM (ts5 - ts1))` → 24, Oracle → 4 | yield a correct INTERVAL from ts - ts |
-
-> Already clean: CONNECT_BY_ISLEAF, ORDER SIBLINGS BY, NOCYCLE, LOG/LN,
-> TO_CHAR '000', TO_NUMBER '9D999'.
 
 ### PL/SQL + TIMESTAMP WITH TIME ZONE — real-Oracle-adjudicated (F120–F123)
 
@@ -85,12 +55,14 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ---
 
-## Resolved batch (F85–F99, F94, F105, F107, F109–F116) — ✅ fixed 2026-10-23
+## Resolved batch (F85–F118 except F119) — ✅ fixed 2026-10-23
 
 > **✅ RESOLVED (async).** The F86–F99 batch; SYS_CONNECT_BY_PATH + PIVOT (F94);
 > KEEP ordering (F105); MINUS (F107); IDENTITY (F109); NUMBER scale (F110);
 > MERGE DELETE (F111); DEFAULT ON NULL (F112); VARCHAR2 length (F113); NUMBER
-> precision (F114); recursive-WITH keyword (F115); WITH-in-subquery (F116).
+> precision (F114); recursive-WITH keyword (F115); WITH-in-subquery (F116); the
+> date/time + regex batch (F100–F104); TO_CHAR number format + analytics (F106,
+> F108); and bit/byte/hash functions + POWER fractional exponent (F117, F118).
 > All verified live and kept as active regression guards.
 
 ---

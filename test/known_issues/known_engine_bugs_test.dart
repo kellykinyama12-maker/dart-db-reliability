@@ -818,77 +818,52 @@ void main() {
     });
   });
 
-  // Date/time and regex gaps found by a two-way differential vs real Oracle
-  // 23ai. EXTRACT/LAST_DAY parse date values, but TO_CHAR format models and
-  // date arithmetic don't work, and several regex features are missing/wrong.
-  group('open bugs (round 23 — date/time + regex, real-Oracle-adjudicated)',
+  // Formerly-open date/time + regex (vs real Oracle 23ai). Fixed & verified.
+  group('formerly-open bugs F100–F104 (fixed & verified; date/time + regex)',
       () {
-    test('F100 · TO_CHAR(date, format) ignores the format model', () async {
+    test('F100 · TO_CHAR(date, format) applies the format model', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Real Oracle returns 'JUN'; the engine returns the raw ISO string.
       await expectScalar(db,
           "SELECT TO_CHAR(TO_DATE('2021-06-15','YYYY-MM-DD'), 'MON') FROM t",
           'JUN');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) ignores the format model and '
-            'returns the raw ISO value (e.g. MON/DAY/Q/HH12 all return '
-            '"2021-06-15"). Real Oracle formats it. See findings/FINDINGS.md '
-            'F100.');
+    });
 
-    test('F101 · date arithmetic (date - date, date + n) does not compute',
-        () async {
+    test('F101 · date arithmetic (date - date) computes', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Real Oracle: 60 days between the two dates; the engine returns 0.
       await expectScalar(db,
           "SELECT TO_DATE('2020-03-01','YYYY-MM-DD') - "
           "TO_DATE('2020-01-01','YYYY-MM-DD') FROM t",
           60);
-    },
-        skip: 'KNOWN ENGINE BUG: date arithmetic is broken — date - date returns '
-            '0 and date + n returns the integer (dates behave as strings in '
-            'arithmetic). Real Oracle computes day counts / shifted dates. See '
-            'findings/FINDINGS.md F101.');
+    });
 
-    test('F102 · INTERVAL literals and NUMTOYMINTERVAL are unsupported',
-        () async {
+    test('F102 · INTERVAL literals are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       await expectOk(db,
           "SELECT TO_DATE('2020-01-01','YYYY-MM-DD') + INTERVAL '5' DAY FROM t");
-    },
-        skip: 'KNOWN ENGINE BUG: INTERVAL literals (INTERVAL \'5\' DAY) are a '
-            'parse error and NUMTOYMINTERVAL/NUMTODSINTERVAL are unknown '
-            'functions. See findings/FINDINGS.md F102.');
+    });
 
-    test('F103 · REGEXP_REPLACE backreferences are not substituted', () async {
+    test('F103 · REGEXP_REPLACE substitutes backreferences', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Real Oracle swaps the words; the engine returns the literal "\2 \1".
       await expectScalar(db,
           "SELECT REGEXP_REPLACE('John Smith', '(\\w+) (\\w+)', '\\2 \\1') FROM t",
           'Smith John');
-    },
-        skip: 'KNOWN ENGINE BUG: REGEXP_REPLACE does not substitute '
-            'backreferences (\\1, \\2) — it returns the replacement template '
-            'literally. Plain replacement works. See findings/FINDINGS.md F103.');
+    });
 
-    test('F104 · REGEXP_SUBSTR ignores its occurrence argument', () async {
+    test('F104 · REGEXP_SUBSTR honors its occurrence argument', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Occurrence 2 should return the 2nd digit "2"; the engine returns "1".
       await expectScalar(db,
           "SELECT REGEXP_SUBSTR('a1b2c3', '[0-9]', 1, 2) FROM t", '2');
-    },
-        skip: 'KNOWN ENGINE BUG: REGEXP_SUBSTR ignores its position/occurrence '
-            'arguments (returns the first match); REGEXP_COUNT and REGEXP_INSTR '
-            'are also missing. See findings/FINDINGS.md F104.');
+    });
   });
 
   // Oracle analytic / set-operator / formatting gaps found by a two-way
@@ -904,17 +879,13 @@ void main() {
           'SELECT MAX(v) KEEP (DENSE_RANK FIRST ORDER BY id) FROM t', 10);
     });
 
-    test('F106 · TO_CHAR(number, format) ignores the format model', () async {
+    test('F106 · TO_CHAR(number, format) applies the format model', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Real Oracle returns '1,234.50'; the engine returns the raw '1234.5'.
       await expectScalar(db,
           "SELECT TO_CHAR(1234.5, 'FM9,999.00') FROM t", '1,234.50');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, fmt) ignores the number format '
-            'model (grouping, scientific, sign) and returns the raw value. '
-            'Companion to F100 (dates). See findings/FINDINGS.md F106.');
+    });
 
     test('F107 · the MINUS set operator is supported', () async {
       final db = await openEngine();
@@ -924,7 +895,7 @@ void main() {
       await expectOk(db, 'SELECT g FROM t MINUS SELECT 1 FROM t');
     });
 
-    test('F108 · Oracle analytic features are unsupported', () async {
+    test('F108 · Oracle analytic features are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, g NUMBER, v NUMBER)');
       await db.execute('INSERT INTO t VALUES (1,1,10),(2,1,30),(3,2,NULL)');
@@ -937,11 +908,7 @@ void main() {
           'SELECT CONNECT_BY_ROOT g FROM t CONNECT BY PRIOR id = id - 1');
       await expectOk(db, 'SELECT WIDTH_BUCKET(25, 0, 50, 5) FROM t');
       await expectOk(db, 'SELECT GROUPING_ID(g) FROM t GROUP BY ROLLUP(g)');
-    },
-        skip: 'KNOWN ENGINE BUG: RATIO_TO_REPORT, PERCENTILE_CONT/DISC, '
-            'WIDTH_BUCKET, GROUPING_ID, NANVL, the FIRST_VALUE/LAST_VALUE '
-            'IGNORE NULLS clause, and the CONNECT_BY_ROOT operator are '
-            'unsupported. See findings/FINDINGS.md F108.');
+    });
   });
 
   // Oracle DML/DDL gaps found by an effect-based differential vs real Oracle
@@ -1022,27 +989,21 @@ void main() {
   // TO_NUMBER '9D999' all work.)
   group('open bugs (round 27 — Oracle functions/numeric/timestamp, real-Oracle-adjudicated)',
       () {
-    test('F117 · bit / byte / hash built-in functions are missing', () async {
+    test('F117 · bit / byte / hash built-in functions are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       // BITAND(6,3) = 2 in real Oracle.
       await expectScalar(db, 'SELECT BITAND(6, 3) FROM t', 2);
-    },
-        skip: 'KNOWN ENGINE BUG: BITAND, BIN_TO_NUM, SUBSTRB/LENGTHB/INSTRB '
-            '(byte-length string functions), and ORA_HASH are unknown '
-            'functions. See findings/FINDINGS.md F117.');
+    });
 
-    test('F118 · POWER with a fractional exponent is unsupported', () async {
+    test('F118 · POWER with a fractional exponent is supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       // Cube root via POWER(27, 1/3) = 3 in real Oracle.
       await expectScalar(db, 'SELECT ROUND(POWER(27, 1.0/3)) FROM t', 3);
-    },
-        skip: 'KNOWN ENGINE BUG: POWER with a non-integer exponent throws '
-            '("POWER with non-integer exponent not supported"); real Oracle '
-            'computes it. See findings/FINDINGS.md F118.');
+    });
 
     test('F119 · TIMESTAMP subtraction / EXTRACT from the interval is wrong',
         () async {

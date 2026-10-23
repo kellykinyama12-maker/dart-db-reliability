@@ -52,12 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 123 found, 109 fixed & verified, 14 open.**
-  **Open (Oracle closure push, all vs real Oracle 23ai):** date/time + regex
-  (F100–F104), analytic/format (F106, F108), functions/numeric/timestamp
-  (F117–F119), and PL/SQL + TIMESTAMP-WITH-TIME-ZONE (F120 packages, F121 CASE
-  statement, F122 %TYPE, F123 TIMESTAMP WITH TIME ZONE). The real HR schema +
-  **full data** load and SH **lookup data** loads. MySQL wire clean.
+- **Bug status (2026-10-23): 123 found, 118 fixed & verified, 5 open.**
+  **Open (all vs real Oracle 23ai):** F119 (TIMESTAMP subtraction interval) and
+  a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch (F120 packages, F121 CASE statement,
+  F122 %TYPE, F123 TIMESTAMP WITH TIME ZONE). The author drained the entire
+  date/time+regex, analytic/format, DML/DDL, type-enforcement, and
+  bit/byte/hash function batches async. The real HR schema + **full data** load
+  and SH **lookup data** loads. MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.
