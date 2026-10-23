@@ -1,78 +1,49 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **14 open bugs (F86–F99)** —
-OE object-relational DDL (F86–F88), an Oracle function sweep (F89–F92), an
-advanced-SQL sweep (F93–F94), a real-Oracle-adjudicated MERGE gap (F95), and a
-three-way scalar sweep vs SQLite + real Oracle (F96–F99). Each has a minimal
-repro and a skipped regression test that turns green when fixed.
+For the engine author working in `dart-db-server`. **6 open bugs** — the
+advanced-SQL feature set (F94) and a date/time + regex batch adjudicated against
+real Oracle 23ai (F100–F104). F86–F93 and F95–F99 were fixed async and are now
+active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 99 found, 85 fixed & verified, 14 open.**
+**Status: 104 found, 98 fixed & verified, 6 open.**
 
 ## Current open bugs
 
-### OE object-relational DDL (F86–F88)
+### Advanced Oracle SQL (F94)
 
 | # | Bug | Repro → error | Fix |
 | --- | --- | --- | --- |
-| **F86** | object table | `CREATE TABLE categories_tab OF category_typ` → `Expected ( but got "OF"` | parse `CREATE TABLE t OF <type>` (columns come from the object type) |
-| **F87** | REF column type | `CREATE TABLE t ( id NUMBER, p REF product_typ )` → `Expected ) but got "<type>"` | parse `REF <type>` as a column datatype |
-| **F88** | nested-table storage | `… ) NESTED TABLE items STORE AS items_nt` → `Unexpected token after statement: NESTED` | accept the `NESTED TABLE <col> STORE AS <name>` storage clause |
+| **F94** | advanced features | `SYS_CONNECT_BY_PATH` / `PIVOT` / `KEEP (DENSE_RANK FIRST …)` → unsupported | add these (advanced) |
 
-> All three are used by OE `oc_cre.sql`: object tables (`OF category_typ`), REF
-> columns (`product_ref REF …`), and nested-table storage.
+### Date/time + regex — real-Oracle-adjudicated (F100–F104)
 
-### Oracle function gaps (F89–F92)
-
-| # | Bug | Repro → wrong/err | Fix |
+| # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F89** | INSTR args ignored | `INSTR('abcabc','a',2)` → 1 (should be 4) | honor the 3rd (start) and 4th (occurrence) arguments |
-| **F90** | TRUNC places/date | `TRUNC(3.14159,2)` → 3 (should be 3.14); `TRUNC(date)` throws | honor the places arg; support `TRUNC(date[,fmt])` |
-| **F91** | LISTAGG parse | `LISTAGG(v, ',') WITHIN GROUP (ORDER BY v)` → `Expected BY but got "("` | parse the `WITHIN GROUP (ORDER BY …)` clause |
-| **F92** | missing functions | `TRANSLATE` / `ADD_MONTHS` / `MONTHS_BETWEEN` / `NEXT_DAY` → unknown function | add these built-ins |
+| **F100** | TO_CHAR date format ignored | `TO_CHAR(TO_DATE(…),'MON')` → raw ISO, Oracle → `JUN` | apply the date format model |
+| **F101** | date arithmetic broken | `date - date` → 0, Oracle → 60; `date + n` → n | implement temporal +/- |
+| **F102** | INTERVAL / NUMTO* | `+ INTERVAL '5' DAY` → parse error | parse interval literals + `NUMTOYMINTERVAL`/`NUMTODSINTERVAL` |
+| **F103** | REGEXP_REPLACE backrefs | `\2 \1` returned literally, Oracle → `Smith John` | substitute `\1`…`\9` backreferences |
+| **F104** | REGEXP_SUBSTR occurrence | ignores the occurrence arg (→ first match); `REGEXP_COUNT`/`REGEXP_INSTR` missing | honor occurrence/position; add the two functions |
 
-> **F89 and F90 are silent correctness bugs** (wrong answers, not errors) — the
-> highest priority. `ROUND(n, places)` already works; only `TRUNC` is wrong.
+> **F101, F103, F104 are silent wrong answers.** `EXTRACT`/`LAST_DAY`/
+> `ADD_MONTHS` already parse date values, so F100/F101 are TO_CHAR/arithmetic-
+> specific, not a missing temporal type.
 
-### Advanced Oracle SQL (F93–F94)
+---
 
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F93** | ORDER BY + ROLLUP | `SELECT SUM(sal) FROM e GROUP BY ROLLUP(dept) ORDER BY dept` → `Compound ORDER BY only supports projected columns or positions` | allow ordering by a grouping column not in SELECT (works under plain GROUP BY) |
-| **F94** | advanced features | `SYS_CONNECT_BY_PATH` / `PIVOT` / `KEEP (DENSE_RANK FIRST …)` → unsupported | add these (lower priority; advanced) |
+## Resolved batch (F86–F99 except F94) — ✅ fixed 2026-10-23
 
-> **F93** is an internal inconsistency (plain `GROUP BY` already orders by a
-> non-projected grouping column; only the ROLLUP/CUBE path rejects it).
-
-### MERGE alias-qualified SET target (F95) — real-Oracle-adjudicated
-
-| # | Bug | Repro → error | Fix |
-| --- | --- | --- | --- |
-| **F95** | MERGE qualified SET | `MERGE INTO tgt t USING src s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.v = s.v` → `Expected = but got "."` | accept an alias-qualified target column in the UPDATE SET |
-
-> **Confirmed against real Oracle** (gvenzl/oracle-free 23ai): the qualified
-> `SET t.v = s.v` succeeds there (result 99), as does unqualified `SET v = s.v`
-> (77). The engine accepts only the unqualified form. Not a dialect difference —
-> a real gap.
-
-### Scalar semantics — three-way adjudicated (F96–F99)
-
-Each is wrong in **both** SQLite and real Oracle (or crashes), so universal —
-not a dialect difference.
-
-| # | Bug | engine → SQLite / Oracle | Fix |
-| --- | --- | --- | --- |
-| **F96** | MOD negative sign | `MOD(-10,3)` → 2, both refs → -1 | result should follow the dividend sign |
-| **F97** | GREATEST/LEAST NULL | `GREATEST(1,NULL,3)` → 3, both refs → NULL | return NULL when any arg is NULL |
-| **F98** | 2-arg REPLACE crash | `REPLACE('abcabc','b')` → Dart RangeError, Oracle → `acac` | treat the 2-arg form as removing the substring |
-| **F99** | ANSI TRIM FROM | `TRIM('_' FROM '_ab_')` → parse error, Oracle → `ab` | parse `TRIM([LEADING|TRAILING|BOTH] c FROM s)` |
-
-> **F96 and F97 are silent correctness bugs** (wrong answers); **F98** is an
-> internal crash. These were caught by a new three-way differential (engine vs
-> SQLite vs real Oracle), which I can re-run to adjudicate future ambiguities.
+> **✅ RESOLVED (async).** OE object-relational DDL (F86–F88: object tables, REF
+> columns, NESTED TABLE STORE AS), the Oracle function sweep (F89–F92: INSTR
+> args, TRUNC places/date, LISTAGG WITHIN GROUP, TRANSLATE/ADD_MONTHS/
+> MONTHS_BETWEEN/NEXT_DAY), ORDER BY under ROLLUP (F93), MERGE alias-qualified
+> SET (F95), and the three-way scalar sweep (F96–F99: MOD sign, GREATEST/LEAST
+> NULL, 2-arg REPLACE crash, ANSI TRIM FROM). All verified live and kept as
+> active regression guards. **F94 remains open.**
 
 ---
 

@@ -9,7 +9,24 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**99 bugs found; F1–F85 fixed & verified; F86–F99 open.** With a correct
+**104 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F104 open.**
+The author fixed F86–F93 and F95–F99 async (now active regression guards). A
+date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
+- **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
+  the raw ISO value (`TO_CHAR(TO_DATE(…),'MON')` → `2021-06-15`, not `JUN`).
+- **F101** (open, correctness) — date arithmetic is broken: `date - date` → 0
+  (Oracle 60) and `date + n` → n. `EXTRACT`/`LAST_DAY`/`ADD_MONTHS` work, so
+  this is arithmetic-specific, not a missing type.
+- **F102** (open) — `INTERVAL '5' DAY` literals are a parse error and
+  `NUMTOYMINTERVAL`/`NUMTODSINTERVAL` are unknown.
+- **F103** (open, correctness) — `REGEXP_REPLACE` does not substitute `\1`/`\2`
+  backreferences (returns the template literally); plain replacement works.
+- **F104** (open, correctness) — `REGEXP_SUBSTR` ignores its occurrence/position
+  arguments; `REGEXP_COUNT`/`REGEXP_INSTR` are missing.
+
+Original write-up of the now-fixed F86–F99 batch follows for the record.
+
+**(historical) 99 bugs found; F1–F85 fixed & verified; F86–F99 open.** With a correct
 Oracle SQL*Plus script splitter (`lib/src/oracle_script.dart`), the real HR
 **data** now loads completely — all 107 employees, 27 departments, 25 countries,
 23 locations, 19 jobs, 5 regions, 10 job_history — via `TO_DATE`, the circular-FK

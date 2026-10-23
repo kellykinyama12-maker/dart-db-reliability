@@ -661,89 +661,65 @@ void main() {
     });
   });
 
-  // Gaps found in the real Oracle OE (order-entry) object-relational schema
-  // (oc_cre.sql): object tables, REF columns, and nested-table storage.
-  group('open bugs (round 18 — Oracle OE object-relational DDL)', () {
-    test('F86 · CREATE TABLE OF object_type (object table) is not parsed',
-        () async {
+  // Formerly-open OE object-relational DDL (oc_cre.sql): object tables, REF
+  // columns, and nested-table storage. Fixed & verified.
+  group('formerly-open bugs F86–F88 (fixed & verified; Oracle OE object-relational DDL)',
+      () {
+    test('F86 · CREATE TABLE OF object_type (object table) is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TYPE category_typ AS OBJECT ( id NUMBER, name VARCHAR2(30) )');
-      // OE: `CREATE TABLE categories_tab OF category_typ`.
       await expectOk(db, 'CREATE TABLE categories_tab OF category_typ');
-    },
-        skip: 'KNOWN ENGINE BUG: an object table (CREATE TABLE t OF type) is a '
-            'parse error ("Expected ( but got OF"). Used by OE oc_cre.sql. See '
-            'findings/FINDINGS.md F86.');
+    });
 
-    test('F87 · a REF column type is not parsed', () async {
+    test('F87 · a REF column type is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TYPE product_typ AS OBJECT ( id NUMBER )');
-      // OE: `product_ref REF product_information_typ`.
       await expectOk(db,
           'CREATE TABLE line_items ( id NUMBER, product_ref REF product_typ )');
-    },
-        skip: 'KNOWN ENGINE BUG: a REF column type (col REF type) is a parse '
-            'error ("Expected ) but got <type>"). Used by OE oc_cre.sql. See '
-            'findings/FINDINGS.md F87.');
+    });
 
-    test('F88 · NESTED TABLE ... STORE AS storage clause is not parsed',
-        () async {
+    test('F88 · NESTED TABLE ... STORE AS storage clause is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TYPE item_typ AS OBJECT ( id NUMBER )');
       await db.execute('CREATE TYPE item_tab AS TABLE OF item_typ');
-      // OE: `... NESTED TABLE <col> STORE AS <name>`.
       await expectOk(db,
           'CREATE TABLE orders2 ( id NUMBER, items item_tab ) '
           'NESTED TABLE items STORE AS items_nt');
-    },
-        skip: 'KNOWN ENGINE BUG: the NESTED TABLE <col> STORE AS <name> storage '
-            'clause is a parse error ("Unexpected token after statement: '
-            'NESTED"). Used by OE oc_cre.sql. See findings/FINDINGS.md F88.');
+    });
   });
 
-  // Oracle built-in function gaps found probing scalar/date/aggregate SQL.
-  // F89/F90 are silent correctness bugs (wrong answers); F91 is a parse gap;
-  // F92 groups missing functions.
-  group('open bugs (round 19 — Oracle function gaps)', () {
-    test('F89 · INSTR ignores its start-position and occurrence arguments',
+  // Formerly-open Oracle built-in function gaps (scalar/date/aggregate).
+  // Fixed & verified.
+  group('formerly-open bugs F89–F92 (fixed & verified; Oracle function gaps)',
+      () {
+    test('F89 · INSTR honors its start-position and occurrence arguments',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       // 'a' at positions 1 and 4; searching from position 2 must return 4.
       await expectScalar(db, "SELECT INSTR('abcabc', 'a', 2) FROM t", 4);
-    },
-        skip: 'KNOWN ENGINE BUG: INSTR ignores its 3rd (start position) and 4th '
-            '(occurrence) arguments — it always returns the first-occurrence '
-            'position. Silent wrong answer. See findings/FINDINGS.md F89.');
+    });
 
-    test('F90 · TRUNC ignores its places argument (and crashes on dates)',
-        () async {
+    test('F90 · TRUNC honors its places argument', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
       await expectScalar(db, 'SELECT TRUNC(3.14159, 2) FROM t', 3.14);
-    },
-        skip: 'KNOWN ENGINE BUG: TRUNC(n, places) ignores the places argument '
-            '(returns the integer truncation); TRUNC(date) throws an internal '
-            'cast error. Silent wrong answer. See findings/FINDINGS.md F90.');
+    });
 
-    test('F91 · LISTAGG ... WITHIN GROUP (...) is not parsed', () async {
+    test('F91 · LISTAGG ... WITHIN GROUP (...) is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE s (v NUMBER)');
       await db.execute('INSERT INTO s VALUES (10), (20), (30)');
       await expectScalar(db,
           "SELECT LISTAGG(v, ',') WITHIN GROUP (ORDER BY v) FROM s", '10,20,30');
-    },
-        skip: 'KNOWN ENGINE BUG: LISTAGG(expr, sep) WITHIN GROUP (ORDER BY …) '
-            'is a parse error ("Expected BY but got ("). See '
-            'findings/FINDINGS.md F91.');
+    });
 
-    test('F92 · common Oracle built-in functions are missing', () async {
+    test('F92 · common Oracle built-in functions are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // TRANSLATE, ADD_MONTHS, MONTHS_BETWEEN, NEXT_DAY are all unknown.
       await expectScalar(db, "SELECT TRANSLATE('abc', 'ab', 'xy') FROM t", 'xyc');
       await expectScalar(
           db,
@@ -755,27 +731,24 @@ void main() {
           db,
           "SELECT TO_CHAR(NEXT_DAY(DATE '2020-01-01', 'MONDAY'), 'YYYY-MM-DD') FROM t",
           '2020-01-06');
-    },
-        skip: 'KNOWN ENGINE BUG: TRANSLATE, ADD_MONTHS, MONTHS_BETWEEN, and '
-            'NEXT_DAY are unknown functions. See findings/FINDINGS.md F92.');
+    });
   });
 
-  // Advanced Oracle SQL gaps found probing grouping/hierarchical/pivot SQL.
-  group('open bugs (round 20 — advanced Oracle SQL)', () {
-    test('F93 · ORDER BY a non-projected grouping column fails under ROLLUP',
+  // Formerly-open: ORDER BY a non-projected grouping column under ROLLUP.
+  // Fixed & verified.
+  group('formerly-open bug F93 (fixed & verified; ORDER BY under ROLLUP)', () {
+    test('F93 · ORDER BY a non-projected grouping column works under ROLLUP',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE e (dept NUMBER, sal NUMBER)');
       await db.execute('INSERT INTO e VALUES (10, 100), (20, 70)');
-      // This works under plain GROUP BY, so it must work under ROLLUP too.
       await expectOk(db,
           'SELECT SUM(sal) FROM e GROUP BY ROLLUP(dept) ORDER BY dept');
-    },
-        skip: 'KNOWN ENGINE BUG: ORDER BY a grouping column that is not in the '
-            'SELECT list fails under ROLLUP/CUBE/GROUPING SETS ("Compound ORDER '
-            'BY only supports projected columns or positions") though it works '
-            'under plain GROUP BY. See findings/FINDINGS.md F93.');
+    });
+  });
 
+  // Advanced Oracle SQL gaps found probing grouping/hierarchical/pivot SQL.
+  group('open bugs (round 20 — advanced Oracle SQL)', () {
     test('F94 · advanced Oracle SQL features are unsupported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER, name VARCHAR2(10), dept NUMBER, sal NUMBER)');
@@ -798,79 +771,129 @@ void main() {
             'findings/FINDINGS.md F94.');
   });
 
-  // Adjudicated against real Oracle (gvenzl/oracle-free 23ai): both the
-  // qualified and unqualified SET forms succeed there; the engine rejects the
-  // alias-qualified target column.
-  group('open bugs (round 21 — MERGE qualified SET, real-Oracle-adjudicated)',
-      () {
-    test('F95 · MERGE UPDATE SET rejects an alias-qualified target column',
+  // Formerly-open: MERGE with an alias-qualified target column in UPDATE SET
+  // (real-Oracle-adjudicated). Fixed & verified.
+  group('formerly-open bug F95 (fixed & verified; MERGE qualified SET)', () {
+    test('F95 · MERGE UPDATE SET accepts an alias-qualified target column',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE tgt (id NUMBER, v NUMBER)');
       await db.execute('INSERT INTO tgt VALUES (1, 10)');
       await db.execute('CREATE TABLE src (id NUMBER, v NUMBER)');
       await db.execute('INSERT INTO src VALUES (1, 99)');
-      // Real Oracle accepts `SET t.v = s.v` (verified: result 99). The engine
-      // accepts only the unqualified `SET v = s.v`.
+      // Real Oracle accepts `SET t.v = s.v` (verified: result 99).
       await expectOk(db,
           'MERGE INTO tgt t USING src s ON (t.id = s.id) '
           'WHEN MATCHED THEN UPDATE SET t.v = s.v');
-    },
-        skip: 'KNOWN ENGINE BUG: MERGE ... WHEN MATCHED THEN UPDATE SET t.v = '
-            's.v with an alias-qualified target column is a parse error '
-            '("Expected = but got "."); real Oracle accepts it (adjudicated via '
-            'gvenzl/oracle-free 23ai). Unqualified SET works. See '
-            'findings/FINDINGS.md F95.');
+    });
   });
 
-  // Scalar-semantics bugs adjudicated THREE-WAY (engine vs SQLite vs real
-  // Oracle 23ai): each is wrong in BOTH references or crashes, so these are
-  // universal bugs, not dialect differences.
-  group('open bugs (round 22 — scalar semantics, three-way adjudicated)', () {
-    test('F96 · MOD with a negative dividend returns the wrong sign', () async {
+  // Formerly-open scalar-semantics bugs adjudicated THREE-WAY (engine vs SQLite
+  // vs real Oracle 23ai). Fixed & verified.
+  group('formerly-open bugs F96–F99 (fixed & verified; scalar semantics, three-way)',
+      () {
+    test('F96 · MOD with a negative dividend follows the dividend sign',
+        () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // SQLite (-10 % 3) and Oracle MOD(-10,3) both give -1; engine gives 2.
+      // SQLite (-10 % 3) and Oracle MOD(-10,3) both give -1.
       await expectScalar(db, 'SELECT MOD(-10, 3) FROM t', -1);
-    },
-        skip: 'KNOWN ENGINE BUG: MOD(-10, 3) returns 2 but both SQLite and real '
-            'Oracle return -1 (result follows the dividend sign). Silent wrong '
-            'answer. See findings/FINDINGS.md F96.');
+    });
 
-    test('F97 · GREATEST/LEAST ignore NULL arguments', () async {
+    test('F97 · GREATEST/LEAST return NULL when any argument is NULL', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Both SQLite max()/min() and Oracle GREATEST/LEAST return NULL when any
-      // argument is NULL; the engine returns the max/min of the non-nulls.
       await expectScalar(db, 'SELECT GREATEST(1, NULL, 3) FROM t', null);
       await expectScalar(db, 'SELECT LEAST(1, NULL, 3) FROM t', null);
-    },
-        skip: 'KNOWN ENGINE BUG: GREATEST(1,NULL,3) returns 3 and LEAST(1,NULL,3) '
-            'returns 1, but both SQLite and real Oracle return NULL when any arg '
-            'is NULL. Silent wrong answer. See findings/FINDINGS.md F97.');
+    });
 
-    test('F98 · 2-argument REPLACE throws an internal RangeError', () async {
+    test('F98 · 2-argument REPLACE removes the substring', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // Oracle REPLACE(s, sub) removes sub; the engine throws a Dart RangeError.
       await expectScalar(db, "SELECT REPLACE('abcabc', 'b') FROM t", 'acac');
-    },
-        skip: 'KNOWN ENGINE BUG: the 2-argument REPLACE(s, sub) throws an '
-            'internal RangeError instead of removing the substring (real Oracle '
-            'returns "acac"). See findings/FINDINGS.md F98.');
+    });
 
-    test('F99 · ANSI TRIM(chars FROM string) syntax is not parsed', () async {
+    test('F99 · ANSI TRIM(chars FROM string) syntax is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1)');
-      // ANSI/Oracle/MySQL: TRIM([LEADING|TRAILING|BOTH] c FROM s).
       await expectScalar(db, "SELECT TRIM('_' FROM '_ab_') FROM t", 'ab');
+    });
+  });
+
+  // Date/time and regex gaps found by a two-way differential vs real Oracle
+  // 23ai. EXTRACT/LAST_DAY parse date values, but TO_CHAR format models and
+  // date arithmetic don't work, and several regex features are missing/wrong.
+  group('open bugs (round 23 — date/time + regex, real-Oracle-adjudicated)',
+      () {
+    test('F100 · TO_CHAR(date, format) ignores the format model', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Real Oracle returns 'JUN'; the engine returns the raw ISO string.
+      await expectScalar(db,
+          "SELECT TO_CHAR(TO_DATE('2021-06-15','YYYY-MM-DD'), 'MON') FROM t",
+          'JUN');
     },
-        skip: 'KNOWN ENGINE BUG: the ANSI TRIM(chars FROM string) form (and '
-            'LEADING/TRAILING/BOTH) is a parse error ("Expected ) but got '
-            '"FROM"). Real Oracle returns "ab". See findings/FINDINGS.md F99.');
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(date, fmt) ignores the format model and '
+            'returns the raw ISO value (e.g. MON/DAY/Q/HH12 all return '
+            '"2021-06-15"). Real Oracle formats it. See findings/FINDINGS.md '
+            'F100.');
+
+    test('F101 · date arithmetic (date - date, date + n) does not compute',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Real Oracle: 60 days between the two dates; the engine returns 0.
+      await expectScalar(db,
+          "SELECT TO_DATE('2020-03-01','YYYY-MM-DD') - "
+          "TO_DATE('2020-01-01','YYYY-MM-DD') FROM t",
+          60);
+    },
+        skip: 'KNOWN ENGINE BUG: date arithmetic is broken — date - date returns '
+            '0 and date + n returns the integer (dates behave as strings in '
+            'arithmetic). Real Oracle computes day counts / shifted dates. See '
+            'findings/FINDINGS.md F101.');
+
+    test('F102 · INTERVAL literals and NUMTOYMINTERVAL are unsupported',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      await expectOk(db,
+          "SELECT TO_DATE('2020-01-01','YYYY-MM-DD') + INTERVAL '5' DAY FROM t");
+    },
+        skip: 'KNOWN ENGINE BUG: INTERVAL literals (INTERVAL \'5\' DAY) are a '
+            'parse error and NUMTOYMINTERVAL/NUMTODSINTERVAL are unknown '
+            'functions. See findings/FINDINGS.md F102.');
+
+    test('F103 · REGEXP_REPLACE backreferences are not substituted', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Real Oracle swaps the words; the engine returns the literal "\2 \1".
+      await expectScalar(db,
+          "SELECT REGEXP_REPLACE('John Smith', '(\\w+) (\\w+)', '\\2 \\1') FROM t",
+          'Smith John');
+    },
+        skip: 'KNOWN ENGINE BUG: REGEXP_REPLACE does not substitute '
+            'backreferences (\\1, \\2) — it returns the replacement template '
+            'literally. Plain replacement works. See findings/FINDINGS.md F103.');
+
+    test('F104 · REGEXP_SUBSTR ignores its occurrence argument', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Occurrence 2 should return the 2nd digit "2"; the engine returns "1".
+      await expectScalar(db,
+          "SELECT REGEXP_SUBSTR('a1b2c3', '[0-9]', 1, 2) FROM t", '2');
+    },
+        skip: 'KNOWN ENGINE BUG: REGEXP_SUBSTR ignores its position/occurrence '
+            'arguments (returns the first match); REGEXP_COUNT and REGEXP_INSTR '
+            'are also missing. See findings/FINDINGS.md F104.');
   });
 }
