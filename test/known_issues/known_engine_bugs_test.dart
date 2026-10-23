@@ -1187,38 +1187,31 @@ void main() {
   // comparisons.
   group('open bugs (round 33 — date-trunc format + quantified subquery, real-Oracle-adjudicated)',
       () {
-    test('F137 · TRUNC(date, format) does not truncate to the unit', () async {
+    test('F137 · TRUNC(date, format) truncates to the unit', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
-      // Oracle truncates to the month start (2021-06-01); the engine returns
-      // the unchanged date.
+      // Oracle truncates to the month start (2021-06-01).
       await expectScalar(db,
           "SELECT TO_CHAR(TRUNC(TO_DATE('2021-06-15','YYYY-MM-DD'),'MM'),'YYYY-MM-DD') FROM d",
           '2021-06-01');
-    },
-        skip: 'KNOWN ENGINE BUG: TRUNC(date, fmt) with a format model (MM/YYYY/'
-            'etc.) does not truncate — it returns the unchanged date (Oracle '
-            'truncates to the unit start). See findings/FINDINGS.md F137.');
+    });
 
-    test('F138 · quantified comparison >= ALL (subquery) is not parsed',
+    test('F138 · quantified comparison >= ALL (subquery) is parsed',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (x NUMBER)');
       await db.execute('INSERT INTO t VALUES (1), (2), (3)');
       // Oracle: rows whose x >= every x -> just the max.
       await expectOk(db, 'SELECT COUNT(*) FROM t WHERE x >= ALL (SELECT x FROM t)');
-    },
-        skip: 'KNOWN ENGINE BUG: a quantified comparison (>= ALL / ANY / SOME '
-            '(subquery)) is a parse error ("Expected ) but got <col>"). See '
-            'findings/FINDINGS.md F138.');
+    });
   });
 
   // Found loading the real Oracle CO (customer_orders) schema+data three-way vs
   // real Oracle 23ai: LISTAGG overflow clause, UTL_RAW, and JSON support.
   group('open bugs (round 34 — Oracle CO schema: LISTAGG overflow / UTL_RAW / JSON, real-Oracle-adjudicated)',
       () {
-    test('F139 · LISTAGG ON OVERFLOW clause is not parsed', () async {
+    test('F139 · LISTAGG ON OVERFLOW clause is parsed', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (n NUMBER)');
       await db.execute('INSERT INTO t VALUES (1), (2)');
@@ -1226,51 +1219,59 @@ void main() {
       await expectOk(db,
           "SELECT LISTAGG(n, ',' ON OVERFLOW TRUNCATE '...' WITH COUNT) "
           'WITHIN GROUP (ORDER BY n) FROM t');
-    },
-        skip: 'KNOWN ENGINE BUG: the LISTAGG(... ON OVERFLOW TRUNCATE ... WITH '
-            'COUNT) clause is a parse error ("Expected ) but got ON"). See '
-            'findings/FINDINGS.md F139.');
+    });
 
-    test('F140 · UTL_RAW package functions are missing', () async {
+    test('F140 · UTL_RAW package functions are supported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
-      // CO co_populate stores JSON BLOBs via UTL_RAW.CAST_TO_RAW.
       await expectScalar(db, "SELECT RAWTOHEX(UTL_RAW.CAST_TO_RAW('AB')) FROM d",
           '4142');
-    },
-        skip: 'KNOWN ENGINE BUG: UTL_RAW package functions (CAST_TO_RAW, etc.) '
-            'are unknown. See findings/FINDINGS.md F140.');
+    });
 
-    test('F141 · Oracle JSON support is missing (JSON_VALUE/JSON_TABLE/IS JSON)',
+    test('F141 · Oracle JSON support (JSON_VALUE/JSON_TABLE/IS JSON)',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE d (x NUMBER)');
       await db.execute('INSERT INTO d VALUES (1)');
       await expectScalar(db, "SELECT JSON_VALUE('{\"a\":42}', '\$.a') FROM d", 42);
-    },
-        skip: 'KNOWN ENGINE BUG: Oracle JSON support is missing — JSON_VALUE, '
-            'JSON_TABLE, JSON_QUERY, and the IS JSON predicate are all '
-            'unsupported. The CO schema uses them. See findings/FINDINGS.md '
-            'F141.');
+    });
   });
 
   // Found by the SH real-data three-way gate: NUMBER aggregation still uses
   // binary floating point (F131 fixed single-value rounding, not arithmetic).
   group('open bugs (round 35 — NUMBER aggregation precision, real-Oracle-adjudicated)',
       () {
-    test('F142 · NUMBER aggregation (SUM) carries binary floating-point error',
+    test('F142 · NUMBER aggregation (SUM) is exact decimal',
         () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v NUMBER(8,2))');
       await db.execute('INSERT INTO t VALUES (0.1), (0.2)');
-      // Exact-decimal SUM is 0.3; the engine returns 0.30000000000000004.
+      // Exact-decimal SUM is 0.3.
       await expectScalar(db, 'SELECT SUM(v) FROM t', 0.3);
+    });
+  });
+
+  // Found by the strengthened SH gate: MEDIAN still carries binary residual
+  // (F142 fixed SUM, not MEDIAN). Real SH products MEDIAN = 31.99.
+  group('open bugs (round 36 — MEDIAN precision, real-Oracle-adjudicated)', () {
+    test('F143 · MEDIAN carries binary floating-point residual', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER(8,2))');
+      await db.execute('INSERT INTO t VALUES (1.01), (1.02)');
+      // MEDIAN averages the two middle values. Oracle NUMBER is exact decimal,
+      // so the answer is exactly 1.015. Assert on the RAW engine value (not the
+      // harness's noise-absorbing normalizeValue) — Oracle emits "1.015", the
+      // engine currently emits 1.0150000000000001.
+      final r = await db.execute('SELECT MEDIAN(v) FROM t');
+      final raw = r.rows.first.first;
+      expect(raw.toString(), '1.015',
+          reason: 'MEDIAN must be exact decimal like Oracle NUMBER, not binary');
     },
-        skip: 'KNOWN ENGINE BUG: NUMBER aggregation/arithmetic still uses binary '
-            'floating point — SUM(0.1, 0.2) over NUMBER(8,2) returns '
-            '0.30000000000000004 (Oracle 0.3) and MEDIAN/SUM over real SH '
-            'products carry residuals. F131 fixed single-value rounding, not '
-            'aggregate arithmetic. See findings/FINDINGS.md F142.');
+        skip: 'KNOWN ENGINE BUG: MEDIAN averages the two middle values in '
+            'binary floating point instead of exact decimal — '
+            'MEDIAN(1.01,1.02) returns 1.0150000000000001; real SH '
+            'MEDIAN(prod_list_price) returns 31.990000000000002 vs Oracle '
+            '31.99. F142 fixed SUM; MEDIAN remains. See findings/FINDINGS.md F143.');
   });
 }

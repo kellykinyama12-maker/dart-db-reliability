@@ -87,6 +87,9 @@ const _shBattery = <String>[
   'SELECT COUNT(DISTINCT country_subregion) FROM countries',
   "SELECT COUNT(*) FROM products WHERE prod_status = 'STATUS'",
   'SELECT COUNT(DISTINCT prod_weight_class) FROM products',
+  // Exact-decimal NUMBER SUM (F142). (MEDIAN still binary — F143.)
+  'SELECT SUM(prod_list_price) FROM products',
+  'SELECT ROUND(SUM(prod_list_price - prod_min_price), 2) FROM products',
 ];
 
 void main() {

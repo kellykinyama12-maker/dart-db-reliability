@@ -1,16 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs** — `TRUNC(date,
-fmt)` (F137), quantified `>= ALL (subquery)` (F138), the CO-schema finds LISTAGG
-`ON OVERFLOW` (F139) / `UTL_RAW` (F140) / Oracle **JSON** (F141), and NUMBER
-**aggregation** binary residual (F142). All adjudicated vs real Oracle 23ai.
-F85–F136 were fixed async and are active regression guards.
+For the engine author working in `dart-db-server`. **1 open bug (F143)** — the
+entire Oracle backlog through F142 is fixed and verified; the newly-strengthened
+SH real-data gate surfaced one remaining decimal-precision gap in `MEDIAN`.
+Real HR + SH data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --run-skipped --timeout 25s` (all in
-  `test/known_issues/known_engine_bugs_test.dart`).
+- **Verify:** `dart test --timeout 30s` (all green; only F143 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 142 found, 136 fixed & verified, 6 open.**
+**Status: 143 found, 142 fixed & verified, 1 open (F143).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -35,6 +33,25 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 `lib/src/oci8_bridge.dart` (defaults `FREEPDB1` / `native` / `Secret123`).
 
 ## Current open bugs
+
+### MEDIAN decimal precision — real-Oracle-adjudicated (F143)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F143** | MEDIAN is binary | `MEDIAN(1.01,1.02)` over NUMBER(8,2) → `1.0150000000000001` (Oracle `1.015`); real SH `MEDIAN(prod_list_price)` → `31.990000000000002` (Oracle `31.99`) | average the two middle values in exact decimal, like the F142 SUM fix |
+
+> Found by the **strengthened SH real-data three-way gate**
+> (`oracle_realdata_parity_test.dart`). F142 fixed exact-decimal `SUM`; `MEDIAN`
+> (and likely other percentile/averaging aggregates) still averages the middle
+> values in binary floating point. The repro asserts on the **raw** engine value
+> because the harness's generic `normalizeValue` rounds to 12 significant digits
+> and would otherwise absorb the residual — Oracle NUMBER is exact decimal.
+
+---
+
+## Fixed & verified this round (F137–F142)
+
+All drained and un-skipped — now active regression guards.
 
 ### Date-trunc format + quantified subquery — real-Oracle-adjudicated (F137–F138)
 
@@ -63,8 +80,9 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 | **F142** | NUMBER agg is binary | `SUM(0.1,0.2)` over NUMBER(8,2) → `0.30000000000000004` (Oracle `0.3`) | exact-decimal aggregation (F131 fixed single-value rounding, not arithmetic) |
 
 > Found by the new **SH real-data three-way gate**
-> (`oracle_realdata_parity_test.dart`, 17 queries): 18/20 matched; raw
-> `SUM`/`MEDIAN` over NUMBER columns carry the binary residual.
+> (`oracle_realdata_parity_test.dart`): raw `SUM` over NUMBER columns carried a
+> binary residual. Fixed — the gate's exact-decimal `SUM` assertion is green.
+> (Its sibling `MEDIAN` residual is tracked separately as F143.)
 
 > Found by a 30-query HR real-data battery (27/30 already matched real Oracle,
 > incl. STDDEV/CORR, FIRST_VALUE, RATIO_TO_REPORT, REGEXP backrefs, TRANSLATE,

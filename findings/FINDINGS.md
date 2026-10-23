@@ -9,13 +9,22 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**142 bugs found; 136 fixed & verified; 6 open (F137–F142).**
+**143 bugs found; 142 fixed & verified; 1 open (F143).**
 
-> **Dataset coverage (honest):** HR fully loaded + 43-query three-way gate. SH
-> schema + lookup data now a **three-way gate** (17 queries; found F142). CO
-> (customer_orders) partially loaded three-way — surfaced F139–F141. **Out of
-> scope:** SH fact CSVs, product_media (deprecated ORDSYS multimedia + binary
-> LOBs + OE dependency). **Still to do:** OE (order_entry) data.
+> **F143 (open) — `MEDIAN` carries a binary floating-point residual.** F142 made
+> `SUM` exact-decimal, but `MEDIAN` still averages the two middle NUMBER values
+> in binary: `MEDIAN(1.01,1.02)` → `1.0150000000000001` (Oracle `1.015`), and
+> real SH `MEDIAN(prod_list_price)` → `31.990000000000002` (Oracle `31.99`).
+> Fix: average the middle values in exact decimal like the F142 SUM fix. The
+> repro asserts on the raw engine value because the harness's `normalizeValue`
+> rounds to 12 significant digits and would otherwise absorb the residual.
+
+> **Dataset coverage (honest):** HR fully loaded + 25-query three-way gate. SH
+> lookup data three-way gate (19 queries incl. exact-decimal SUM; raw MEDIAN
+> pulled out pending F143). CO (customer_orders) partially loaded three-way —
+> surfaced F139–F141 (now fixed).
+> **Out of scope:** SH fact CSVs, product_media (deprecated ORDSYS multimedia +
+> binary LOBs). **Still to do:** finish CO (F140/F141 landed) + OE data.
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
