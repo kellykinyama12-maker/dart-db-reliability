@@ -1988,4 +1988,53 @@ void main() {
       await expectScalar(db, 'SELECT id FROM nn', 1);
     });
   });
+
+  // Found by a complex composite-query three-way sweep (32/35 already matched
+  // real Oracle 23ai). All confirmed vs Oracle.
+  group('open bugs (round 53 — complex queries, real-Oracle-adjudicated)', () {
+    test('F218 · LAG/LEAD with a column default argument', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (10), (30)');
+      // The 3rd arg (default when no prior row) is the column v, not a literal.
+      await expectScalar(
+          db,
+          'SELECT LAG(v, 1, v) OVER (ORDER BY v) FROM t FETCH FIRST 1 ROW ONLY',
+          10);
+    },
+        skip: 'KNOWN ENGINE BUG: LAG/LEAD with a COLUMN as the default (3rd) '
+            'argument throws "Unknown column" — it works only with a literal '
+            'default. Real Oracle returns 10. See findings/FINDINGS.md F218.');
+
+    test('F219 · GROUPING() marks ROLLUP superaggregate rows', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (g NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (1), (2)');
+      // GROUPING(g)=1 only on the grand-total row, so 2 detail groups remain.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM (SELECT g FROM t GROUP BY ROLLUP(g) '
+          'HAVING GROUPING(g) = 0)',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: GROUPING() returns 0 even for the ROLLUP/CUBE '
+            'superaggregate (grand-total) row — so HAVING GROUPING(g)=0 keeps it '
+            '(3 rows) instead of filtering to the 2 detail groups. Real Oracle '
+            'returns 2. See findings/FINDINGS.md F219.');
+
+    test('F220 · PIVOT row count', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (g NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1, 10), (1, 30), (2, 50)');
+      // PIVOT groups by the implicit non-pivoted column v: 3 distinct rows.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM (SELECT * FROM (SELECT g, v FROM t) '
+          'PIVOT (COUNT(*) FOR g IN (1, 2)))',
+          3);
+    },
+        skip: 'KNOWN ENGINE BUG: PIVOT collapses to 1 row instead of grouping by '
+            'the implicit non-pivoted columns — returns 1 where Oracle returns 3. '
+            'See findings/FINDINGS.md F220.');
+  });
 }
