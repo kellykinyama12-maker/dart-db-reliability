@@ -1475,10 +1475,7 @@ void main() {
           'SELECT LEAD(v) IGNORE NULLS OVER (ORDER BY id) FROM t '
           'FETCH FIRST 1 ROW ONLY',
           30);
-    },
-        skip: 'KNOWN ENGINE BUG: the IGNORE NULLS clause on LEAD/LAG is a parse '
-            'error ("Expected ) but got IGNORE"). Real Oracle skips NULL rows. '
-            'See findings/FINDINGS.md F164.');
+    });
 
     test('F165 · CAST to NUMBER(p,s)/VARCHAR2(n) enforces precision/length',
         () async {
@@ -1486,11 +1483,7 @@ void main() {
       // CAST to NUMBER(5,1) rounds to the declared scale.
       await expectScalar(
           db, 'SELECT CAST(123.456 AS NUMBER(5,1)) FROM dual', 123.5);
-    },
-        skip: 'KNOWN ENGINE BUG: CAST does not enforce the target type — '
-            'CAST(123.456 AS NUMBER(5,1)) stays 123.456 (Oracle rounds to 123.5) '
-            'and CAST(\'abc\' AS VARCHAR2(2)) stays "abc" (Oracle truncates to '
-            '"ab"). Companion to F110/F113. See findings/FINDINGS.md F165.');
+    });
 
     test('F166 · missing funcs NLSSORT/ASCIISTR/UNISTR/GROUP_ID/APPROX_COUNT_DISTINCT',
         () async {
@@ -1502,8 +1495,9 @@ void main() {
   });
 
   // Found by a fourth HR three-way feature sweep (INTERVAL, hierarchical, date
-  // TRUNC/ROUND, KEEP, XML — confirmed vs real Oracle 23ai).
-  group('open bugs (round 43 — feature sweep IV, real-Oracle-adjudicated)', () {
+  // TRUNC/ROUND, KEEP, XML — confirmed vs real Oracle 23ai). F169 still open;
+  // F167/F168/F170/F171/F172 fixed & verified.
+  group('feature sweep IV (round 43 — F167/168/170/171/172 fixed; F169 open)', () {
     test('F167 · EXTRACT from an INTERVAL value', () async {
       final db = await openEngine();
       // 2 days 03:04:05 — the hour field is 3.
@@ -1511,11 +1505,7 @@ void main() {
           db,
           "SELECT EXTRACT(HOUR FROM INTERVAL '2 03:04:05' DAY TO SECOND) FROM dual",
           3);
-    },
-        skip: 'KNOWN ENGINE BUG: EXTRACT(field FROM interval) returns 0 — the '
-            'interval internals are mishandled. Related: NUMTOYMINTERVAL(18, '
-            '\'MONTH\') returns 540 instead of an interval, and TO_DSINTERVAL is '
-            'missing. Real Oracle returns 3. See findings/FINDINGS.md F167.');
+    });
 
     test('F168 · TRUNC(date, \'IW\') starts the ISO week on Monday', () async {
       final db = await openEngine();
@@ -1524,11 +1514,7 @@ void main() {
           db,
           "SELECT TO_CHAR(TRUNC(DATE '2024-07-20','IW'),'YYYY-MM-DD') FROM dual",
           '2024-07-15');
-    },
-        skip: 'KNOWN ENGINE BUG: TRUNC(date, \'IW\') is off by one — it returns '
-            'the Sunday (2024-07-14) instead of the ISO-week Monday (2024-07-15). '
-            'Also ROUND(date, \'DAY\'/\'YYYY\') is not applied (companion to '
-            'F150). See findings/FINDINGS.md F168.');
+    });
 
     test('F169 · LEVEL in the CONNECT BY predicate', () async {
       final db = await openEngine();
@@ -1554,11 +1540,7 @@ void main() {
           'SELECT MAX(CONNECT_BY_ISCYCLE) FROM emp START WITH mgr IS NULL '
           'CONNECT BY NOCYCLE PRIOR id = mgr',
           0);
-    },
-        skip: 'KNOWN ENGINE BUG: the CONNECT_BY_ISCYCLE pseudocolumn (and the '
-            'NOCYCLE keyword) are unsupported ("Unknown column: '
-            'CONNECT_BY_ISCYCLE"). Real Oracle returns 0 for an acyclic tree. '
-            'See findings/FINDINGS.md F170.');
+    });
 
     test('F171 · KEEP (DENSE_RANK FIRST) NULL ordering', () async {
       final db = await openEngine();
@@ -1567,30 +1549,65 @@ void main() {
       // ORDER BY g ascending: NULLs sort LAST, so FIRST is g=1 -> MAX(v)=30.
       await expectScalar(
           db, 'SELECT MAX(v) KEEP (DENSE_RANK FIRST ORDER BY g) FROM k', 30);
-    },
-        skip: 'KNOWN ENGINE BUG: KEEP (DENSE_RANK FIRST ORDER BY k) sorts NULLs '
-            'FIRST instead of last, so it picks the NULL-key group — MAX(v) '
-            'returns 99 instead of 30. Real Oracle returns 30. '
-            'See findings/FINDINGS.md F171.');
+    });
 
     test('F172 · XMLELEMENT + object method call', () async {
       final db = await openEngine();
       await expectScalar(
           db, "SELECT XMLELEMENT(\"e\", 'hi').getStringVal() FROM dual",
           '<e>hi</e>');
-    },
-        skip: 'KNOWN ENGINE BUG: XMLELEMENT (and the .getStringVal()/'
-            '.getClobVal() object method-call syntax) is a parse error. Real '
-            'Oracle returns <e>hi</e>. See findings/FINDINGS.md F172.');
+    });
 
     test('F173 · LNNVL built-in', () async {
       final db = await openEngine();
       // LNNVL returns TRUE when the condition is false/unknown.
       await expectScalar(
           db, "SELECT CASE WHEN LNNVL(1=2) THEN 'y' ELSE 'n' END FROM dual", 'y');
+    });
+  });
+
+  // Found by a fifth HR three-way feature sweep (string/number/date/fetch —
+  // confirmed vs real Oracle 23ai).
+  group('open bugs (round 44 — feature sweep V, real-Oracle-adjudicated)', () {
+    test('F174 · TO_NUMBER with a format model', () async {
+      final db = await openEngine();
+      // The group-separator format parses the grouped literal.
+      await expectScalar(
+          db, "SELECT TO_NUMBER('1,234.56', '9,999.99') FROM dual", 1234.56);
     },
-        skip: 'KNOWN ENGINE BUG: the LNNVL built-in is missing ("Unknown '
-            'function: LNNVL"). It returns TRUE when its condition is false or '
-            'unknown. See findings/FINDINGS.md F173.');
+        skip: 'KNOWN ENGINE BUG: TO_NUMBER with a format model returns NULL — '
+            'TO_NUMBER(\'1,234.56\',\'9,999.99\') and TO_NUMBER(\'\$1,234\','
+            '\'L9,999\') both yield NULL. Real Oracle parses them (1234.56 / '
+            '1234). Companion to F106/F160. See findings/FINDINGS.md F174.');
+
+    test('F175 · TO_CHAR lowercase fm modifier', () async {
+      final db = await openEngine();
+      // 'fm' (any case) trims padding; the engine keeps "fm" literally.
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(DATE '2024-07-20', 'fmDay, Month DD, YYYY') FROM dual",
+          'Saturday, July 20, 2024');
+    },
+        skip: 'KNOWN ENGINE BUG: the TO_CHAR fill-mode modifier is case-'
+            'sensitive — lowercase "fm" is kept literally ("fmSaturday, ...") '
+            'instead of trimming padding. Real Oracle treats fm/FM alike. '
+            'See findings/FINDINGS.md F175.');
+
+    test('F176 · FETCH FIRST n PERCENT ROWS ONLY', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER)');
+      for (var i = 1; i <= 10; i++) {
+        await db.execute('INSERT INTO t VALUES ($i)');
+      }
+      // 50% of 10 rows is 5.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM '
+          '(SELECT v FROM t ORDER BY v FETCH FIRST 50 PERCENT ROWS ONLY)',
+          5);
+    },
+        skip: 'KNOWN ENGINE BUG: FETCH FIRST n PERCENT ROWS ONLY is a parse '
+            'error ("Expected ) but got PERCENT"). Real Oracle returns CEIL of '
+            'n percent of the row count (5 of 10). See findings/FINDINGS.md F176.');
   });
 }

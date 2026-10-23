@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **9 open bugs** (F164, F165,
-F167–F173) — the Oracle backlog through F163/F166 is fixed and verified. A
-fourth broad HR three-way feature sweep (INTERVAL, hierarchical, date, KEEP,
-XML) surfaced F167–F173. Real HR + SH + CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **4 open bugs** (F169, F174,
+F175, F176) — the Oracle backlog through F173 is otherwise fixed and verified. A
+fifth broad HR three-way feature sweep surfaced F174–F176. Real HR + SH + CO
+data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; the 9 open bugs skipped).
+- **Verify:** `dart test --timeout 30s` (all green; the 4 open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 173 found, 164 fixed & verified, 9 open (F164–F165, F167–F173).**
+**Status: 176 found, 172 fixed & verified, 4 open (F169, F174–F176).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,33 +34,24 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR feature sweep IV — real-Oracle-adjudicated (F167–F173)
+### HR feature sweep V — real-Oracle-adjudicated (F174–F176 + F169)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F167** | EXTRACT from INTERVAL | `EXTRACT(HOUR FROM INTERVAL '2 03:04:05' DAY TO SECOND)` → `0` (Oracle `3`); `NUMTOYMINTERVAL(18,'MONTH')` → `540`; `TO_DSINTERVAL` missing | keep interval values as intervals, not numbers |
-| **F168** | TRUNC(date,'IW') | returns the Sunday `2024-07-14` (Oracle Monday `2024-07-15`); also ROUND(date,'DAY'/'YYYY') not applied | start the ISO week on Monday; apply ROUND day/year |
 | **F169** | LEVEL in CONNECT BY | `AND LEVEL <= 2` is ignored (returns 3 rows, Oracle 2) | honour LEVEL in the CONNECT BY predicate |
-| **F170** | CONNECT_BY_ISCYCLE | pseudocolumn + NOCYCLE unsupported (Oracle `0`) | add CONNECT_BY_ISCYCLE and NOCYCLE |
-| **F171** | KEEP NULL ordering | `KEEP (DENSE_RANK FIRST ORDER BY k)` sorts NULLs first → `99` (Oracle `30`) | sort NULLs last (ascending) in the KEEP order |
-| **F172** | XMLELEMENT | `XMLELEMENT("e",'hi').getStringVal()` → parse error (Oracle `<e>hi</e>`) | support XML generation + object method calls |
-| **F173** | LNNVL | unknown function (Oracle `TRUE`) | add the LNNVL built-in |
+| **F174** | TO_NUMBER format model | `TO_NUMBER('1,234.56','9,999.99')` / `TO_NUMBER('$1,234','L9,999')` → NULL (Oracle `1234.56` / `1234`) | apply the number format model |
+| **F175** | TO_CHAR lowercase fm | `TO_CHAR(date,'fmDay…')` keeps "fm" literally (Oracle trims padding) | make the fm/FM fill-mode modifier case-insensitive |
+| **F176** | FETCH n PERCENT | `FETCH FIRST 50 PERCENT ROWS ONLY` → parse error (Oracle returns 5 of 10) | parse the PERCENT row-limit clause |
 
-> Found by a fourth 36-query HR three-way feature sweep. Not filed: UNION NULL
-> distinct (could not reproduce minimally), INTERVAL month-overflow (Oracle
-> raises ORA-01839; engine rolls over), COLLECT (Oracle also errors), and the
-> boolean-literal casing `true`/`TRUE`.
-
-### Still open from sweep III (F164–F165)
-
-| # | Bug | engine → Oracle | Fix |
-| --- | --- | --- | --- |
-| **F164** | LEAD/LAG IGNORE NULLS | `LEAD(v) IGNORE NULLS` → parse error | parse the IGNORE NULLS clause on LEAD/LAG |
-| **F165** | CAST enforcement | `CAST(123.456 AS NUMBER(5,1))` stays `123.456`; `CAST('abc' AS VARCHAR2(2))` stays `abc` | round/truncate to the target type (companion to F110/F113) |
+> Found by a fifth 41-query HR three-way feature sweep. Not filed (one pervasive
+> Oracle empty-string/NULL dialect choice): `LENGTH('')`, `'a'||NULL||'b'`,
+> `SUBSTR('abcde',2,-1)`, and the default date display format — the engine uses
+> SQL-standard semantics there. Also not filed: `WITH TIES` after a WHERE
+> (Oracle also rejects it).
 
 ---
 
-### HR feature sweep III — fixed & verified (F160–F163, F166)
+### HR feature sweep IV — fixed & verified except F169 (F167–F173)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
