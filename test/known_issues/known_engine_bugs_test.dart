@@ -1597,9 +1597,8 @@ void main() {
     });
   });
 
-  // Found by a sixth HR three-way feature sweep. F177–F181 fixed & verified;
-  // F182 (inline WITH FUNCTION) still open.
-  group('feature sweep VI (round 45 — F177-F181 fixed; F182 open)', () {
+  // Found by a sixth HR three-way feature sweep. All fixed & verified.
+  group('formerly-open bugs F177\u2013F182 (fixed & verified; feature sweep VI)', () {
     test('F177 · FROM_TZ + AT TIME ZONE', () async {
       final db = await openEngine();
       // 12:00 UTC shown AT TIME ZONE +05:00 is 17:00.
@@ -1649,10 +1648,7 @@ void main() {
           'WITH FUNCTION dbl(x NUMBER) RETURN NUMBER IS BEGIN RETURN x*2; END; '
           'SELECT dbl(21) v FROM dual',
           42);
-    },
-        skip: 'KNOWN ENGINE BUG: the inline WITH FUNCTION (PL/SQL in the WITH '
-            'clause) is a parse error ("Expected AS but got dbl"). Real Oracle '
-            'returns 42. See findings/FINDINGS.md F182.');
+    });
   });
 
   // Found by a broad HR three-way mega-sweep (67 queries across date/number
@@ -1686,11 +1682,7 @@ void main() {
       await db.execute('CREATE TABLE m (x NUMBER, y NUMBER)');
       await db.execute('INSERT INTO m VALUES (1, 10), (2, 20), (3, 30)');
       await expectScalar(db, 'SELECT REGR_COUNT(y, x) FROM m', 3);
-    },
-        skip: 'KNOWN ENGINE BUG: the linear-regression aggregates are missing '
-            '("Unknown function") — REGR_COUNT, REGR_SLOPE, REGR_INTERCEPT, and '
-            'the rest of the REGR_* family. Real Oracle returns 3. '
-            'See findings/FINDINGS.md F185.');
+    });
 
     test('F186 · NTH_VALUE ... FROM LAST', () async {
       final db = await openEngine();
@@ -1714,12 +1706,7 @@ void main() {
       await db.execute('INSERT INTO m VALUES (10), (20), (30)');
       await expectScalar(
           db, 'SELECT JSON_ARRAYAGG(y ORDER BY y) FROM m', '[10,20,30]');
-    },
-        skip: 'KNOWN ENGINE BUG: JSON aggregate/manipulation functions are '
-            'missing — JSON_ARRAYAGG, JSON_OBJECTAGG, JSON_MERGEPATCH, '
-            'JSON_SERIALIZE; and JSON_QUERY with an array-index path '
-            '(\$.a[1]) returns NULL. Real Oracle returns [10,20,30]. '
-            'See findings/FINDINGS.md F187.');
+    });
 
     test('F188 · XML query/serialize functions', () async {
       final db = await openEngine();
@@ -1745,11 +1732,7 @@ void main() {
     test('F190 · missing scalar functions (NCHR/COMPOSE/NEW_TIME/…)', () async {
       final db = await openEngine();
       await expectScalar(db, 'SELECT NCHR(65) FROM dual', 'A');
-    },
-        skip: 'KNOWN ENGINE BUG: several scalar functions are missing ("Unknown '
-            'function") — NCHR, COMPOSE, TO_SINGLE_BYTE, NEW_TIME, TO_YMINTERVAL, '
-            'and SYS_GUID. Real Oracle NCHR(65) = "A". '
-            'See findings/FINDINGS.md F190.');
+    });
 
     test('F191 · OVERLAPS predicate', () async {
       final db = await openEngine();
@@ -1784,9 +1767,43 @@ void main() {
           db,
           "SELECT MONTHS_BETWEEN(DATE '2024-03-31', DATE '2024-02-29') FROM dual",
           1);
+    });
+  });
+
+  // Found by a second HR three-way mega-sweep (string/number/date/set/row-gen —
+  // confirmed vs real Oracle 23ai; windowed MEDIAN/KEEP diffs were false
+  // positives from nondeterministic FETCH ordering and excluded).
+  group('open bugs (round 47 — mega-sweep II, real-Oracle-adjudicated)', () {
+    test('F194 · INITCAP treats apostrophe as a word boundary', () async {
+      final db = await openEngine();
+      // Oracle capitalizes the letter after the apostrophe (O'Brien).
+      await expectScalar(
+          db, "SELECT INITCAP('o''brien mcleod') FROM dual", "O'Brien Mcleod");
     },
-        skip: 'KNOWN ENGINE BUG: MONTHS_BETWEEN does not special-case two '
-            'last-day-of-month dates — it returns 1.0645… instead of a whole 1. '
-            'Real Oracle returns 1. See findings/FINDINGS.md F193.');
+        skip: 'KNOWN ENGINE BUG: INITCAP only word-breaks on spaces, not on '
+            'apostrophes/other non-alphanumerics — "o\'\'brien" becomes '
+            '"O\'brien" instead of "O\'Brien". See findings/FINDINGS.md F194.');
+
+    test('F195 · CONNECT BY LEVEL row generator', () async {
+      final db = await openEngine();
+      // The classic dual row generator should produce 5 rows (1+2+3+4+5=15).
+      await expectScalar(
+          db, 'SELECT SUM(LEVEL) FROM dual CONNECT BY LEVEL <= 5', 15);
+    },
+        skip: 'KNOWN ENGINE BUG: "SELECT ... FROM dual CONNECT BY LEVEL <= n" '
+            '(the classic row generator) returns only 1 row instead of n — '
+            'SUM(LEVEL) is 1, not 15. Real Oracle generates 5 rows. '
+            'See findings/FINDINGS.md F195.');
+
+    test('F196 · INTERSECT ALL / MINUS ALL', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM (SELECT 1 FROM dual INTERSECT ALL SELECT 1 FROM dual)',
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: INTERSECT ALL is a parse error ("Expected '
+            'SELECT but got ALL") — only the DISTINCT form is parsed. Real '
+            'Oracle returns 1. See findings/FINDINGS.md F196.');
   });
 }

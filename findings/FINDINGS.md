@@ -9,19 +9,16 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**193 bugs found; 181 fixed & verified; 12 open (F182–F193).**
+**196 bugs found; 186 fixed & verified; 10 open.**
 
-> **Open (confirmed vs real Oracle 23ai) — HR mega-sweep:** F182 inline WITH
-> FUNCTION; F183 more TO_CHAR(date) elements (IYYY/RM/W/SSSSS/SP-TH); F184 more
-> TO_CHAR(number) elements (RM/G/D/MI); F185 REGR_* regression aggregates; F186
-> NTH_VALUE FROM LAST; F187 JSON_ARRAYAGG/OBJECTAGG/MERGEPATCH/SERIALIZE +
-> array-index paths; F188 XMLQUERY/XMLCAST/XMLSERIALIZE/XMLTABLE; F189
-> ROWID/SESSIONTIMEZONE pseudocolumns; F190 NCHR/COMPOSE/TO_SINGLE_BYTE/NEW_TIME/
-> TO_YMINTERVAL/SYS_GUID; F191 OVERLAPS predicate; F192 `= ALL (subquery)`; F193
-> MONTHS_BETWEEN end-of-month handling.
+> **Open (confirmed vs real Oracle 23ai):** F183 TO_CHAR(date) IYYY/RM/W/SSSSS/
+> SP-TH; F184 TO_CHAR(number) RM/G/D/MI; F186 NTH_VALUE FROM LAST; F188 XML
+> functions; F189 ROWID/SESSIONTIMEZONE; F191 OVERLAPS; F192 `= ALL (subquery)`;
+> F194 INITCAP apostrophe word-break; F195 CONNECT BY LEVEL row generator (1 row
+> not n); F196 INTERSECT ALL.
 >
-> **Drained:** F177–F181 (timezone, CUBE/ROLLUP, tuple IN, ROUND decimal, NANVL)
-> — all fixed & verified.
+> **Drained:** F182 (inline WITH FUNCTION), F185 (REGR_*), F187 (JSON agg),
+> F190 (scalar funcs), F193 (MONTHS_BETWEEN EOM) — all fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

@@ -1,15 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **12 open bugs** (F182–F193)
-— the Oracle backlog through F181 is fixed and verified. A broad HR three-way
-mega-sweep (67 queries across date/number formats, stats/JSON/XML functions,
-predicates) surfaced F183–F193. Real HR + SH + CO data load and match real
-Oracle 23ai.
+For the engine author working in `dart-db-server`. **10 open bugs** (F183, F184,
+F186, F188, F189, F191, F192, F194–F196) — everything else through F193 is fixed
+and verified. Two broad HR three-way mega-sweeps surfaced these. Real HR + SH +
+CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F182–F193 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; the 10 open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 193 found, 181 fixed & verified, 12 open (F182–F193).**
+**Status: 196 found, 186 fixed & verified, 10 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -35,26 +34,25 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweep — real-Oracle-adjudicated (F182–F193)
+### HR mega-sweeps — real-Oracle-adjudicated (10 open)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F182** | inline WITH FUNCTION | `WITH FUNCTION dbl… SELECT dbl(21)` → parse error (Oracle `42`) | parse the inline PL/SQL WITH FUNCTION |
-| **F183** | TO_CHAR(date) IYYY/RM/W/SSSSS/SP-TH | not applied / garbage (`IYYY` → "I24Y" vs 2024) | apply the ISO-year, Roman-month, week-of-month, secs-past-midnight, spelled/ordinal elements |
+| **F183** | TO_CHAR(date) IYYY/RM/W/SSSSS/SP-TH | not applied / garbage (`IYYY` → "I24Y" vs 2024) | apply those date format elements |
 | **F184** | TO_CHAR(number) RM/G/D/MI | not applied (`FM9999MI` on -1234 → "-1234" vs "1234-") | apply Roman, group/decimal, trailing-minus |
-| **F185** | REGR_* aggregates | `REGR_COUNT/SLOPE/INTERCEPT…` → unknown function (Oracle `3`) | add the linear-regression aggregates |
 | **F186** | NTH_VALUE FROM LAST | `NTH_VALUE(y,1) FROM LAST OVER(…)` → parse error (Oracle `30`) | parse FROM FIRST/LAST |
-| **F187** | JSON agg/manipulation | JSON_ARRAYAGG/OBJECTAGG/MERGEPATCH/SERIALIZE missing; array-index path → NULL (Oracle `[10,20,30]`) | add the JSON functions + array-index paths |
 | **F188** | XML functions | XMLQUERY/XMLCAST/XMLSERIALIZE/XMLTABLE → parse error (Oracle `3`) | support the XML query/serialize functions |
 | **F189** | ROWID / SESSIONTIMEZONE | pseudocolumns unsupported ("Unknown column") | expose ROWID + SESSIONTIMEZONE |
-| **F190** | missing scalar funcs | NCHR/COMPOSE/TO_SINGLE_BYTE/NEW_TIME/TO_YMINTERVAL/SYS_GUID → unknown (Oracle NCHR(65)=`A`) | add the built-ins |
 | **F191** | OVERLAPS predicate | `(d1,d2) OVERLAPS (d3,d4)` → parse error (Oracle `1`) | parse the OVERLAPS period predicate |
 | **F192** | = ALL (subquery) | parse error (F138 added >= ALL only) (Oracle `1`) | parse `= ALL`/`= ANY (subquery)` |
-| **F193** | MONTHS_BETWEEN EOM | two last-day-of-month dates → `1.0645…` (Oracle `1`) | special-case end-of-month pairs |
+| **F194** | INITCAP apostrophe | `o'brien` → "O'brien" (Oracle "O'Brien") | word-break on non-alphanumerics, not just spaces |
+| **F195** | CONNECT BY LEVEL row-gen | `FROM dual CONNECT BY LEVEL <= n` → 1 row (Oracle n) | generate n rows |
+| **F196** | INTERSECT ALL | parse error (only DISTINCT parsed) (Oracle `1`) | parse INTERSECT ALL / MINUS ALL |
 
-> Found by a 67-query HR three-way mega-sweep. Excluded: diffs where Oracle
-> itself errors (ORA-01481/01821/22814/01760) and boolean-literal casing
-> (`true`/`TRUE`).
+> Found by two HR three-way mega-sweeps (67 + 57 queries). Excluded: diffs where
+> Oracle itself errors, boolean-literal casing, float last-digit noise, the
+> empty-string/NULL dialect family, default date/timestamp display, and windowed
+> MEDIAN/KEEP (false positives from nondeterministic FETCH ordering).
 
 ---
 
