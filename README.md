@@ -57,7 +57,35 @@ dart run bin/fuzz_triage.dart   # unleash the random SQL fuzzer for triage
 Requires the native `sqlite3` shared library for the differential suites;
 without it they skip (authored suites still run).
 
+## Reusable toolkit
+
+Everything the suites are built from is exported from a single import, so another
+project can pull in the package and reproduce the same checks:
+
+```dart
+import 'package:dart_db_reliability/reliability.dart';
+```
+
+| Export | What it gives you | Prereq |
+| --- | --- | --- |
+| `openEngine()`, `expectOk/expectScalar/expectRows/expectThrows` | fresh in-memory engine + golden assertion helpers (for `package:test`) | — |
+| `DiffOracle` (`open`/`exec`/`expectSameRows`/`expectSameResult`/`close`) + `sqliteSkipReason()` | differential engine-vs-SQLite lockstep harness | `sqlite3` lib |
+| `SqlFuzzer(seed)` (`schema`/`rows`/`query`) | type-aware seeded random SQL generator | — |
+| `Workload(seed)` (`createTable`/`inserts`/`readQueries`) | deterministic bulk dataset + fixed query pool | — |
+| `splitOracleScript(raw)` | SQL\*Plus script splitter (directives + `/`-terminated PL/SQL) | — |
+| `sampleDataFile(paths)`, `splitSql(input)` | locate + split real sample-schema dumps | — |
+| `Oci8Bridge` (`probe`/`run`) + `tool/oci8_exec.php` | real-Oracle "Gun 3" bridge for triple-threat diffs | PHP + oci8 + Instant Client |
+| `normalizeRows`/`normalizeValue` | cross-engine result normalization | — |
+
+A runnable, copy-me tour of all of the above lives in
+[`example/reliability_toolkit_demo.dart`](example/reliability_toolkit_demo.dart):
+
+```powershell
+dart test example/reliability_toolkit_demo.dart
+```
+
 ## Findings
+
 
 **32 engine bugs found — all 32 fixed & verified (0 open).** Highlights included a
 critical durability bug (F15: committed data lost on crash), a critical

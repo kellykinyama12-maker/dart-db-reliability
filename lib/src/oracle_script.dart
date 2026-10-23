@@ -1,10 +1,11 @@
 /// Splits an Oracle SQL*Plus script into executable units.
 ///
 /// Handles the two terminator conventions the sample schemas use: plain SQL
-/// statements end at a top-level `;`, while PL/SQL blocks (`BEGIN … END;` /
-/// `DECLARE … END;`) are terminated by a `/` on its own line and contain
-/// internal `;`. SQL*Plus client directives (`rem`, `SET`, `Prompt`, `@…`,
-/// `define`, `spool`) and blank lines are dropped.
+/// statements end at a top-level `;`, while PL/SQL units — anonymous
+/// `BEGIN … END;` / `DECLARE … END;` blocks and `CREATE` of a stored program
+/// (`TRIGGER`/`PROCEDURE`/`FUNCTION`/`PACKAGE`) — carry internal `;` and are
+/// terminated by a `/` on its own line. SQL*Plus client directives (`rem`,
+/// `SET`, `Prompt`, `@…`, `define`, `spool`) and blank lines are dropped.
 library;
 
 /// Returns the executable statements/blocks from [raw], in order.
@@ -27,10 +28,15 @@ List<String> splitOracleScript(String raw) {
 
   final units = <String>[];
   final buf = StringBuffer();
-  var inBlock = false; // inside a PL/SQL BEGIN…END / DECLARE…END block
+  var inBlock = false; // inside a PL/SQL block terminated by a `/` line
 
-  // A PL/SQL block starts when the pending text begins with BEGIN/DECLARE.
-  final blockStart = RegExp(r'^\s*(BEGIN|DECLARE)\b', caseSensitive: false);
+  // A PL/SQL block starts when the pending text begins with an anonymous
+  // BEGIN/DECLARE block, or a CREATE of a stored program whose body carries
+  // internal `;` and is terminated by `/` (TRIGGER/PROCEDURE/FUNCTION/PACKAGE).
+  final blockStart = RegExp(
+      r'^\s*(BEGIN\b|DECLARE\b|CREATE\s+(OR\s+REPLACE\s+)?'
+      r'(TRIGGER|PROCEDURE|FUNCTION|PACKAGE)\b)',
+      caseSensitive: false);
 
   // Emits each top-level `;`-terminated statement from buf; keeps the tail.
   void flushSqlStatements() {
