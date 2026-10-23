@@ -2336,4 +2336,56 @@ void main() {
             'Real Oracle creates it (b = 2 when selected). '
             'See findings/FINDINGS.md F243.');
   });
+
+  // Found by a misc/timezone/flashback three-way sweep. (CAST(MULTISET) was
+  // excluded — Oracle itself rejects the ODCINUMBERLIST form.)
+  group('open bugs (round 60 — misc built-ins, real-Oracle-adjudicated)', () {
+    test('F244 · TO_TIMESTAMP_TZ / TZ_OFFSET / named TZ regions', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(TO_TIMESTAMP_TZ("
+          "'2024-01-01 10:00:00 +05:00','YYYY-MM-DD HH24:MI:SS TZH:TZM'),"
+          "'HH24') FROM dual",
+          '10');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_TIMESTAMP_TZ and TZ_OFFSET are missing '
+            '("Unknown function"), and named timezone regions (US/Eastern) are '
+            'not resolved. Real Oracle returns 10. See findings/FINDINGS.md F244.');
+
+    test('F245 · flashback VERSIONS BETWEEN', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (2)');
+      // Flashback version query over the current rows.
+      await expectScalar(
+          db,
+          'SELECT COUNT(*) FROM t VERSIONS BETWEEN SCN MINVALUE AND MAXVALUE',
+          2);
+    },
+        skip: 'KNOWN ENGINE BUG: the flashback "VERSIONS BETWEEN SCN … AND …" '
+            '(and AS OF SCN) clause is a parse error. Real Oracle returns 2. '
+            'See findings/FINDINGS.md F245.');
+
+    test('F246 · SAMPLE clause', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (2), (3), (4)');
+      // The SAMPLE percentage is non-deterministic; assert it parses/runs.
+      await expectOk(db, 'SELECT COUNT(*) FROM t SAMPLE (50)');
+    },
+        skip: 'KNOWN ENGINE BUG: the SAMPLE (n) row-sampling clause is a parse '
+            'error ("Unexpected token after statement: ("). Real Oracle runs it. '
+            'See findings/FINDINGS.md F246.');
+
+    test('F247 · STANDARD_HASH / ROWIDTOCHAR', () async {
+      final db = await openEngine();
+      // STANDARD_HASH with MD5 returns a 32-char hex string.
+      await expectScalar(
+          db, "SELECT LENGTH(STANDARD_HASH('abc','MD5')) FROM dual", 32);
+    },
+        skip: 'KNOWN ENGINE BUG: STANDARD_HASH (and ROWIDTOCHAR, ORA_ROWSCN) are '
+            'missing ("Unknown function/column"). Real Oracle STANDARD_HASH '
+            '(MD5) is a 32-char hex string. See findings/FINDINGS.md F247.');
+  });
 }
