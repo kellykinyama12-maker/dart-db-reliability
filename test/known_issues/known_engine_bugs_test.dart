@@ -2034,7 +2034,13 @@ void main() {
       // CHAR comparison blank-pads both sides: 'ab   ' = 'ab' is true.
       await expectScalar(
           db, "SELECT CASE WHEN x = 'ab' THEN 1 ELSE 0 END FROM c", 1);
-    });
+    },
+        skip: 'KNOWN ENGINE BUG (deferred — appeal upheld): CHAR(n) must use '
+            'blank-padded comparison (real Oracle: CHAR(5) \'ab\' = \'ab\' is true), '
+            'but the fix was reverted (engine commit 4513d7e) because it leaked '
+            'into VARCHAR2 and caused the worse F253 silent bug. VARCHAR2 '
+            'correctness was prioritized. The real fix is type-aware comparison '
+            '(CHAR pads, VARCHAR2 does not). See findings/FINDINGS.md F221/F253.');
 
     test('F222 · concatenation treats NULL as empty string', () async {
       final db = await openEngine();
@@ -2458,22 +2464,246 @@ void main() {
             'See findings/FINDINGS.md F252.');
   });
 
-  // REGRESSION (round 63): the F221 CHAR blank-pad fix over-applied to VARCHAR2 /
-  // TEXT, which must use NON-padded comparison. This also broke the active
-  // collation_test and random_differential_fuzz_test guards.
-  group('open bugs (round 63 — VARCHAR2 padding regression, adjudicated)', () {
+  // Round 63: VARCHAR2 padding. Was an F221-fix regression; the author fixed it
+  // (VARCHAR2/TEXT now non-padded) so this is an ACTIVE guard again. The dual of
+  // this is F221 (CHAR must still pad), currently deferred.
+  group('fixed regressions (active guards) — round 63', () {
     test('F253 · VARCHAR2 comparison is NOT blank-padded', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (id NUMBER, s VARCHAR2(10))');
       await db.execute("INSERT INTO t VALUES (2, 'apple'), (6, 'apple ')");
       // VARCHAR2 keeps trailing spaces significant: only the exact 'apple' matches.
       await expectScalar(db, "SELECT COUNT(*) FROM t WHERE s = 'apple'", 1);
+    });
+  });
+
+  // Round 64 — found by a parallel multi-subagent differential sweep (datetime,
+  // numeric, string, JSON/XML axes); every candidate adjudicated vs real Oracle
+  // 23ai. SUBSTR negative-length / position-0 candidates were DROPPED as
+  // SQLite-locked dialect behavior (active guards F8, F36).
+  group('open bugs (round 64 — datetime fidelity, real-Oracle-adjudicated)', () {
+    test('F254 · ADD_MONTHS preserves last-day-of-month', () async {
+      final db = await openEngine();
+      // Input is the last day of a (shorter) month -> result is the last day of
+      // the target month. (F92 covered the clamp-DOWN Jan31->Feb29; this is the
+      // extend-UP case.)
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(ADD_MONTHS(DATE '2021-02-28',1),'YYYY-MM-DD') FROM dual",
+          '2021-03-31');
     },
-        skip: 'KNOWN ENGINE BUG (REGRESSION from F221): blank-padded comparison '
-            'was applied to VARCHAR2/TEXT, not just CHAR(n). "s = \'apple\'" now '
-            'matches both \'apple\' and \'apple \' (returns 2) — Oracle VARCHAR2 '
-            'is non-padded (returns 1). This also fails the active collation_test '
-            'and fuzz_test guards. Scope blank-padding to CHAR(n) only. '
-            'See findings/FINDINGS.md F253.');
+        skip: 'KNOWN ENGINE BUG: ADD_MONTHS skips the last-day rule when the input '
+            'is the last day of a shorter month. 2021-02-28 +1 -> engine 2021-03-28, '
+            'Oracle 2021-03-31. See findings/FINDINGS.md F254.');
+
+    test('F255 · ROUND(date, DAY) rounds to nearest week start', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(ROUND(DATE '2020-05-20','DAY'),'YYYY-MM-DD') FROM dual",
+          '2020-05-17');
+    },
+        skip: 'KNOWN ENGINE BUG: ROUND(date, \'DAY\') is a no-op (returns the input); '
+            'Oracle rounds to the nearest week start. 2020-05-20 -> engine 2020-05-20, '
+            'Oracle 2020-05-17. (TRUNC DAY is correct; F150 covered MONTH.) '
+            'See findings/FINDINGS.md F255.');
+
+    test('F256 · YEAR-MONTH interval multiplied by a scalar', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(DATE '2020-01-01' + INTERVAL '1' YEAR * 2,'YYYY-MM-DD') FROM dual",
+          '2022-01-01');
+    },
+        skip: 'KNOWN ENGINE BUG: a YEAR-MONTH interval times a number evaluates to 0 '
+            '(DS-interval * number works). INTERVAL \'1\' YEAR * 2 -> engine 0, Oracle '
+            '+02-00; date math vanishes. See findings/FINDINGS.md F256.');
+
+    test('F257 · NUMTOYMINTERVAL returns a year-month interval', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(DATE '2020-01-01' + NUMTOYMINTERVAL(14,'MONTH'),'YYYY-MM-DD') FROM dual",
+          '2021-03-01');
+    },
+        skip: 'KNOWN ENGINE BUG: NUMTOYMINTERVAL returns a numeric day-count instead '
+            'of a YEAR-TO-MONTH interval. NUMTOYMINTERVAL(14,\'MONTH\') -> engine 420 '
+            '(=14*30 days), Oracle +01-02. See findings/FINDINGS.md F257.');
+
+    test('F258 · TO_DATE with the J (Julian) mask', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(TO_DATE('2458850','J'),'YYYY-MM-DD') FROM dual",
+          '2020-01-01');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_DATE(str, \'J\') returns NULL though forward '
+            'TO_CHAR(date,\'J\') works — Julian round-trip broken. '
+            'See findings/FINDINGS.md F258.');
+
+    test('F259 · LOCALTIMESTAMP is supported', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db,
+          "SELECT CASE WHEN LOCALTIMESTAMP IS NOT NULL THEN 1 ELSE 0 END FROM dual",
+          1);
+    },
+        skip: 'KNOWN ENGINE BUG: LOCALTIMESTAMP is unsupported (keyword and function '
+            'forms both error). Oracle returns the session-local TIMESTAMP. '
+            'See findings/FINDINGS.md F259.');
+  });
+
+  group('open bugs (round 64 — numeric/format fidelity, real-Oracle-adjudicated)',
+      () {
+    test('F260 · REMAINDER tie-break rounds half-to-even', () async {
+      final db = await openEngine();
+      // REMAINDER(n,m) = n - m*ROUND(n/m), Oracle rounding the quotient
+      // half-to-even. 5/2=2.5 -> 2 (even) -> 1. (F153 covered a non-tie case.)
+      await expectScalar(db, 'SELECT REMAINDER(5,2) FROM dual', 1);
+    },
+        skip: 'KNOWN ENGINE BUG: REMAINDER rounds the quotient half-AWAY instead of '
+            'half-to-even, flipping sign on exact-.5 quotients. REMAINDER(5,2) -> '
+            'engine -1, Oracle 1 (also 9/2, 1/2, 15/6). See findings/FINDINGS.md F260.');
+
+    test('F261 · TO_CHAR leading-zero (0) format element', () async {
+      final db = await openEngine();
+      await expectScalar(db, "SELECT TO_CHAR(7,'000') FROM dual", ' 007');
+    },
+        skip: 'KNOWN ENGINE BUG: the \'0\' number-format element (zero-pad) is treated '
+            'like \'9\'. TO_CHAR(7,\'000\') -> engine \' 7\', Oracle \' 007\'. '
+            'See findings/FINDINGS.md F261.');
+
+    test('F262 · TO_CHAR S sign element renders +', () async {
+      final db = await openEngine();
+      await expectScalar(db, "SELECT TO_CHAR(123,'S999') FROM dual", '+123');
+    },
+        skip: 'KNOWN ENGINE BUG: the \'S\' number-format element emits a blank for '
+            'positives instead of \'+\'. TO_CHAR(123,\'S999\') -> engine \' 123\', '
+            'Oracle \'+123\'. See findings/FINDINGS.md F262.');
+
+    test('F263 · CAST AS NUMBER(p,s) rounds in exact decimal', () async {
+      final db = await openEngine();
+      // NUMBER is exact decimal: 1.005 rounds half-away to 1.01. ROUND(1.005,2)
+      // already returns 1.01 in-engine; CAST diverges.
+      await expectScalar(db, 'SELECT CAST(1.005 AS NUMBER(5,2)) FROM dual', 1.01);
+    },
+        skip: 'KNOWN ENGINE BUG: CAST(x AS NUMBER(p,s)) rounds the IEEE-754 double '
+            'instead of exact decimal. CAST(1.005 AS NUMBER(5,2)) -> engine 1.0, '
+            'Oracle 1.01, yet ROUND(1.005,2)=1.01 in-engine (inconsistent). '
+            'See findings/FINDINGS.md F263.');
+  });
+
+  group('open bugs (round 64 — JSON/XML fidelity, real-Oracle-adjudicated)', () {
+    test('F264 · JSON_TABLE FOR ORDINALITY column', () async {
+      final db = await openEngine();
+      await expectRows(
+          db,
+          "SELECT seq, val FROM JSON_TABLE('[10,20,30]', '\$[*]' COLUMNS (seq FOR ORDINALITY, val NUMBER PATH '\$'))",
+          [
+            [1, 10],
+            [2, 20],
+            [3, 30],
+          ]);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_TABLE FOR ORDINALITY returns NULL instead of '
+            'the 1-based row counter. See findings/FINDINGS.md F264.');
+
+    test('F265 · JSON_VALUE RETURNING NUMBER coercion + DEFAULT ON ERROR',
+        () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT JSON_VALUE('{\"a\":\"x\"}', '\$.a' RETURNING NUMBER) FROM dual",
+          null);
+      await expectScalar(db,
+          "SELECT JSON_VALUE('{\"a\":\"x\"}', '\$.a' RETURNING NUMBER DEFAULT -1 ON ERROR) FROM dual",
+          -1);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_VALUE ignores RETURNING NUMBER coercion and '
+            'DEFAULT ... ON ERROR; a non-numeric string is returned verbatim. '
+            'Engine -> x, Oracle -> NULL / -1. See findings/FINDINGS.md F265.');
+
+    test('F266 · JSON_TABLE column DEFAULT ON ERROR + coercion', () async {
+      final db = await openEngine();
+      await expectRows(db,
+          "SELECT a FROM JSON_TABLE('{\"a\":\"xyz\"}', '\$' COLUMNS (a NUMBER PATH '\$.a' DEFAULT 0 ON ERROR))",
+          [
+            [0],
+          ]);
+    },
+        skip: 'KNOWN ENGINE BUG: a JSON_TABLE NUMBER column neither coerces nor '
+            'applies DEFAULT ... ON ERROR. Engine -> xyz, Oracle -> 0. '
+            'See findings/FINDINGS.md F266.');
+
+    test('F267 · JSON_OBJECT ABSENT ON NULL', () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT JSON_OBJECT('a' VALUE NULL ABSENT ON NULL) FROM dual", '{}');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_OBJECT ABSENT ON NULL is ignored. Engine -> '
+            '{"a":null}, Oracle -> {}. See findings/FINDINGS.md F267.');
+
+    test('F268 · JSON_ARRAY defaults to ABSENT ON NULL', () async {
+      final db = await openEngine();
+      await expectScalar(db, "SELECT JSON_ARRAY(1, NULL, 3) FROM dual", '[1,3]');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_ARRAY omits its default ABSENT ON NULL '
+            '(JSON_ARRAYAGG applies it — inconsistent). Engine -> [1,null,3], '
+            'Oracle -> [1,3]. See findings/FINDINGS.md F268.');
+
+    test('F269 · JSON_TABLE EXISTS PATH yields 0 when absent', () async {
+      final db = await openEngine();
+      await expectRows(db,
+          "SELECT has_b FROM JSON_TABLE('{\"a\":1}', '\$' COLUMNS (has_b NUMBER EXISTS PATH '\$.b'))",
+          [
+            [0],
+          ]);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_TABLE EXISTS PATH returns NULL (not 0) when the '
+            'path is absent. See findings/FINDINGS.md F269.');
+
+    test('F270 · JSON_TABLE NESTED PATH', () async {
+      final db = await openEngine();
+      await expectRows(db,
+          "SELECT id, p FROM JSON_TABLE('{\"id\":1,\"items\":[{\"p\":\"x\"},{\"p\":\"y\"}]}', '\$' COLUMNS (id NUMBER PATH '\$.id', NESTED PATH '\$.items[*]' COLUMNS (p VARCHAR2(5) PATH '\$.p')))",
+          [
+            [1, 'x'],
+            [1, 'y'],
+          ]);
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_TABLE NESTED PATH is a parse error '
+            '(FormatException: Invalid radix-10 number). See findings/FINDINGS.md F270.');
+
+    test('F271 · JSON_QUERY WITH WRAPPER', () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT JSON_QUERY('{\"a\":1}', '\$.a' WITH WRAPPER) FROM dual", '[1]');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_QUERY ... WITH WRAPPER is a parse error. '
+            'See findings/FINDINGS.md F271.');
+
+    test('F272 · JSON_MERGEPATCH', () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT JSON_MERGEPATCH('{\"a\":1,\"b\":2}', '{\"b\":20,\"c\":3}') FROM dual",
+          '{"a":1,"b":20,"c":3}');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_MERGEPATCH (RFC 7386) is unsupported. '
+            'See findings/FINDINGS.md F272.');
+
+    test('F273 · XMLFOREST / XMLATTRIBUTES AS alias', () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT XMLFOREST(1 AS \"x\", 2 AS \"y\") FROM dual", '<x>1</x><y>2</y>');
+    },
+        skip: 'KNOWN ENGINE BUG: XMLFOREST/XMLATTRIBUTES reject the AS name clause '
+            '(parse error). See findings/FINDINGS.md F273.');
+
+    test('F274 · XMLTYPE constructor + EXTRACTVALUE', () async {
+      final db = await openEngine();
+      await expectScalar(db,
+          "SELECT EXTRACTVALUE(XMLTYPE('<r><a>7</a></r>'), '/r/a') FROM dual", '7');
+    },
+        skip: 'KNOWN ENGINE BUG: XMLTYPE constructor and EXTRACTVALUE/XMLAGG are '
+            'unsupported (XMLELEMENT works). See findings/FINDINGS.md F274.');
   });
 }

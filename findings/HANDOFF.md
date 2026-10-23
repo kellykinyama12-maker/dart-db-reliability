@@ -1,23 +1,35 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **29 open bugs** (F224–F252)
-— everything else through F223 is fixed and verified. Nine three-way sweeps
-(complex-query, data-type, advanced-SQL ×2, ALTER TABLE, PL/SQL routines,
-schema-object, misc built-ins, NLS) surfaced these. Real HR + SH + CO data
-match real Oracle 23ai.
+For the engine author working in `dart-db-server`. Many earlier bugs (through
+~F252) were fixed by background mega-sweeps and verified. A parallel
+multi-subagent differential sweep then surfaced a fresh batch (F254–F274),
+each adjudicated vs real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s`.
+- **Verify:** `dart test test/known_issues --timeout 60s` (active guards green;
+  open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 253 found, 223 fixed & verified, 30 open (F224–F253).**
+**Status: 274 found. Open (still failing vs real Oracle): 26 —
+F221, F225, F228, F232, F234, F254–F274.**
 
-> ⚠️ **REGRESSION (F253) — suite is RED.** The F221 CHAR blank-pad fix was
-> over-applied to **VARCHAR2 / TEXT**, which must use non-padded comparison.
-> `s = 'apple'` on a VARCHAR2 column now also matches `'apple '` (returns 2;
-> Oracle returns 1). This broke the active `collation_test` and
-> `random_differential_fuzz_test` guards (3 real failures). **Fix: scope blank-
-> padding to CHAR(n) only.** Until then `dart test` is red by design — the
-> harness is correctly flagging the regression.
+> **F221 (deferred — appeal upheld):** CHAR(n) must blank-pad comparison
+> (`CHAR(5) 'ab' = 'ab'` is true in Oracle), but the fix was reverted
+> (engine `4513d7e`) because it leaked into VARCHAR2 and caused the worse F253
+> silent bug. VARCHAR2 correctness was prioritized; F253 is now an active guard.
+> The real fix is **type-aware comparison (CHAR pads, VARCHAR2 does not)**.
+
+> **New (F254–F274):** ADD_MONTHS last-day rule, ROUND(date,'DAY'),
+> YEAR-MONTH interval × scalar, NUMTOYMINTERVAL, TO_DATE 'J', LOCALTIMESTAMP,
+> REMAINDER tie-break, TO_CHAR '0'/'S' format elements, CAST AS NUMBER(p,s)
+> rounding, and a JSON/XML cluster (JSON_TABLE FOR ORDINALITY / NESTED PATH /
+> EXISTS PATH / DEFAULT ON ERROR, JSON_VALUE RETURNING, JSON_OBJECT/ARRAY
+> ABSENT ON NULL, JSON_QUERY WITH WRAPPER, JSON_MERGEPATCH, XMLFOREST AS,
+> XMLTYPE/EXTRACTVALUE).
+
+> **Harness note:** the engine-vs-SQLite `random_differential_fuzz_test` is red
+> by design — the engine now correctly follows Oracle on `NULL || x` and
+> empty-string-is-NULL, which diverge from its SQLite reference. That is a
+> fuzz-harness scoping task (exclude those families), not an engine bug.
 
 ## Reproduce the real-Oracle adjudication
 

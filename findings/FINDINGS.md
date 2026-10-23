@@ -9,15 +9,25 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**253 bugs found; 223 fixed & verified; 30 open (F224–F253).**
+**274 bugs found. Open (still failing vs real Oracle): 26 — F221, F225, F228,
+F232, F234, F254–F274.**
 
-> ⚠️ **F253 (REGRESSION) — `VARCHAR2`/`TEXT` comparison is wrongly blank-padded.**
-> The F221 CHAR blank-pad fix leaked into non-`CHAR` string comparison. On a
-> `VARCHAR2(10)` column holding `'apple'` and `'apple '`, `WHERE s = 'apple'`
-> now returns **both** rows (count 2); Oracle VARCHAR2 is non-padded and returns
-> **1**. This also breaks the active `test/correctness/collation_test.dart` and
-> `test/fuzz/random_differential_fuzz_test.dart` guards (3 real failures), so
-> `dart test` is RED. **Fix: scope blank-padded comparison to `CHAR(n)` only.**
+> **F254–F274 (round 64)** — surfaced by a parallel multi-subagent differential
+> sweep (datetime / numeric / string / JSON+XML axes), each adjudicated vs real
+> Oracle 23ai. Datetime: ADD_MONTHS last-day preservation (extend-up),
+> ROUND(date,'DAY') no-op, YEAR-MONTH interval × scalar → 0, NUMTOYMINTERVAL
+> returns a day-count, TO_DATE 'J' → NULL, LOCALTIMESTAMP unsupported. Numeric:
+> REMAINDER half-to-even tie-break, TO_CHAR '0'/'S' format elements ignored,
+> CAST AS NUMBER(p,s) rounds via float (1.005 → 1.0 vs 1.01). JSON/XML:
+> JSON_TABLE FOR ORDINALITY → NULL, NESTED PATH parse error, EXISTS PATH → NULL,
+> DEFAULT ON ERROR ignored; JSON_VALUE RETURNING coercion/DEFAULT ignored;
+> JSON_OBJECT & JSON_ARRAY ABSENT ON NULL; JSON_QUERY WITH WRAPPER; JSON_MERGEPATCH;
+> XMLFOREST AS alias; XMLTYPE/EXTRACTVALUE. SUBSTR negative-length and position-0
+> candidates were DROPPED as SQLite-locked dialect behavior (active guards F8/F36).
+
+> **F221 (deferred — appeal upheld):** CHAR(n) blank-pad comparison was reverted
+> (engine 4513d7e) to kill the worse F253 VARCHAR2 silent bug; F253 is now an
+> active guard. Correct fix: type-aware comparison (CHAR pads, VARCHAR2 does not).
 
 > Open bugs span multi-column UPDATE, MATCH_RECOGNIZE, recursive CYCLE/SEARCH,
 > TABLE() unnest, PIVOT XML, LATERAL, CROSS/OUTER APPLY, SYS_CONTEXT, XMLTABLE,
