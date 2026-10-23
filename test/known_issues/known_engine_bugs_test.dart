@@ -2294,4 +2294,46 @@ void main() {
             'parse error ("Expected ) but got DEFAULT"). Real Oracle uses the '
             'default (addn(5) = 15). See findings/FINDINGS.md F240.');
   });
+
+  // Found by a schema-object three-way sweep (10/14 matched: materialized views,
+  // synonyms, RANGE/LIST/HASH partitioning, WITH CHECK OPTION, read-only views,
+  // COMMENT, RENAME CONSTRAINT, NOVALIDATE). These DDL forms fail to parse.
+  group('open bugs (round 59 — schema-object DDL, real-Oracle-adjudicated)', () {
+    test('F241 · DEFERRABLE constraint', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE p (id NUMBER PRIMARY KEY)');
+      // A deferrable FK should be accepted at CREATE time.
+      await expectOk(
+          db,
+          'CREATE TABLE c (pid NUMBER REFERENCES p(id) '
+          'DEFERRABLE INITIALLY DEFERRED)');
+    },
+        skip: 'KNOWN ENGINE BUG: the DEFERRABLE [INITIALLY DEFERRED] constraint '
+            'attribute is a parse error ("Expected ) but got DEFERRABLE"), so '
+            'the table is not created. Real Oracle accepts it. '
+            'See findings/FINDINGS.md F241.');
+
+    test('F242 · GLOBAL TEMPORARY TABLE', () async {
+      final db = await openEngine();
+      await db.execute(
+          'CREATE GLOBAL TEMPORARY TABLE gt (v NUMBER) ON COMMIT PRESERVE ROWS');
+      await db.execute('INSERT INTO gt VALUES (1), (2)');
+      await expectScalar(db, 'SELECT COUNT(*) FROM gt', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: CREATE GLOBAL TEMPORARY TABLE is a parse error '
+            '("Expected TABLE, INDEX, VIEW or TRIGGER after CREATE"). Real Oracle '
+            'creates it (count = 2). See findings/FINDINGS.md F242.');
+
+    test('F243 · INVISIBLE column', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE inv (a NUMBER, b NUMBER INVISIBLE)');
+      await db.execute('INSERT INTO inv (a, b) VALUES (1, 2)');
+      // An invisible column is still selectable when named explicitly.
+      await expectScalar(db, 'SELECT b FROM inv', 2);
+    },
+        skip: 'KNOWN ENGINE BUG: an INVISIBLE column in CREATE TABLE is a parse '
+            'error ("Expected ) but got INVISIBLE"), so the table is not created. '
+            'Real Oracle creates it (b = 2 when selected). '
+            'See findings/FINDINGS.md F243.');
+  });
 }
