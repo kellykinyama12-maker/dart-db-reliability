@@ -1960,13 +1960,7 @@ void main() {
       await db.execute('UPDATE tg SET v = 20 WHERE id = 1');
       // The trigger should have incremented upd to 1.
       await expectScalar(db, 'SELECT upd FROM tg WHERE id = 1', 1);
-    },
-        skip: 'KNOWN ENGINE BUG: row-level triggers are broadly non-functional. '
-            'A BEFORE UPDATE ... FOR EACH ROW trigger is parsed (CREATE TRIGGER '
-            'succeeds) but never fires — upd stays 0 instead of 1. Related '
-            'facets: an AFTER INSERT body that INSERTs using :NEW.col is a parse '
-            'error, and PL/SQL IF / RAISE_APPLICATION_ERROR in a trigger body is '
-            'unsupported. Real Oracle fires them. See findings/FINDINGS.md F215.');
+    });
 
     test('F216 · INSTEAD OF trigger on a view', () async {
       final db = await openEngine();
@@ -1992,10 +1986,6 @@ void main() {
           'CREATE TABLE nn (id NUMBER DEFAULT ns2.NEXTVAL NOT NULL, v NUMBER)');
       await db.execute('INSERT INTO nn (v) VALUES (10)');
       await expectScalar(db, 'SELECT id FROM nn', 1);
-    },
-        skip: 'KNOWN ENGINE BUG: a column DEFAULT of <sequence>.NEXTVAL is '
-            'rejected at CREATE TABLE ("DEFAULT must be a literal") — only '
-            'literal defaults are allowed. Real Oracle assigns the next sequence '
-            'value (id = 1). See findings/FINDINGS.md F217.');
+    });
   });
 }
