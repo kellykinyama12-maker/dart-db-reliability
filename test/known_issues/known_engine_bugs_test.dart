@@ -1213,4 +1213,45 @@ void main() {
             '(subquery)) is a parse error ("Expected ) but got <col>"). See '
             'findings/FINDINGS.md F138.');
   });
+
+  // Found loading the real Oracle CO (customer_orders) schema+data three-way vs
+  // real Oracle 23ai: LISTAGG overflow clause, UTL_RAW, and JSON support.
+  group('open bugs (round 34 — Oracle CO schema: LISTAGG overflow / UTL_RAW / JSON, real-Oracle-adjudicated)',
+      () {
+    test('F139 · LISTAGG ON OVERFLOW clause is not parsed', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (n NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1), (2)');
+      // CO customer_order_products view uses this LISTAGG overflow clause.
+      await expectOk(db,
+          "SELECT LISTAGG(n, ',' ON OVERFLOW TRUNCATE '...' WITH COUNT) "
+          'WITHIN GROUP (ORDER BY n) FROM t');
+    },
+        skip: 'KNOWN ENGINE BUG: the LISTAGG(... ON OVERFLOW TRUNCATE ... WITH '
+            'COUNT) clause is a parse error ("Expected ) but got ON"). See '
+            'findings/FINDINGS.md F139.');
+
+    test('F140 · UTL_RAW package functions are missing', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      // CO co_populate stores JSON BLOBs via UTL_RAW.CAST_TO_RAW.
+      await expectScalar(db, "SELECT RAWTOHEX(UTL_RAW.CAST_TO_RAW('AB')) FROM d",
+          '4142');
+    },
+        skip: 'KNOWN ENGINE BUG: UTL_RAW package functions (CAST_TO_RAW, etc.) '
+            'are unknown. See findings/FINDINGS.md F140.');
+
+    test('F141 · Oracle JSON support is missing (JSON_VALUE/JSON_TABLE/IS JSON)',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE d (x NUMBER)');
+      await db.execute('INSERT INTO d VALUES (1)');
+      await expectScalar(db, "SELECT JSON_VALUE('{\"a\":42}', '\$.a') FROM d", 42);
+    },
+        skip: 'KNOWN ENGINE BUG: Oracle JSON support is missing — JSON_VALUE, '
+            'JSON_TABLE, JSON_QUERY, and the IS JSON predicate are all '
+            'unsupported. The CO schema uses them. See findings/FINDINGS.md '
+            'F141.');
+  });
 }
