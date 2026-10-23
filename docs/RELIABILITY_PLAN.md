@@ -52,13 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 129 found, 118 fixed & verified, 11 open.**
-  **Open (all vs real Oracle 23ai):** F119 (TIMESTAMP subtraction interval), a
-  PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch (F120–F123), and a stragglers batch
-  (F124 q-quote literals, F125 RETURNING INTO, F126 UNPIVOT, F127 PL/SQL
-  collections/records, F128 ROWNUM in UPDATE, F129 MODEL/MATCH_RECOGNIZE/PIVOT
-  XML/flashback). The real HR schema + **full data** load and SH **lookup data**
-  loads. MySQL wire clean.
+- **Bug status (2026-10-23): 130 found, 118 fixed & verified, 12 open.**
+  **Open (all vs real Oracle 23ai):** F119 (TIMESTAMP subtraction), PL/SQL +
+  TIMESTAMP-WITH-TIME-ZONE (F120–F123), stragglers (F124–F129), and F130 (nested
+  aggregate `MAX(MIN(x))` over GROUP BY). New **HR real-data three-way parity
+  gate** (`oracle_hr_realdata_parity_test.dart`) loads the real HR schema+data
+  into the engine and real Oracle and diffs 25 analytic queries — all identical
+  (found F130). MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.

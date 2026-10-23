@@ -1145,4 +1145,22 @@ void main() {
             'MATCH_RECOGNIZE, PIVOT XML, and flashback VERSIONS BETWEEN — are '
             'unsupported (rare/advanced). See findings/FINDINGS.md F129.');
   });
+
+  // Found running the real HR sample-schema analytic battery three-way vs real
+  // Oracle 23ai: the Oracle nested-aggregate-over-GROUP-BY extension.
+  group('open bugs (round 30 — nested aggregates, real-Oracle-adjudicated)',
+      () {
+    test('F130 · nested aggregate MAX(MIN(x)) over GROUP BY is not supported',
+        () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (d NUMBER, s NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1,10),(1,30),(2,20),(2,40)');
+      // Oracle's two-level aggregation: MIN per group, then MAX across = 20.
+      await expectScalar(db, 'SELECT MAX(MIN(s)) FROM t GROUP BY d', 20);
+    },
+        skip: 'KNOWN ENGINE BUG: a nested aggregate over GROUP BY (Oracle\'s '
+            'MAX(MIN(x)) two-level aggregation) throws ("Aggregate function '
+            'MIN() cannot be evaluated as a scalar"). See findings/FINDINGS.md '
+            'F130.');
+  });
 }

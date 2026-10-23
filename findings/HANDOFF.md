@@ -1,15 +1,16 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **11 open bugs** — a
+For the engine author working in `dart-db-server`. **12 open bugs** — a
 timestamp-interval bug (F119), a PL/SQL + TIMESTAMP-WITH-TIME-ZONE batch
-(F120–F123), and a stragglers batch (F124–F129), all adjudicated against real
-Oracle 23ai. F85–F118 were fixed async and are active regression guards.
+(F120–F123), a stragglers batch (F124–F129), and a nested-aggregate bug (F130),
+all adjudicated against real Oracle 23ai. F85–F118 were fixed async and are
+active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 129 found, 118 fixed & verified, 11 open.**
+**Status: 130 found, 118 fixed & verified, 12 open.**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -66,6 +67,19 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 > F124–F128 are common real-world SQL/PL-SQL; **F129 is rare/advanced** and can
 > wait. Already clean: `INSERT … SELECT`, PIVOT.
+
+### Nested aggregates — real-Oracle-adjudicated (F130)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F130** | nested aggregate over GROUP BY | `SELECT MAX(MIN(s)) FROM t GROUP BY d` → throws, Oracle → 20 | support Oracle's two-level `MAX(MIN(x))` aggregation |
+
+> Found by the new **HR real-data three-way gate**
+> (`test/parity/oracle_hr_realdata_parity_test.dart`): the real HR schema+data is
+> loaded into both the engine and real Oracle and 25 analytic queries are
+> diffed — all identical except this one. A strong signal the engine matches
+> Oracle on real rows (joins, correlated subqueries, windows, CONNECT BY,
+> LISTAGG, ROLLUP, MONTHS_BETWEEN/ADD_MONTHS, MINUS, WIDTH_BUCKET, …).
 
 ---
 
