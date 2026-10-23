@@ -1838,11 +1838,7 @@ void main() {
       // GROUP BY a, ROLLUP(b): per-a (a,b) groups + per-a subtotal = 5 rows.
       await expectScalar(
           db, 'SELECT COUNT(*) FROM (SELECT a FROM g GROUP BY a, ROLLUP(b))', 5);
-    },
-        skip: 'KNOWN ENGINE BUG: ROLLUP/CUBE combined with a plain column in a '
-            'composite GROUP BY (GROUP BY a, ROLLUP(b)) throws "Unknown '
-            'function: ROLLUP" — only a standalone ROLLUP/CUBE is parsed. Real '
-            'Oracle returns 5. See findings/FINDINGS.md F203.');
+    });
 
     test('F204 · JSON_TABLE array wildcard \$[*]', () async {
       final db = await openEngine();
@@ -1852,10 +1848,7 @@ void main() {
           "SELECT COUNT(*) FROM (SELECT * FROM JSON_TABLE("
           "'[{\"a\":1},{\"a\":2}]', '\$[*]' COLUMNS (a NUMBER PATH '\$.a')))",
           2);
-    },
-        skip: 'KNOWN ENGINE BUG: JSON_TABLE with the array wildcard \$[*] '
-            'produces only 1 row instead of one per array element. Real Oracle '
-            'returns 2. See findings/FINDINGS.md F204.');
+    });
 
     test('F205 · COUNT(*) with WHERE ROWNUM <= n', () async {
       final db = await openEngine();
@@ -1904,11 +1897,7 @@ void main() {
       // [[:digit:]] matches digits; the engine leaves the string unchanged.
       await expectScalar(
           db, "SELECT REGEXP_REPLACE('a1b2','[[:digit:]]','#') FROM dual", 'a#b#');
-    },
-        skip: 'KNOWN ENGINE BUG: POSIX character classes ([[:digit:]], '
-            '[[:alpha:]], etc.) are not supported in REGEXP — the pattern does '
-            'not match (string returned unchanged / NULL). Real Oracle returns '
-            '"a#b#". See findings/FINDINGS.md F209.');
+    });
 
     test('F210 · APPROX_PERCENTILE aggregate', () async {
       final db = await openEngine();
@@ -1918,10 +1907,7 @@ void main() {
           db,
           'SELECT APPROX_PERCENTILE(0.5) WITHIN GROUP (ORDER BY v) FROM m',
           20);
-    },
-        skip: 'KNOWN ENGINE BUG: the APPROX_PERCENTILE aggregate is missing '
-            '("Unknown function"). Real Oracle returns 20. '
-            'See findings/FINDINGS.md F210.');
+    });
 
     test('F211 · INTERVAL YEAR TO MONTH arithmetic keeps the day', () async {
       final db = await openEngine();
@@ -1931,10 +1917,27 @@ void main() {
           "SELECT TO_CHAR(DATE '2024-07-20' + INTERVAL '1-6' YEAR TO MONTH,"
           "'YYYY-MM-DD') FROM dual",
           '2026-01-20');
+    });
+  });
+
+  // Found by a sixth HR three-way mega-sweep (LOB + NLS functions — confirmed
+  // vs real Oracle 23ai). Mostly boolean-casing / Oracle-also-errors / engine-
+  // superset diffs this round; these two are genuine gaps.
+  group('open bugs (round 51 — mega-sweep VI, real-Oracle-adjudicated)', () {
+    test('F212 · TO_CLOB', () async {
+      final db = await openEngine();
+      await expectScalar(db, "SELECT TO_CHAR(TO_CLOB('hello')) FROM dual", 'hello');
     },
-        skip: 'KNOWN ENGINE BUG: adding an INTERVAL YEAR TO MONTH corrupts the '
-            'day — DATE 2024-07-20 + INTERVAL \'1-6\' YEAR TO MONTH gives '
-            '2026-01-16 instead of 2026-01-20 (it treats months as ~30.44 days '
-            'rather than calendar months). See findings/FINDINGS.md F211.');
+        skip: 'KNOWN ENGINE BUG: TO_CLOB is missing ("Unknown function: '
+            'TO_CLOB"). Real Oracle returns "hello". See findings/FINDINGS.md F212.');
+
+    test('F213 · NLS_UPPER / NLS_LOWER / NLS_INITCAP', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db, "SELECT NLS_INITCAP('hello world') FROM dual", 'Hello World');
+    },
+        skip: 'KNOWN ENGINE BUG: the NLS case functions NLS_UPPER, NLS_LOWER, '
+            'and NLS_INITCAP are missing ("Unknown function"). Real Oracle '
+            'returns "Hello World". See findings/FINDINGS.md F213.');
   });
 }

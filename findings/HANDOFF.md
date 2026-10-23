@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **5 open bugs** (F203, F204,
-F209–F211) — everything else through F208 is fixed and verified. A fifth broad
-HR three-way mega-sweep surfaced F209–F211. Real HR + SH + CO data load and
-match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **2 open bugs** (F212, F213)
+— everything else through F211 is fixed and verified. A sixth broad HR
+three-way mega-sweep surfaced these. Real HR + SH + CO data load and match real
+Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; the 5 open bugs skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F212, F213 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 211 found, 206 fixed & verified, 5 open (F203, F204, F209–F211).**
+**Status: 213 found, 211 fixed & verified, 2 open (F212, F213).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,20 +34,17 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweeps IV–V — real-Oracle-adjudicated (5 open)
+### HR mega-sweep VI — real-Oracle-adjudicated (F212, F213)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F203** | composite ROLLUP/CUBE | `GROUP BY a, ROLLUP(b)` → "Unknown function: ROLLUP" (Oracle `5`) | parse ROLLUP/CUBE mixed with plain grouping columns |
-| **F204** | JSON_TABLE wildcard | `$[*]` yields 1 row instead of one per element (Oracle `2`) | iterate array wildcards |
-| **F209** | REGEXP POSIX classes | `[[:digit:]]`/`[[:alpha:]]` don't match (Oracle `a#b#`) | support POSIX character classes |
-| **F210** | APPROX_PERCENTILE | missing ("Unknown function") (Oracle `20`) | add the aggregate |
-| **F211** | INTERVAL YEAR TO MONTH arith | `DATE + INTERVAL '1-6' YEAR TO MONTH` shifts the day (2026-01-16 vs 2026-01-20) | add calendar months, don't approximate as days |
+| **F212** | TO_CLOB | missing ("Unknown function") (Oracle `hello`) | add TO_CLOB |
+| **F213** | NLS_UPPER/LOWER/INITCAP | missing ("Unknown function") (Oracle `Hello World`) | add the NLS case functions |
 
-> Found by five HR three-way mega-sweeps. Excluded: Oracle-also-errors
-> (POWER/LOG/SQRT out-of-range, `1/0.0`), empty-string/NULL dialect, engine-
-> superset features (`IS [NOT] DISTINCT FROM`, named-capture/inline-flag regex),
-> boolean casing, and float last-digit noise.
+> Found by a sixth HR three-way mega-sweep (46 queries) — most diffs this round
+> were boolean-literal casing, Oracle-also-errors (POWER/LOG/SQRT/FF-on-DATE),
+> engine-superset (`WITH RECURSIVE`, `IS DISTINCT FROM`), or RAW display
+> representation; only these two are genuine gaps.
 
 ---
 

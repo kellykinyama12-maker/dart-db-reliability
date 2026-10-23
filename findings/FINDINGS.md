@@ -9,16 +9,14 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**211 bugs found; 206 fixed & verified; 5 open (F203, F204, F209–F211).**
+**213 bugs found; 211 fixed & verified; 2 open (F212, F213).**
 
-> **Open (confirmed vs real Oracle 23ai):** F203 ROLLUP/CUBE in a composite
-> GROUP BY; F204 JSON_TABLE `$[*]` wildcard yields 1 row; F209 REGEXP POSIX
-> character classes; F210 APPROX_PERCENTILE missing; F211 INTERVAL YEAR TO MONTH
-> arithmetic shifts the day (adds ~30.44-day months, not calendar months).
+> **Open (confirmed vs real Oracle 23ai):** F212 TO_CLOB missing; F213
+> NLS_UPPER/NLS_LOWER/NLS_INITCAP missing.
 >
-> **Drained:** F202 (MOD(n,0) crash), F205 (COUNT(*)+ROWNUM), F206 (TO_BINARY_
-> FLOAT/DOUBLE), F207 (EXTRACT TIMEZONE_MINUTE), F208 (interval-qualifier cast)
-> — all fixed & verified.
+> **Drained:** F203 (composite ROLLUP/CUBE), F204 (JSON_TABLE wildcard), F209
+> (REGEXP POSIX classes), F210 (APPROX_PERCENTILE), F211 (INTERVAL YEAR TO MONTH
+> arithmetic) — all fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

@@ -52,10 +52,11 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 211 found, 206 fixed & verified, 5 open (F203
-  composite ROLLUP/CUBE; F204 JSON_TABLE wildcard; F209 REGEXP POSIX classes;
-  F210 APPROX_PERCENTILE; F211 INTERVAL YEAR TO MONTH arithmetic).** The author
-  drained F143–F208 (bar the 5 open); eleven HR sweeps surfaced F150–F211.
+- **Bug status (2026-10-23): 213 found, 211 fixed & verified, 2 open (F212
+  TO_CLOB; F213 NLS_UPPER/LOWER/INITCAP).** The author drained F143–F211 (bar
+  the 2 open); twelve HR sweeps surfaced F150–F213. Real-bug yield is thinning
+  as the engine matures — recent sweeps are mostly boolean-casing / Oracle-also-
+  errors / engine-superset diffs.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.
