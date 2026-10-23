@@ -1,14 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **24 open bugs** (F224–F247)
-— everything else through F223 is fixed and verified. Complex-query, data-type,
-advanced-SQL, ALTER TABLE, PL/SQL-routine, schema-object, and misc-built-in
-three-way sweeps surfaced these. Real HR + SH + CO data match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **29 open bugs** (F224–F252)
+— everything else through F223 is fixed and verified. Nine three-way sweeps
+(complex-query, data-type, advanced-SQL ×2, ALTER TABLE, PL/SQL routines,
+schema-object, misc built-ins, NLS) surfaced these. Real HR + SH + CO data
+match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F224–F247 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F224–F252 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 247 found, 223 fixed & verified, 24 open (F224–F247).**
+**Status: 252 found, 223 fixed & verified, 29 open (F224–F252).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -57,6 +58,11 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 | **F240** | function DEFAULT param | `FUNCTION(x, y NUMBER DEFAULT 10)` → parse error | parse parameter defaults |
 | **F241–F243** | DDL | DEFERRABLE constraints, GLOBAL TEMPORARY TABLE, INVISIBLE columns → parse errors | parse those DDL forms |
 | **F244–F247** | misc built-ins | TO_TIMESTAMP_TZ/TZ_OFFSET, flashback VERSIONS, SAMPLE clause, STANDARD_HASH/ROWIDTOCHAR | add them |
+| **F248** | TO_CHAR 'D' | numeric day-of-week element not applied (returns the date unchanged) | apply single-letter 'D' |
+| **F249** | NLS_NUMERIC_CHARACTERS | the 3rd TO_CHAR arg (separator override) is ignored | honour the NLS parameter |
+| **F250** | = ANY (value list) | non-subquery list form is a parse error (Oracle = IN) | parse the value-list quantifier |
+| **F251** | tuple = (subquery) | `(a,b) = (SELECT …)` never matches (returns 0) | match row comparisons vs a subquery |
+| **F252** | EXTRACT from interval literal | returns NULL for an INTERVAL literal (columns work) | extract from interval literals |
 
 > Found by complex-query, data-type, advanced-SQL, ALTER TABLE, and PL/SQL-
 > routine three-way sweeps. F234 (NULLS ordering) is the most impactful. The

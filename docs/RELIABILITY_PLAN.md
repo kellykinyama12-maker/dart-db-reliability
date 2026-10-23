@@ -52,10 +52,10 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 247 found, 223 fixed & verified, 24 open
-  (F224–F247).** Mining complex-query, data-type, advanced-SQL, ALTER TABLE,
-  PL/SQL-routine, schema-object, and misc-built-in axes. F234 (NULLS ordering)
-  is the most impactful open bug.
+- **Bug status (2026-10-23): 252 found, 223 fixed & verified, 29 open
+  (F224–F252).** Nine three-way sweeps across complex queries, data types,
+  advanced SQL, ALTER TABLE, PL/SQL routines, schema objects, misc built-ins,
+  and NLS. F234 (NULLS ordering) is the most impactful open bug.
   **Dataset coverage:** HR + SH + CO real-data three-way gates (green; CO
   re-includes JSON_VALUE over a BLOB); OE object-relational types work (data
   loader out of scope); product_media + SH-fact out of scope. MySQL wire clean.

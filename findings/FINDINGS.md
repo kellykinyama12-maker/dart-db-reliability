@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**247 bugs found; 223 fixed & verified; 24 open (F224–F247).**
+**252 bugs found; 223 fixed & verified; 29 open (F224–F252).**
 
 > Open bugs span multi-column UPDATE, MATCH_RECOGNIZE, recursive CYCLE/SEARCH,
 > TABLE() unnest, PIVOT XML, LATERAL, CROSS/OUTER APPLY, SYS_CONTEXT, XMLTABLE,
