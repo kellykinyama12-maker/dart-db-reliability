@@ -9,22 +9,20 @@ each adjudicated vs real Oracle 23ai.
   open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 274 found. Open (still failing vs real Oracle): 26 —
-F221, F225, F228, F232, F234, F254–F274.**
+**Status: 274 found. Open (still failing vs real Oracle): 9 —
+F225, F228, F232, F265, F267, F271, F272, F273, F274** (MATCH_RECOGNIZE,
+PIVOT XML, XMLTABLE PASSING, and a JSON/XML tail). All loud errors — no silent
+correctness bugs remain.
 
-> **F221 (deferred — appeal upheld):** CHAR(n) must blank-pad comparison
-> (`CHAR(5) 'ab' = 'ab'` is true in Oracle), but the fix was reverted
-> (engine `4513d7e`) because it leaked into VARCHAR2 and caused the worse F253
-> silent bug. VARCHAR2 correctness was prioritized; F253 is now an active guard.
-> The real fix is **type-aware comparison (CHAR pads, VARCHAR2 does not)**.
+> **Reconciled this round (now ACTIVE guards):** F221 CHAR/VARCHAR2 padding is
+> fixed the right way — **type-aware comparison** (CHAR pads, VARCHAR2 does not);
+> F253 and F254–F263 are fixed and verified. The author's background sweeps also
+> cleared most of F224–F252 and several of F264–F274.
 
-> **New (F254–F274):** ADD_MONTHS last-day rule, ROUND(date,'DAY'),
-> YEAR-MONTH interval × scalar, NUMTOYMINTERVAL, TO_DATE 'J', LOCALTIMESTAMP,
-> REMAINDER tie-break, TO_CHAR '0'/'S' format elements, CAST AS NUMBER(p,s)
-> rounding, and a JSON/XML cluster (JSON_TABLE FOR ORDINALITY / NESTED PATH /
-> EXISTS PATH / DEFAULT ON ERROR, JSON_VALUE RETURNING, JSON_OBJECT/ARRAY
-> ABSENT ON NULL, JSON_QUERY WITH WRAPPER, JSON_MERGEPATCH, XMLFOREST AS,
-> XMLTYPE/EXTRACTVALUE).
+> **F234 reclassified — dialect difference, not a bug (appeal upheld):** default
+> NULLS ordering. Oracle treats NULL as greatest (NULLS LAST for ASC); the engine
+> follows SQLite (NULL smallest) so the SQLite-parity guards hold. Explicit
+> `NULLS FIRST/LAST` stays available for Oracle semantics.
 
 > **Harness note:** the engine-vs-SQLite `random_differential_fuzz_test` is red
 > by design — the engine now correctly follows Oracle on `NULL || x` and

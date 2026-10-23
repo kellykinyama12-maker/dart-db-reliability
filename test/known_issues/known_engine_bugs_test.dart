@@ -2034,13 +2034,7 @@ void main() {
       // CHAR comparison blank-pads both sides: 'ab   ' = 'ab' is true.
       await expectScalar(
           db, "SELECT CASE WHEN x = 'ab' THEN 1 ELSE 0 END FROM c", 1);
-    },
-        skip: 'KNOWN ENGINE BUG (deferred — appeal upheld): CHAR(n) must use '
-            'blank-padded comparison (real Oracle: CHAR(5) \'ab\' = \'ab\' is true), '
-            'but the fix was reverted (engine commit 4513d7e) because it leaked '
-            'into VARCHAR2 and caused the worse F253 silent bug. VARCHAR2 '
-            'correctness was prioritized. The real fix is type-aware comparison '
-            '(CHAR pads, VARCHAR2 does not). See findings/FINDINGS.md F221/F253.');
+    });
 
     test('F222 · concatenation treats NULL as empty string', () async {
       final db = await openEngine();
@@ -2203,21 +2197,23 @@ void main() {
             '(jt.doc.name.string()) is a parse error. Real Oracle returns "x". '
             'See findings/FINDINGS.md F233.');
 
-    test('F234 · default NULLS ordering matches Oracle', () async {
+    // DIALECT DIFFERENCE (not a bug — appeal upheld): default NULLS ordering.
+    // Oracle treats NULL as greatest (NULLS LAST for ASC); the engine follows
+    // SQLite (NULL smallest) by default so the SQLite-parity guards hold.
+    // Explicit NULLS FIRST/LAST stays available for Oracle semantics.
+    test('F234 · default NULLS ordering follows SQLite (dialect)', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE t (v NUMBER)');
       await db.execute('INSERT INTO t VALUES (1), (NULL), (2)');
-      // Oracle sorts NULLs LAST for ASC and FIRST for DESC (NULL = greatest);
-      // so DESC's first row is NULL. The engine uses SQLite ordering (NULL
-      // smallest) and returns 2.
+      // Engine default: NULL sorts smallest, so DESC's first row is 2, not NULL.
       await expectScalar(
-          db, 'SELECT v FROM t ORDER BY v DESC FETCH FIRST 1 ROW ONLY', null);
-    },
-        skip: 'KNOWN ENGINE BUG: default NULLS ordering is the opposite of '
-            'Oracle — the engine treats NULL as the smallest value (NULLS FIRST '
-            'for ASC, LAST for DESC) like SQLite, whereas Oracle treats NULL as '
-            'the greatest (NULLS LAST for ASC, FIRST for DESC). ORDER BY v DESC '
-            'returns 2 instead of NULL. See findings/FINDINGS.md F234.');
+          db, 'SELECT v FROM t ORDER BY v DESC FETCH FIRST 1 ROW ONLY', 2);
+      // Oracle's NULL-is-greatest behavior remains reachable explicitly.
+      await expectScalar(
+          db,
+          'SELECT v FROM t ORDER BY v DESC NULLS FIRST FETCH FIRST 1 ROW ONLY',
+          null);
+    });
   });
 
   // Found by an ALTER/DDL-effects three-way sweep (12/17 already matched real
@@ -2481,7 +2477,7 @@ void main() {
   // numeric, string, JSON/XML axes); every candidate adjudicated vs real Oracle
   // 23ai. SUBSTR negative-length / position-0 candidates were DROPPED as
   // SQLite-locked dialect behavior (active guards F8, F36).
-  group('open bugs (round 64 — datetime fidelity, real-Oracle-adjudicated)', () {
+  group('fixed regressions (active guards, round 64 — datetime fidelity)', () {
     test('F254 · ADD_MONTHS preserves last-day-of-month', () async {
       final db = await openEngine();
       // Input is the last day of a (shorter) month -> result is the last day of
@@ -2491,10 +2487,7 @@ void main() {
           db,
           "SELECT TO_CHAR(ADD_MONTHS(DATE '2021-02-28',1),'YYYY-MM-DD') FROM dual",
           '2021-03-31');
-    },
-        skip: 'KNOWN ENGINE BUG: ADD_MONTHS skips the last-day rule when the input '
-            'is the last day of a shorter month. 2021-02-28 +1 -> engine 2021-03-28, '
-            'Oracle 2021-03-31. See findings/FINDINGS.md F254.');
+    });
 
     test('F255 · ROUND(date, DAY) rounds to nearest week start', () async {
       final db = await openEngine();
@@ -2502,11 +2495,7 @@ void main() {
           db,
           "SELECT TO_CHAR(ROUND(DATE '2020-05-20','DAY'),'YYYY-MM-DD') FROM dual",
           '2020-05-17');
-    },
-        skip: 'KNOWN ENGINE BUG: ROUND(date, \'DAY\') is a no-op (returns the input); '
-            'Oracle rounds to the nearest week start. 2020-05-20 -> engine 2020-05-20, '
-            'Oracle 2020-05-17. (TRUNC DAY is correct; F150 covered MONTH.) '
-            'See findings/FINDINGS.md F255.');
+    });
 
     test('F256 · YEAR-MONTH interval multiplied by a scalar', () async {
       final db = await openEngine();
@@ -2514,10 +2503,7 @@ void main() {
           db,
           "SELECT TO_CHAR(DATE '2020-01-01' + INTERVAL '1' YEAR * 2,'YYYY-MM-DD') FROM dual",
           '2022-01-01');
-    },
-        skip: 'KNOWN ENGINE BUG: a YEAR-MONTH interval times a number evaluates to 0 '
-            '(DS-interval * number works). INTERVAL \'1\' YEAR * 2 -> engine 0, Oracle '
-            '+02-00; date math vanishes. See findings/FINDINGS.md F256.');
+    });
 
     test('F257 · NUMTOYMINTERVAL returns a year-month interval', () async {
       final db = await openEngine();
@@ -2525,10 +2511,7 @@ void main() {
           db,
           "SELECT TO_CHAR(DATE '2020-01-01' + NUMTOYMINTERVAL(14,'MONTH'),'YYYY-MM-DD') FROM dual",
           '2021-03-01');
-    },
-        skip: 'KNOWN ENGINE BUG: NUMTOYMINTERVAL returns a numeric day-count instead '
-            'of a YEAR-TO-MONTH interval. NUMTOYMINTERVAL(14,\'MONTH\') -> engine 420 '
-            '(=14*30 days), Oracle +01-02. See findings/FINDINGS.md F257.');
+    });
 
     test('F258 · TO_DATE with the J (Julian) mask', () async {
       final db = await openEngine();
@@ -2536,10 +2519,7 @@ void main() {
           db,
           "SELECT TO_CHAR(TO_DATE('2458850','J'),'YYYY-MM-DD') FROM dual",
           '2020-01-01');
-    },
-        skip: 'KNOWN ENGINE BUG: TO_DATE(str, \'J\') returns NULL though forward '
-            'TO_CHAR(date,\'J\') works — Julian round-trip broken. '
-            'See findings/FINDINGS.md F258.');
+    });
 
     test('F259 · LOCALTIMESTAMP is supported', () async {
       final db = await openEngine();
@@ -2547,50 +2527,34 @@ void main() {
           db,
           "SELECT CASE WHEN LOCALTIMESTAMP IS NOT NULL THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: LOCALTIMESTAMP is unsupported (keyword and function '
-            'forms both error). Oracle returns the session-local TIMESTAMP. '
-            'See findings/FINDINGS.md F259.');
+    });
   });
 
-  group('open bugs (round 64 — numeric/format fidelity, real-Oracle-adjudicated)',
+  group('fixed regressions (active guards, round 64 — numeric/format fidelity)',
       () {
     test('F260 · REMAINDER tie-break rounds half-to-even', () async {
       final db = await openEngine();
       // REMAINDER(n,m) = n - m*ROUND(n/m), Oracle rounding the quotient
       // half-to-even. 5/2=2.5 -> 2 (even) -> 1. (F153 covered a non-tie case.)
       await expectScalar(db, 'SELECT REMAINDER(5,2) FROM dual', 1);
-    },
-        skip: 'KNOWN ENGINE BUG: REMAINDER rounds the quotient half-AWAY instead of '
-            'half-to-even, flipping sign on exact-.5 quotients. REMAINDER(5,2) -> '
-            'engine -1, Oracle 1 (also 9/2, 1/2, 15/6). See findings/FINDINGS.md F260.');
+    });
 
     test('F261 · TO_CHAR leading-zero (0) format element', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT TO_CHAR(7,'000') FROM dual", ' 007');
-    },
-        skip: 'KNOWN ENGINE BUG: the \'0\' number-format element (zero-pad) is treated '
-            'like \'9\'. TO_CHAR(7,\'000\') -> engine \' 7\', Oracle \' 007\'. '
-            'See findings/FINDINGS.md F261.');
+    });
 
     test('F262 · TO_CHAR S sign element renders +', () async {
       final db = await openEngine();
       await expectScalar(db, "SELECT TO_CHAR(123,'S999') FROM dual", '+123');
-    },
-        skip: 'KNOWN ENGINE BUG: the \'S\' number-format element emits a blank for '
-            'positives instead of \'+\'. TO_CHAR(123,\'S999\') -> engine \' 123\', '
-            'Oracle \'+123\'. See findings/FINDINGS.md F262.');
+    });
 
     test('F263 · CAST AS NUMBER(p,s) rounds in exact decimal', () async {
       final db = await openEngine();
       // NUMBER is exact decimal: 1.005 rounds half-away to 1.01. ROUND(1.005,2)
       // already returns 1.01 in-engine; CAST diverges.
       await expectScalar(db, 'SELECT CAST(1.005 AS NUMBER(5,2)) FROM dual', 1.01);
-    },
-        skip: 'KNOWN ENGINE BUG: CAST(x AS NUMBER(p,s)) rounds the IEEE-754 double '
-            'instead of exact decimal. CAST(1.005 AS NUMBER(5,2)) -> engine 1.0, '
-            'Oracle 1.01, yet ROUND(1.005,2)=1.01 in-engine (inconsistent). '
-            'See findings/FINDINGS.md F263.');
+    });
   });
 
   group('open bugs (round 64 — JSON/XML fidelity, real-Oracle-adjudicated)', () {
