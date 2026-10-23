@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **7 open bugs** (F202–F208)
-— everything else through F201 is fixed and verified. A fourth broad HR
-three-way mega-sweep surfaced these. Real HR + SH + CO data load and match real
-Oracle 23ai.
+For the engine author working in `dart-db-server`. **5 open bugs** (F203, F204,
+F209–F211) — everything else through F208 is fixed and verified. A fifth broad
+HR three-way mega-sweep surfaced F209–F211. Real HR + SH + CO data load and
+match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; F202–F208 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; the 5 open bugs skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 208 found, 201 fixed & verified, 7 open (F202–F208).**
+**Status: 211 found, 206 fixed & verified, 5 open (F203, F204, F209–F211).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -34,22 +34,20 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 
 ## Current open bugs
 
-### HR mega-sweep IV — real-Oracle-adjudicated (F202–F208)
+### HR mega-sweeps IV–V — real-Oracle-adjudicated (5 open)
 
 | # | Bug | engine → Oracle | Fix |
 | --- | --- | --- | --- |
-| **F202** | MOD(n, 0) crash | throws IntegerDivisionByZeroException (Oracle returns n) | MOD(n,0) = n |
 | **F203** | composite ROLLUP/CUBE | `GROUP BY a, ROLLUP(b)` → "Unknown function: ROLLUP" (Oracle `5`) | parse ROLLUP/CUBE mixed with plain grouping columns |
 | **F204** | JSON_TABLE wildcard | `$[*]` yields 1 row instead of one per element (Oracle `2`) | iterate array wildcards |
-| **F205** | COUNT(*) + ROWNUM | `COUNT(*) … WHERE ROWNUM <= n` counts all rows (Oracle `3`) | apply ROWNUM before the aggregate |
-| **F206** | TO_BINARY_FLOAT/DOUBLE | missing ("Unknown function") | add the conversions |
-| **F207** | EXTRACT(TIMEZONE_MINUTE) | returns NULL (TIMEZONE_HOUR works) (Oracle `30`) | extract the minute field (companion F177) |
-| **F208** | (expr) DAY TO SECOND cast | interval-cast syntax → parse error (Oracle `60`) | parse the interval qualifier cast |
+| **F209** | REGEXP POSIX classes | `[[:digit:]]`/`[[:alpha:]]` don't match (Oracle `a#b#`) | support POSIX character classes |
+| **F210** | APPROX_PERCENTILE | missing ("Unknown function") (Oracle `20`) | add the aggregate |
+| **F211** | INTERVAL YEAR TO MONTH arith | `DATE + INTERVAL '1-6' YEAR TO MONTH` shifts the day (2026-01-16 vs 2026-01-20) | add calendar months, don't approximate as days |
 
-> Found by a fourth HR three-way mega-sweep (45 queries). Excluded: UNION NULL
-> distinct (still no minimal repro), NUMTODSINTERVAL display-only diff
-> (EXTRACT works), 1/0.0 (Oracle errors), TRANSLATE … USING (niche), boolean
-> casing, and the empty-string/NULL dialect family.
+> Found by five HR three-way mega-sweeps. Excluded: Oracle-also-errors
+> (POWER/LOG/SQRT out-of-range, `1/0.0`), empty-string/NULL dialect, engine-
+> superset features (`IS [NOT] DISTINCT FROM`, named-capture/inline-flag regex),
+> boolean casing, and float last-digit noise.
 
 ---
 

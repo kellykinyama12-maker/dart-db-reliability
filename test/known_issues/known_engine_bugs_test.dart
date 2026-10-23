@@ -1827,12 +1827,9 @@ void main() {
   group('open bugs (round 49 — mega-sweep IV, real-Oracle-adjudicated)', () {
     test('F202 · MOD(n, 0) returns n (no crash)', () async {
       final db = await openEngine();
-      // Oracle: MOD(n, 0) = n. The engine throws IntegerDivisionByZeroException.
+      // Oracle: MOD(n, 0) = n. The engine threw IntegerDivisionByZeroException.
       await expectScalar(db, 'SELECT MOD(5, 0) FROM dual', 5);
-    },
-        skip: 'KNOWN ENGINE BUG: MOD(n, 0) crashes the engine with an '
-            'IntegerDivisionByZeroException instead of returning n. Real Oracle '
-            'returns 5. See findings/FINDINGS.md F202.');
+    });
 
     test('F203 · ROLLUP/CUBE in a composite GROUP BY', () async {
       final db = await openEngine();
@@ -1868,11 +1865,7 @@ void main() {
       }
       // ROWNUM limits to 3 rows before aggregation.
       await expectScalar(db, 'SELECT COUNT(*) FROM t WHERE ROWNUM <= 3', 3);
-    },
-        skip: 'KNOWN ENGINE BUG: "SELECT COUNT(*) FROM t WHERE ROWNUM <= n" '
-            'counts all rows (10) instead of applying ROWNUM before the '
-            'aggregate (3). The ROWNUM filter works in a subquery but not at the '
-            'aggregate level. Real Oracle returns 3. See findings/FINDINGS.md F205.');
+    });
 
     test('F206 · TO_BINARY_FLOAT / TO_BINARY_DOUBLE', () async {
       final db = await openEngine();
@@ -1880,10 +1873,7 @@ void main() {
           db,
           "SELECT CASE WHEN TO_BINARY_FLOAT('3.14') > 3 THEN 1 ELSE 0 END FROM dual",
           1);
-    },
-        skip: 'KNOWN ENGINE BUG: TO_BINARY_FLOAT and TO_BINARY_DOUBLE are '
-            'missing ("Unknown function"). Real Oracle converts them. '
-            'See findings/FINDINGS.md F206.');
+    });
 
     test('F207 · EXTRACT(TIMEZONE_MINUTE FROM ts)', () async {
       final db = await openEngine();
@@ -1892,10 +1882,7 @@ void main() {
           "SELECT EXTRACT(TIMEZONE_MINUTE FROM "
           "TIMESTAMP '2024-01-01 00:00:00 +05:30') FROM dual",
           30);
-    },
-        skip: 'KNOWN ENGINE BUG: EXTRACT(TIMEZONE_MINUTE FROM ts) returns NULL '
-            '(TIMEZONE_HOUR was fixed; the minute field is not). Real Oracle '
-            'returns 30. Companion to F177. See findings/FINDINGS.md F207.');
+    });
 
     test('F208 · (expr) DAY TO SECOND interval cast', () async {
       final db = await openEngine();
@@ -1905,9 +1892,49 @@ void main() {
           "SELECT EXTRACT(DAY FROM "
           "(DATE '2024-03-01' - DATE '2024-01-01') DAY TO SECOND) FROM dual",
           60);
+    });
+  });
+
+  // Found by a fifth HR three-way mega-sweep (POSIX regex, APPROX percentile,
+  // interval YEAR TO MONTH arithmetic — confirmed vs real Oracle 23ai). Many
+  // Oracle-also-errors, empty-string-dialect, and engine-superset diffs excluded.
+  group('open bugs (round 50 — mega-sweep V, real-Oracle-adjudicated)', () {
+    test('F209 · REGEXP POSIX character classes', () async {
+      final db = await openEngine();
+      // [[:digit:]] matches digits; the engine leaves the string unchanged.
+      await expectScalar(
+          db, "SELECT REGEXP_REPLACE('a1b2','[[:digit:]]','#') FROM dual", 'a#b#');
     },
-        skip: 'KNOWN ENGINE BUG: the "(expr) DAY TO SECOND" interval-cast syntax '
-            'is a parse error ("Expected ) but got DAY"). Real Oracle returns 60. '
-            'See findings/FINDINGS.md F208.');
+        skip: 'KNOWN ENGINE BUG: POSIX character classes ([[:digit:]], '
+            '[[:alpha:]], etc.) are not supported in REGEXP — the pattern does '
+            'not match (string returned unchanged / NULL). Real Oracle returns '
+            '"a#b#". See findings/FINDINGS.md F209.');
+
+    test('F210 · APPROX_PERCENTILE aggregate', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE m (v NUMBER)');
+      await db.execute('INSERT INTO m VALUES (10), (20), (30), (40)');
+      await expectScalar(
+          db,
+          'SELECT APPROX_PERCENTILE(0.5) WITHIN GROUP (ORDER BY v) FROM m',
+          20);
+    },
+        skip: 'KNOWN ENGINE BUG: the APPROX_PERCENTILE aggregate is missing '
+            '("Unknown function"). Real Oracle returns 20. '
+            'See findings/FINDINGS.md F210.');
+
+    test('F211 · INTERVAL YEAR TO MONTH arithmetic keeps the day', () async {
+      final db = await openEngine();
+      // 2024-07-20 + 1 year 6 months = 2026-01-20 (day unchanged).
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(DATE '2024-07-20' + INTERVAL '1-6' YEAR TO MONTH,"
+          "'YYYY-MM-DD') FROM dual",
+          '2026-01-20');
+    },
+        skip: 'KNOWN ENGINE BUG: adding an INTERVAL YEAR TO MONTH corrupts the '
+            'day — DATE 2024-07-20 + INTERVAL \'1-6\' YEAR TO MONTH gives '
+            '2026-01-16 instead of 2026-01-20 (it treats months as ~30.44 days '
+            'rather than calendar months). See findings/FINDINGS.md F211.');
   });
 }

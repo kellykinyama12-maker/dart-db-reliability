@@ -9,18 +9,16 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**208 bugs found; 201 fixed & verified; 7 open (F202–F208).**
+**211 bugs found; 206 fixed & verified; 5 open (F203, F204, F209–F211).**
 
-> **Open (confirmed vs real Oracle 23ai):** F202 MOD(n,0) crashes (Oracle n);
-> F203 ROLLUP/CUBE in a composite GROUP BY; F204 JSON_TABLE `$[*]` wildcard
-> yields 1 row; F205 COUNT(*) + WHERE ROWNUM <= n counts all rows; F206
-> TO_BINARY_FLOAT/DOUBLE missing; F207 EXTRACT(TIMEZONE_MINUTE) NULL; F208
-> "(expr) DAY TO SECOND" interval cast parse error.
+> **Open (confirmed vs real Oracle 23ai):** F203 ROLLUP/CUBE in a composite
+> GROUP BY; F204 JSON_TABLE `$[*]` wildcard yields 1 row; F209 REGEXP POSIX
+> character classes; F210 APPROX_PERCENTILE missing; F211 INTERVAL YEAR TO MONTH
+> arithmetic shifts the day (adds ~30.44-day months, not calendar months).
 >
-> **Drained:** F189 (ROWID — resolved the F57 conflict), F194 (INITCAP), F195
-> (CONNECT BY LEVEL row-gen), F196 (INTERSECT ALL), F197 (REGEXP i-flag), F198
-> (GROUP BY ()), F199 (analytic over aggregate), F200 (TO_DATE DDD), F201
-> (TRUNC IYYY) — all fixed & verified.
+> **Drained:** F202 (MOD(n,0) crash), F205 (COUNT(*)+ROWNUM), F206 (TO_BINARY_
+> FLOAT/DOUBLE), F207 (EXTRACT TIMEZONE_MINUTE), F208 (interval-qualifier cast)
+> — all fixed & verified.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP
