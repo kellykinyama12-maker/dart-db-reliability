@@ -52,13 +52,13 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 149 found, 148 fixed & verified, 1 open (F149 —
-  JSON_VALUE over a BLOB column returns NULL; works over VARCHAR2).** The author
-  drained F143–F148; finishing the real customer_orders load + a new CO
-  three-way gate surfaced F149. **Dataset coverage:** HR + SH + CO real-data
-  three-way gates (green; CO 19 queries); OE object-relational types work
-  (F147–F148 fixed; data loader out of scope); product_media + SH-fact out of
-  scope. MySQL wire clean.
+- **Bug status (2026-10-23): 154 found, 148 fixed & verified, 6 open (F149
+  JSON_VALUE over BLOB; F150 ROUND(date,fmt); F151 TO_CHAR hex; F152 JSON_OBJECT
+  VALUE syntax; F153 REMAINDER; F154 STATS_MODE).** The author drained
+  F143–F148; the CO three-way gate + a broad HR feature sweep (37/42 matched)
+  surfaced these. **Dataset coverage:** HR + SH + CO real-data three-way gates
+  (green); OE object-relational types work (data loader out of scope);
+  product_media + SH-fact out of scope. MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.

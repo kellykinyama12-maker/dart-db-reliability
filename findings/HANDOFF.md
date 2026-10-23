@@ -1,14 +1,14 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F149)** — the
-entire Oracle backlog through F148 is fixed and verified; the new
-**customer_orders** real-data three-way gate is green except F149 (JSON_VALUE
-over a BLOB). Real HR + SH + CO data load and match real Oracle 23ai.
+For the engine author working in `dart-db-server`. **6 open bugs (F149–F154)**
+— the Oracle backlog through F148 is fixed and verified. A broad HR three-way
+feature sweep (37/42 matched real Oracle) plus the CO gate surfaced six gaps.
+Real HR + SH + CO data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; only F149 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F149–F154 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 149 found, 148 fixed & verified, 1 open (F149).**
+**Status: 154 found, 148 fixed & verified, 6 open (F149–F154).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -46,6 +46,22 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 > round-trips through `UTL_RAW.CAST_TO_VARCHAR2`, so it is valid JSON —
 > `JSON_VALUE` just does not decode the BLOB. The single query excluded from the
 > green gate.
+
+### HR feature sweep — real-Oracle-adjudicated (F150–F154)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F150** | ROUND(date, fmt) | `ROUND(DATE '2024-07-20','MONTH')` → "2024" (Oracle `2024-08-01`; `2024-07-01` for day < 16) | apply the date rounding model (companion to F137 TRUNC) |
+| **F151** | TO_CHAR hex fmt | `TO_CHAR(255,'FMXXX')` → `255` (Oracle `FF`) | apply the `X` hex number-format model (companion to F106) |
+| **F152** | JSON_OBJECT VALUE | `JSON_OBJECT('k' VALUE 1)` → parse error (Oracle `{"k":1}`) | parse the `KEY … VALUE` JSON_OBJECT syntax |
+| **F153** | REMAINDER | `REMAINDER(17,6)` → unknown function (Oracle `-1`) | add REMAINDER (rounds the quotient, unlike MOD which floors) |
+| **F154** | STATS_MODE | `STATS_MODE(d)` → unknown function (Oracle most-frequent value) | add the STATS_MODE aggregate |
+
+> Found by a 42-query HR three-way feature sweep (37 already matched real Oracle,
+> incl. DECODE/NVL2/GREATEST/LEAST/COALESCE, BITAND, SUBSTR neg, INSTR occurrence,
+> TRANSLATE, REGEXP_SUBSTR/INSTR/COUNT, SOUNDEX, VARIANCE/STDDEV/CORR, NTILE,
+> LAG, FIRST_VALUE, INTERSECT, CONNECT_BY_ISLEAF, NEXT_DAY, NUMTODSINTERVAL,
+> TO_NUMBER, JSON_ARRAY).
 
 ---
 

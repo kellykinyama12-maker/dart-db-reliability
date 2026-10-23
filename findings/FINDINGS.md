@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**149 bugs found; 148 fixed & verified; 1 open (F149).**
+**154 bugs found; 148 fixed & verified; 6 open (F149–F154).**
 
 > **F149 (open) — `JSON_VALUE` over a BLOB column returns NULL** (confirmed vs
 > real Oracle 23ai). JSON_VALUE works over a VARCHAR2 JSON column but returns
@@ -17,6 +17,14 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 > UTL_RAW.CAST_TO_RAW). The payload round-trips through UTL_RAW.CAST_TO_VARCHAR2,
 > so it is valid — JSON_VALUE just does not decode BLOB/RAW before parsing.
 > Oracle returns the value. Surfaced by the real CO three-way gate.
+>
+> **F150–F154 (open) — HR three-way feature sweep** (37/42 matched real Oracle).
+> **F150:** `ROUND(date, fmt)` ignores the date rounding model (returns "2024"
+> vs `2024-08-01`; companion to F137 TRUNC). **F151:** `TO_CHAR(number,'X')` hex
+> format is ignored (`255` vs `FF`; companion to F106). **F152:** `JSON_OBJECT`
+> with the `KEY … VALUE` syntax is a parse error (vs `{"k":1}`). **F153:**
+> `REMAINDER` is missing (vs `-1`; rounds the quotient unlike MOD). **F154:**
+> `STATS_MODE` aggregate is missing.
 >
 > **F143–F148 fixed & verified this round:** F143 MEDIAN exact decimal; F144
 > IS JSON check allows valid INSERT; F145 JSON_TABLE in a view; F146 TO_TIMESTAMP

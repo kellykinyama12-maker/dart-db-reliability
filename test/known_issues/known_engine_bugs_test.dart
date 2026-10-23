@@ -1357,4 +1357,61 @@ void main() {
             '"white". Surfaced by the real CO products data (product_details is '
             'a JSON BLOB). See findings/FINDINGS.md F149.');
   });
+
+  // Found by a broad HR three-way feature sweep (37/42 matched real Oracle 23ai).
+  // All five confirmed against real Oracle (Oracle gives the value; engine
+  // errors or returns a wrong result).
+  group('open bugs (round 40 — feature sweep, real-Oracle-adjudicated)', () {
+    test('F150 · ROUND(date, fmt) applies the date rounding model', () async {
+      final db = await openEngine();
+      // Oracle rounds to the nearest month start (day >= 16 rounds up).
+      await expectScalar(
+          db,
+          "SELECT TO_CHAR(ROUND(DATE '2024-07-20','MONTH'),'YYYY-MM-DD') FROM dual",
+          '2024-08-01');
+    },
+        skip: 'KNOWN ENGINE BUG: ROUND(date, fmt) does not apply the date '
+            'rounding model — ROUND(DATE 2024-07-20, \'MONTH\') returns "2024" '
+            'instead of the nearest month start (2024-08-01; 2024-07-01 for '
+            'day < 16). Companion to F137 (TRUNC date fmt). '
+            'See findings/FINDINGS.md F150.');
+
+    test('F151 · TO_CHAR(number, hex fmt) applies the X format', () async {
+      final db = await openEngine();
+      await expectScalar(db, "SELECT TO_CHAR(255,'FMXXX') FROM dual", 'FF');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, \'X\'/\'XXX\') ignores the hex '
+            'format model and returns the decimal digits unchanged (255). Real '
+            'Oracle returns "FF". Companion to F106 (number format model). '
+            'See findings/FINDINGS.md F151.');
+
+    test('F152 · JSON_OBJECT with KEY ... VALUE syntax', () async {
+      final db = await openEngine();
+      await expectScalar(
+          db, "SELECT JSON_OBJECT('k' VALUE 1) FROM dual", '{"k":1}');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_OBJECT with the KEY ... VALUE syntax '
+            '(JSON_OBJECT(\'k\' VALUE 1)) is a parse error ("Expected ) but got '
+            'VALUE"). Real Oracle returns {"k":1}. See findings/FINDINGS.md F152.');
+
+    test('F153 · REMAINDER built-in', () async {
+      final db = await openEngine();
+      // REMAINDER uses ROUND (not FLOOR like MOD): REMAINDER(17,6) = -1.
+      await expectScalar(db, 'SELECT REMAINDER(17, 6) FROM dual', -1);
+    },
+        skip: 'KNOWN ENGINE BUG: the REMAINDER built-in is missing ("Unknown '
+            'function: REMAINDER"). It differs from MOD (rounds the quotient '
+            'instead of flooring) — REMAINDER(17,6) = -1 where MOD(17,6) = 5. '
+            'Real Oracle returns -1. See findings/FINDINGS.md F153.');
+
+    test('F154 · STATS_MODE aggregate', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (d NUMBER)');
+      await db.execute('INSERT INTO t VALUES (50), (50), (60), (90)');
+      await expectScalar(db, 'SELECT STATS_MODE(d) FROM t', 50);
+    },
+        skip: 'KNOWN ENGINE BUG: the STATS_MODE aggregate is missing ("Unknown '
+            'function: STATS_MODE"). It returns the most frequent value. Real '
+            'Oracle returns 50. See findings/FINDINGS.md F154.');
+  });
 }
