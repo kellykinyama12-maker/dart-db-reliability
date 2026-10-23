@@ -9,7 +9,15 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**252 bugs found; 223 fixed & verified; 29 open (F224–F252).**
+**253 bugs found; 223 fixed & verified; 30 open (F224–F253).**
+
+> ⚠️ **F253 (REGRESSION) — `VARCHAR2`/`TEXT` comparison is wrongly blank-padded.**
+> The F221 CHAR blank-pad fix leaked into non-`CHAR` string comparison. On a
+> `VARCHAR2(10)` column holding `'apple'` and `'apple '`, `WHERE s = 'apple'`
+> now returns **both** rows (count 2); Oracle VARCHAR2 is non-padded and returns
+> **1**. This also breaks the active `test/correctness/collation_test.dart` and
+> `test/fuzz/random_differential_fuzz_test.dart` guards (3 real failures), so
+> `dart test` is RED. **Fix: scope blank-padded comparison to `CHAR(n)` only.**
 
 > Open bugs span multi-column UPDATE, MATCH_RECOGNIZE, recursive CYCLE/SEARCH,
 > TABLE() unnest, PIVOT XML, LATERAL, CROSS/OUTER APPLY, SYS_CONTEXT, XMLTABLE,
