@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**104 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F104 open.**
+**108 bugs found; F1–F93, F95–F99 fixed & verified; F94 + F100–F108 open.**
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns
@@ -23,6 +23,18 @@ date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
   backreferences (returns the template literally); plain replacement works.
 - **F104** (open, correctness) — `REGEXP_SUBSTR` ignores its occurrence/position
   arguments; `REGEXP_COUNT`/`REGEXP_INSTR` are missing.
+
+An Oracle analytic / set-op / formatting sweep vs real Oracle then added F105–
+F108:
+- **F105** (open, correctness) — `KEEP (DENSE_RANK FIRST/LAST ORDER BY …)` now
+  parses but is ignored; it returns the plain aggregate (MAX=40 instead of 10).
+- **F106** (open) — `TO_CHAR(number, fmt)` ignores the number format model
+  (`TO_CHAR(1234.5,'FM9,999.00')` → `1234.5`, not `1,234.50`). Companion to F100.
+- **F107** (open) — the `MINUS` set operator (EXCEPT synonym) is a parse error.
+- **F108** (open) — `RATIO_TO_REPORT`, `PERCENTILE_CONT`/`DISC`, `WIDTH_BUCKET`,
+  `GROUPING_ID`, `NANVL`, the `IGNORE NULLS` clause, and the `CONNECT_BY_ROOT`
+  operator are unsupported. (ROWNUM, MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE,
+  LISTAGG DISTINCT, LEVEL all work.)
 
 Original write-up of the now-fixed F86–F99 batch follows for the record.
 

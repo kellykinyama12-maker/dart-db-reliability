@@ -1,15 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **6 open bugs** — the
-advanced-SQL feature set (F94) and a date/time + regex batch adjudicated against
-real Oracle 23ai (F100–F104). F86–F93 and F95–F99 were fixed async and are now
-active regression guards.
+For the engine author working in `dart-db-server`. **10 open bugs** — the
+advanced-SQL set (F94), a date/time + regex batch (F100–F104), and an analytic /
+set-operator / formatting batch (F105–F108), all adjudicated against real Oracle
+23ai. F86–F93 and F95–F99 were fixed async and are now active regression guards.
 
 - **Verify:** `dart test --run-skipped --timeout 25s` (all in
   `test/known_issues/known_engine_bugs_test.dart`).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 104 found, 98 fixed & verified, 6 open.**
+**Status: 108 found, 98 fixed & verified, 10 open.**
 
 ## Current open bugs
 
@@ -32,6 +32,20 @@ active regression guards.
 > **F101, F103, F104 are silent wrong answers.** `EXTRACT`/`LAST_DAY`/
 > `ADD_MONTHS` already parse date values, so F100/F101 are TO_CHAR/arithmetic-
 > specific, not a missing temporal type.
+
+### Analytic / set-op / formatting — real-Oracle-adjudicated (F105–F108)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F105** | KEEP ignored | `MAX(v) KEEP (DENSE_RANK FIRST ORDER BY id)` → 40 (plain MAX), Oracle → 10 | apply the KEEP ordering (it parses but is ignored) |
+| **F106** | TO_CHAR number format ignored | `TO_CHAR(1234.5,'FM9,999.00')` → `1234.5`, Oracle → `1,234.50` | apply the number format model (companion to F100) |
+| **F107** | MINUS set operator | `SELECT g FROM t MINUS SELECT 1 FROM t` → parse error | accept `MINUS` (EXCEPT synonym) |
+| **F108** | analytic features | `RATIO_TO_REPORT` / `PERCENTILE_CONT`/`DISC` / `WIDTH_BUCKET` / `GROUPING_ID` / `NANVL` / `IGNORE NULLS` / `CONNECT_BY_ROOT` → unsupported | add these analytic functions/clauses |
+
+> **F105 is a silent wrong answer** (KEEP now parses but is ignored — moved out
+> of F94, which is now just SYS_CONNECT_BY_PATH + PIVOT). Already clean: ROWNUM,
+> MEDIAN, CUME_DIST, PERCENT_RANK, NTH_VALUE, LISTAGG DISTINCT, LEVEL,
+> TO_CHAR sign format.
 
 ---
 

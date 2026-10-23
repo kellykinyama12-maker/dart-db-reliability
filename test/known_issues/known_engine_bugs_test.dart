@@ -749,7 +749,7 @@ void main() {
 
   // Advanced Oracle SQL gaps found probing grouping/hierarchical/pivot SQL.
   group('open bugs (round 20 — advanced Oracle SQL)', () {
-    test('F94 · advanced Oracle SQL features are unsupported', () async {
+    test('F94 · SYS_CONNECT_BY_PATH and PIVOT are unsupported', () async {
       final db = await openEngine();
       await db.execute('CREATE TABLE emp (id NUMBER, mgr NUMBER, name VARCHAR2(10), dept NUMBER, sal NUMBER)');
       await db.execute("INSERT INTO emp VALUES (1, NULL, 'A', 10, 100)");
@@ -762,12 +762,9 @@ void main() {
       await expectOk(db,
           'SELECT * FROM (SELECT dept, sal FROM emp) '
           'PIVOT (SUM(sal) FOR dept IN (10, 20))');
-      // KEEP ... DENSE_RANK FIRST aggregate.
-      await expectOk(db,
-          'SELECT MAX(sal) KEEP (DENSE_RANK FIRST ORDER BY id) FROM emp');
     },
-        skip: 'KNOWN ENGINE BUG: SYS_CONNECT_BY_PATH, PIVOT, and the KEEP '
-            '(DENSE_RANK FIRST/LAST) aggregate are unsupported. See '
+        skip: 'KNOWN ENGINE BUG: SYS_CONNECT_BY_PATH and PIVOT are unsupported. '
+            '(KEEP now parses but is ignored — see F105.) See '
             'findings/FINDINGS.md F94.');
   });
 
@@ -895,5 +892,66 @@ void main() {
         skip: 'KNOWN ENGINE BUG: REGEXP_SUBSTR ignores its position/occurrence '
             'arguments (returns the first match); REGEXP_COUNT and REGEXP_INSTR '
             'are also missing. See findings/FINDINGS.md F104.');
+  });
+
+  // Oracle analytic / set-operator / formatting gaps found by a two-way
+  // differential vs real Oracle 23ai.
+  group('open bugs (round 24 — Oracle analytic/set-op/format, real-Oracle-adjudicated)',
+      () {
+    test('F105 · KEEP (DENSE_RANK FIRST/LAST) is parsed but ignored', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1,10),(2,30),(3,20),(4,40)');
+      // KEEP ... FIRST ORDER BY id -> the v of the lowest id (10); the engine
+      // ignores KEEP and returns the overall MAX (40).
+      await expectScalar(db,
+          'SELECT MAX(v) KEEP (DENSE_RANK FIRST ORDER BY id) FROM t', 10);
+    },
+        skip: 'KNOWN ENGINE BUG: the KEEP (DENSE_RANK FIRST/LAST ORDER BY …) '
+            'aggregate now parses but is ignored — it returns the plain '
+            'aggregate (MAX=40 instead of 10). Silent wrong answer. See '
+            'findings/FINDINGS.md F105.');
+
+    test('F106 · TO_CHAR(number, format) ignores the format model', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (x NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1)');
+      // Real Oracle returns '1,234.50'; the engine returns the raw '1234.5'.
+      await expectScalar(db,
+          "SELECT TO_CHAR(1234.5, 'FM9,999.00') FROM t", '1,234.50');
+    },
+        skip: 'KNOWN ENGINE BUG: TO_CHAR(number, fmt) ignores the number format '
+            'model (grouping, scientific, sign) and returns the raw value. '
+            'Companion to F100 (dates). See findings/FINDINGS.md F106.');
+
+    test('F107 · the MINUS set operator is not supported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (g NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1),(2),(3)');
+      // Oracle MINUS is the EXCEPT synonym.
+      await expectOk(db, 'SELECT g FROM t MINUS SELECT 1 FROM t');
+    },
+        skip: 'KNOWN ENGINE BUG: the Oracle MINUS set operator (synonym for '
+            'EXCEPT) is a parse error ("Expected ) but got SELECT"). See '
+            'findings/FINDINGS.md F107.');
+
+    test('F108 · Oracle analytic features are unsupported', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE t (id NUMBER, g NUMBER, v NUMBER)');
+      await db.execute('INSERT INTO t VALUES (1,1,10),(2,1,30),(3,2,NULL)');
+      await expectOk(db, 'SELECT RATIO_TO_REPORT(v) OVER () FROM t');
+      await expectOk(db,
+          'SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY v) FROM t');
+      await expectOk(db,
+          'SELECT FIRST_VALUE(v IGNORE NULLS) OVER (ORDER BY id) FROM t');
+      await expectOk(db,
+          'SELECT CONNECT_BY_ROOT g FROM t CONNECT BY PRIOR id = id - 1');
+      await expectOk(db, 'SELECT WIDTH_BUCKET(25, 0, 50, 5) FROM t');
+      await expectOk(db, 'SELECT GROUPING_ID(g) FROM t GROUP BY ROLLUP(g)');
+    },
+        skip: 'KNOWN ENGINE BUG: RATIO_TO_REPORT, PERCENTILE_CONT/DISC, '
+            'WIDTH_BUCKET, GROUPING_ID, NANVL, the FIRST_VALUE/LAST_VALUE '
+            'IGNORE NULLS clause, and the CONNECT_BY_ROOT operator are '
+            'unsupported. See findings/FINDINGS.md F108.');
   });
 }

@@ -52,14 +52,14 @@ Each criterion below has concrete acceptance tests and a phase.
 **Baseline numbers.**
 - Reliability suite: **238 pass, 27 skipped, 0 unexpected failures** (cert gate
   PASS). Run `dart run bin/scorecard.dart` for the live summary.
-- **Bug status (2026-10-23): 104 found, 98 fixed & verified, 6 open.**
-  F1–F93 and F95–F99 are closed (the author fixed F86–F99 except F94 async).
-  **Open:** F94 (SYS_CONNECT_BY_PATH/PIVOT/KEEP) and a date/time + regex batch
-  adjudicated vs real Oracle 23ai (F100 TO_CHAR date-format ignored, F101 date
-  arithmetic broken, F102 INTERVAL/NUMTO*, F103 REGEXP_REPLACE backrefs, F104
-  REGEXP_SUBSTR occurrence + REGEXP_COUNT/INSTR missing). The real HR schema +
-  **full data** load and the SH **lookup data** loads. The Oracle wire path is
-  clean three-way vs real `oci8`; MySQL wire clean.
+- **Bug status (2026-10-23): 108 found, 98 fixed & verified, 10 open.**
+  F1–F93 and F95–F99 are closed (author fixed F86–F99 except F94 async). **Open:**
+  F94 (SYS_CONNECT_BY_PATH/PIVOT), a date/time + regex batch (F100–F104), and an
+  analytic/set-op/format batch (F105 KEEP ignored, F106 TO_CHAR number format,
+  F107 MINUS, F108 RATIO_TO_REPORT/PERCENTILE/WIDTH_BUCKET/GROUPING_ID/IGNORE
+  NULLS/CONNECT_BY_ROOT) — all adjudicated vs real Oracle 23ai. Driving Oracle to
+  full closure. The real HR schema + **full data** load and SH **lookup data**
+  loads. MySQL wire clean.
 - **Oracle parity gates:** HR schema, SH schema, and HR **data** (full dataset)
   run live/green; auto-skip if absent. A correct SQL*Plus splitter lives at
   `lib/src/oracle_script.dart`.
