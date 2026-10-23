@@ -9,7 +9,7 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 
 ## Status update — 2026-10-23
 
-**143 bugs found; 142 fixed & verified; 1 open (F143).**
+**146 bugs found; 142 fixed & verified; 4 open (F143–F146).**
 
 > **F143 (open) — `MEDIAN` carries a binary floating-point residual.** F142 made
 > `SUM` exact-decimal, but `MEDIAN` still averages the two middle NUMBER values
@@ -18,13 +18,23 @@ Run date: 2026-10-21 · Engine: `dart_db_server` 0.1.5 (path dep)
 > Fix: average the middle values in exact decimal like the F142 SUM fix. The
 > repro asserts on the raw engine value because the harness's `normalizeValue`
 > rounds to 12 significant digits and would otherwise absorb the residual.
+>
+> **F144–F146 (open) — real customer_orders load blockers** (confirmed vs real
+> Oracle 23ai). **F144:** an `IS JSON` check constraint makes `INSERT` fail with
+> "Unknown column: json" (without the check the same insert succeeds; Oracle
+> accepts it) — blocks the CO products load. **F145:** `JSON_TABLE` in a
+> `CREATE VIEW` (lateral join + window) is a parse error — blocks the CO
+> product_reviews view. **F146:** `TO_TIMESTAMP` with a 9-digit `FF` fractional-
+> seconds format returns NULL, so a NOT NULL column rejects the row (Oracle
+> parses `2019-03-05 09:24:19.123456789`) — blocks the CO orders load (cascading
+> FK failures into order_items/inventory).
 
 > **Dataset coverage (honest):** HR fully loaded + 25-query three-way gate. SH
 > lookup data three-way gate (19 queries incl. exact-decimal SUM; raw MEDIAN
 > pulled out pending F143). CO (customer_orders) partially loaded three-way —
-> surfaced F139–F141 (now fixed).
+> customers/stores/shipments load; products/orders blocked by F144–F146.
 > **Out of scope:** SH fact CSVs, product_media (deprecated ORDSYS multimedia +
-> binary LOBs). **Still to do:** finish CO (F140/F141 landed) + OE data.
+> binary LOBs). **Still to do:** finish CO (needs F144–F146) + OE data.
 The author fixed F86–F93 and F95–F99 async (now active regression guards). A
 date/time + regex sweep vs real Oracle 23ai then surfaced F100–F104:
 - **F100** (open) — `TO_CHAR(date, fmt)` ignores the format model and returns

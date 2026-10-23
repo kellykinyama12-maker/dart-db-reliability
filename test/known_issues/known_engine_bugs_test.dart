@@ -1274,4 +1274,59 @@ void main() {
             'MEDIAN(prod_list_price) returns 31.990000000000002 vs Oracle '
             '31.99. F142 fixed SUM; MEDIAN remains. See findings/FINDINGS.md F143.');
   });
+
+  // Found finishing the real customer_orders (CO) load three-way (F140 UTL_RAW
+  // and F141 JSON landed, which unblocked reaching these). All three confirmed
+  // against real Oracle 23ai (Oracle accepts; engine rejects).
+  group('open bugs (round 37 — CO load blockers, real-Oracle-adjudicated)', () {
+    test('F144 · IS JSON check constraint breaks INSERT', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE p (id NUMBER PRIMARY KEY, details BLOB)');
+      await db.execute(
+          'ALTER TABLE p ADD CONSTRAINT p_json CHECK (details is json)');
+      // Oracle accepts a valid-JSON RAW payload; the engine throws
+      // "Unknown column: json" — it mis-parses the IS JSON check at insert time.
+      await expectOk(
+          db,
+          "INSERT INTO p (id, details) VALUES "
+          "(1, UTL_RAW.CAST_TO_RAW('{\"colour\":\"white\"}'))");
+    },
+        skip: 'KNOWN ENGINE BUG: an IS JSON check constraint makes INSERT fail '
+            'with "Unknown column: json" — the check is evaluated as if "json" '
+            'were a column. Without the check the same insert succeeds. Real '
+            'Oracle accepts it. Blocks the real CO products load. '
+            'See findings/FINDINGS.md F144.');
+
+    test('F145 · JSON_TABLE in a view is a parse error', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE p2 (id NUMBER, details BLOB)');
+      // Oracle creates this product_reviews-style view (lateral JSON_TABLE +
+      // window); the engine throws "Unexpected token after statement: (".
+      await expectOk(db, '''CREATE OR REPLACE VIEW pr AS
+        SELECT p.id, r.rating,
+          ROUND(AVG(r.rating) OVER (PARTITION BY p.id), 2) avg_rating
+        FROM p2 p,
+          JSON_TABLE(p.details, '\$' COLUMNS (rating NUMBER PATH '\$.rating')) r''');
+    },
+        skip: 'KNOWN ENGINE BUG: JSON_TABLE in a CREATE VIEW (lateral join + '
+            'window) is a parse error ("Unexpected token after statement: ("). '
+            'Real Oracle creates the view. Blocks the real CO product_reviews '
+            'view. See findings/FINDINGS.md F145.');
+
+    test('F146 · TO_TIMESTAMP with 9-digit FF returns NULL', () async {
+      final db = await openEngine();
+      await db.execute('CREATE TABLE o (id NUMBER, ts TIMESTAMP NOT NULL)');
+      // Oracle parses the 9-digit fractional seconds; the engine returns NULL,
+      // so the NOT NULL column rejects the row.
+      await expectOk(
+          db,
+          "INSERT INTO o VALUES (1, TO_TIMESTAMP("
+          "'05-MAR-2019 09.24.19.123456789','DD-MON-YYYY HH24.MI.SS.FF'))");
+    },
+        skip: 'KNOWN ENGINE BUG: TO_TIMESTAMP with a 9-digit FF fractional-'
+            'seconds format returns NULL instead of the timestamp, so a NOT '
+            'NULL column rejects the row. Real Oracle parses it '
+            '(2019-03-05 09:24:19.123456789). Blocks the real CO orders load. '
+            'See findings/FINDINGS.md F146.');
+  });
 }

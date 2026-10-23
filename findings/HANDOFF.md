@@ -1,14 +1,15 @@
 # Handoff — open engine bugs to fix
 
-For the engine author working in `dart-db-server`. **1 open bug (F143)** — the
-entire Oracle backlog through F142 is fixed and verified; the newly-strengthened
-SH real-data gate surfaced one remaining decimal-precision gap in `MEDIAN`.
+For the engine author working in `dart-db-server`. **4 open bugs (F143–F146)**
+— the entire Oracle backlog through F142 is fixed and verified; strengthening
+the SH gate and finishing the real **customer_orders** load surfaced four
+remaining gaps (one decimal-precision, three CO load blockers).
 Real HR + SH data load and match real Oracle 23ai.
 
-- **Verify:** `dart test --timeout 30s` (all green; only F143 skipped).
+- **Verify:** `dart test --timeout 30s` (all green; F143–F146 skipped).
 - **Full write-ups:** [`findings/FINDINGS.md`](findings/FINDINGS.md).
 
-**Status: 143 found, 142 fixed & verified, 1 open (F143).**
+**Status: 146 found, 142 fixed & verified, 4 open (F143–F146).**
 
 ## Reproduce the real-Oracle adjudication
 
@@ -46,6 +47,21 @@ production secrets. Harness runner: `tool/oci8_exec.php`; bridge:
 > values in binary floating point. The repro asserts on the **raw** engine value
 > because the harness's generic `normalizeValue` rounds to 12 significant digits
 > and would otherwise absorb the residual — Oracle NUMBER is exact decimal.
+
+### customer_orders load blockers — real-Oracle-adjudicated (F144–F146)
+
+| # | Bug | engine → Oracle | Fix |
+| --- | --- | --- | --- |
+| **F144** | IS JSON check breaks INSERT | `CHECK (details is json)` then `INSERT … UTL_RAW.CAST_TO_RAW('{…}')` → "Unknown column: json" (Oracle inserts the row) | evaluate the IS JSON predicate inside a CHECK constraint instead of treating `json` as a column |
+| **F145** | JSON_TABLE in a view | `CREATE VIEW … FROM p, JSON_TABLE(p.details,'$' COLUMNS(…))` → parse error (Oracle creates it) | support lateral JSON_TABLE in a view/FROM clause |
+| **F146** | TO_TIMESTAMP 9-digit FF | `TO_TIMESTAMP('….123456789','… HH24.MI.SS.FF')` → NULL, so a NOT NULL column rejects the row (Oracle parses it) | parse 9-digit fractional seconds in the `FF` format |
+
+> Found finishing the real **customer_orders** three-way load. With F140
+> (UTL_RAW) and F141 (JSON) landed, CO now loads customers=392, stores=23,
+> shipments=1892; **products** is blocked by F144, its **product_reviews** view
+> by F145, and **orders/order_items/inventory** by F146 (orders rows get a NULL
+> timestamp, cascading FK failures). Fixing these three should let the whole CO
+> schema load for a full three-way gate.
 
 ---
 
